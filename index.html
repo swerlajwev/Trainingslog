@@ -19,6 +19,7 @@
     --bg:#000000; --surface:#18181b; --border:#27272a; --border-hover:#52525b;
     --text:#f4f4f5; --text-dim:#a1a1aa; --text-mute:#71717a; --text-faint:#3f3f46;
     --lime:#a3e635; --pink:#ec4899; --sky:#38bdf8;
+    --orange:#fb923c; --green:#4ade80; --blue:#60a5fa; --red:#ef4444; --gold:#fbbf24; --yellow:#facc15;
     --font-display:'Oswald',sans-serif; --font-mono:'JetBrains Mono',monospace; --font-body:'Inter',sans-serif;
   }
   *{box-sizing:border-box;}
@@ -53,7 +54,7 @@
   .set-input:focus{outline:none;border-color:var(--border-hover);}
   .x-btn{background:none;border:none;color:var(--text-faint);padding:.2rem;}
   .add-set{margin-top:.5rem;display:flex;align-items:center;gap:.3rem;background:none;border:none;font-size:.72rem;letter-spacing:.2em;color:var(--accent);padding:0;}
-  .pool-wrap{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:2rem;}
+  .pool-wrap{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;}
   .pool-btn{display:flex;align-items:center;gap:.3rem;padding:.55rem .8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.85rem;}
   .pool-btn:hover{border-color:var(--border-hover);color:var(--text);}
   .back{display:flex;align-items:center;gap:.25rem;background:none;border:none;color:var(--text-mute);font-size:.9rem;margin-bottom:1.2rem;padding:0;}
@@ -62,12 +63,14 @@
   .ex-card{margin-bottom:.75rem;}
   .ex-head{display:flex;align-items:center;justify-content:between;justify-content:space-between;margin-bottom:.75rem;}
   .ex-title{font-weight:500;}
-  .hist-row{width:100%;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);padding:.7rem 1rem;background:none;color:inherit;margin-bottom:.5rem;}
+  .hist-row{width:100%;display:block;text-align:left;border:1px solid var(--border);padding:.7rem 1rem;background:none;color:inherit;margin-bottom:.5rem;}
   .hist-row:hover{border-color:var(--border-hover);}
+  .hist-top{display:flex;align-items:center;justify-content:space-between;}
   .hist-left{display:flex;align-items:center;gap:.75rem;}
   .hist-date{width:2.5rem;text-align:center;}
   .hist-wd{font-size:.62rem;color:var(--text-mute);}
   .hist-d{font-size:.85rem;}
+  .hist-right{display:flex;align-items:center;gap:.5rem;}
   .tag{font-size:.72rem;letter-spacing:.2em;}
   .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .6rem;font-size:.72rem;border:1px solid;margin-right:.5rem;}
   .set-pill{padding:.25rem .5rem;background:#09090b;border:1px solid var(--border);font-size:.85rem;margin:0 .4rem .4rem 0;display:inline-block;}
@@ -82,6 +85,25 @@
   @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
   .pulse{width:6px;height:6px;border-radius:999px;background:currentColor;display:inline-block;animation:pulse 1.4s ease-in-out infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .mood-btn{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.55rem .5rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);min-width:3.4rem;flex:1 1 0;}
+  .mood-btn span.lbl{font-size:.55rem;letter-spacing:.04em;text-align:center;}
+  .mood-btn.active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);}
+  .mood-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.2rem;}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--border);outline:none;border-radius:999px;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--lime);cursor:pointer;margin-top:-6px;border:none;}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--lime);border:none;cursor:pointer;}
+  .energy-row{display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem;}
+  .perfect-btn{border-color:var(--gold) !important;color:var(--gold) !important;}
+  .swatch{width:2.1rem;height:2.1rem;border-radius:999px;border:2px solid transparent;padding:0;}
+  .mood-btn span.mood-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+  .mood-btn span.mood-icon svg{display:block;}
+  .score-wrap{display:flex;align-items:center;gap:.5rem;}
+  .score-bar{flex:1;height:6px;background:var(--border);border-radius:999px;overflow:hidden;}
+  .score-fill{height:100%;border-radius:999px;transition:width .25s ease;}
+  .score-pct{font-size:.75rem;min-width:2.6rem;text-align:right;}
+  .score-card{margin-bottom:1.2rem;}
+  .score-legend{display:flex;justify-content:space-between;font-size:.62rem;color:var(--text-mute);margin-top:.5rem;flex-wrap:wrap;gap:.3rem;}
+  textarea.set-input{width:100%;min-height:3.2rem;resize:vertical;font-family:var(--font-body);font-size:.85rem;}
 </style>
 </head>
 <body>
@@ -101,31 +123,192 @@ const ICON = {
   x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   zap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
   flame:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
+  utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
 };
+
+// ---------------------------------------------------------------------
+// Mood-Icons – eigene Linien-Icons (Kreis-Outline, dünne Striche) statt Emoji,
+// werden über currentColor je nach Stimmung eingefärbt.
+// ---------------------------------------------------------------------
+const MOOD_ICONS = {
+  sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
+  gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 14q3.6 3.4 7.2 0"/></svg>',
+  normal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.6 15h6.8"/></svg>',
+  schlecht:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
+  traurig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/><path d="M15.6 12.2c0 1.1-.7 1.9-1.4 1.9s-1-.9-.6-1.6c.3-.5.8-1.1 1-1.6.2.5.7 1 1 1.3Z" fill="currentColor" stroke="none"/></svg>',
+  wuetend:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 8.4 10 9.7M16.4 8.4 14 9.7"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
+  kein_bock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 9.9 10 8.6M16.4 9.9 14 8.6"/><path d="M8 10.6h2M14 10.6h2"/><path d="M8.4 15.2q1.8.7 3.6 0q1.8.7 3.6 0"/></svg>',
+};
+function moodIconSvg(key, size){
+  const raw = MOOD_ICONS[key];
+  if(!raw) return '';
+  return size ? raw.replace(/width="\d+(\.\d+)?"/, `width="${size}"`).replace(/height="\d+(\.\d+)?"/, `height="${size}"`) : raw;
+}
 
 // ---------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------
-const DAY_TYPES = {
+const BUILTIN_DAY_TYPES = {
   BR: { key:'BR', label:'BRUST / RÜCKEN', short:'B/R', accent:'var(--pink)',
     pool:['Bankdrücken','High-to-Low Latziehen','Schrägbankdrücken','T-Bar Row','Untere Brust / Kabel-Flys','Breiter Latzug','Klimmzüge','Enges Rudern','Seitheben','Hintere Schultern'] },
   AS: { key:'AS', label:'ARME / SCHULTERN', short:'A/S', accent:'var(--sky)',
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
+const MOODS = {
+  sehr_gut:  { label:'SEHR GUT', color:'var(--lime)', score:100 },
+  gut:       { label:'GUT', color:'var(--green)', score:80 },
+  normal:    { label:'NORMAL', color:'var(--text-dim)', score:55 },
+  schlecht:  { label:'SCHLECHT', color:'var(--orange)', score:35 },
+  traurig:   { label:'TRAURIG', color:'var(--blue)', score:25 },
+  wuetend:   { label:'WÜTEND', color:'var(--red)', score:20 },
+  kein_bock: { label:'KEIN BOCK', color:'var(--text-faint)', score:15 },
+};
+
+// ---------------------------------------------------------------------
+// Score-System
+// Kombiniert Stimmung/Energie (50%) und Trainingsleistung (50%, Volumen
+// im Vergleich zum Ø aller bisherigen Sessions des gleichen Tagtyps).
+// Der Rekord (höchstes je erreichtes Volumen) wird zusätzlich als Info
+// angezeigt. Bei PERFEKT (Energie 110%) darf der Gesamt-Score bis 110% gehen.
+// ---------------------------------------------------------------------
+const SCORE_TIERS = [
+  { min:0,  label:'SCHWACH', color:'var(--red)' },
+  { min:20, label:'MAU',     color:'var(--orange)' },
+  { min:40, label:'OKAY',    color:'var(--yellow)' },
+  { min:60, label:'GUT',     color:'var(--green)' },
+  { min:80, label:'TOP',     color:'var(--lime)' },
+];
+function getTier(score){
+  let t = SCORE_TIERS[0];
+  for(const s of SCORE_TIERS){ if(score>=s.min) t=s; }
+  return t;
+}
+function sessionVolume(s){
+  let vol = 0;
+  (s.exercises||[]).forEach(ex=>{
+    (ex.sets||[]).forEach(st=>{
+      const w = parseFloat(st.weight), r = parseFloat(st.reps);
+      if(!isNaN(w) && !isNaN(r)) vol += w*r;
+    });
+  });
+  return vol;
+}
+function dayTypeVolumes(dayType, excludeId){
+  return state.sessions.filter(s=>s.dayType===dayType && s.id!==excludeId).map(sessionVolume).filter(v=>v>0);
+}
+function computeScore(session){
+  const vols = dayTypeVolumes(session.dayType, session.id);
+  const avgVol = vols.length ? vols.reduce((a,b)=>a+b,0)/vols.length : null;
+  const recordVol = vols.length ? Math.max(...vols) : null;
+  const vol = sessionVolume(session);
+
+  const moodPart = session.mood ? MOODS[session.mood].score : null;
+  const energyPart = typeof session.energyLevel==='number' ? session.energyLevel : null;
+  let subjective = null;
+  if(moodPart!=null && energyPart!=null) subjective = (moodPart+energyPart)/2;
+  else if(moodPart!=null) subjective = moodPart;
+  else if(energyPart!=null) subjective = energyPart;
+
+  let training = null;
+  if(avgVol){ training = Math.min(140, (vol/avgVol)*100); }
+  else if(vol>0){ training = 100; } // erste Session dieses Tagtyps -> neutral
+
+  let overall = null;
+  if(subjective!=null && training!=null) overall = subjective*0.5 + training*0.5;
+  else if(subjective!=null) overall = subjective;
+  else if(training!=null) overall = training;
+  if(overall!=null) overall = Math.max(0, Math.min(110, Math.round(overall)));
+
+  const recordPct = (recordVol && vol) ? Math.round((vol/recordVol)*100) : null;
+
+  return {
+    overall,
+    subjective: subjective!=null ? Math.round(subjective) : null,
+    training: training!=null ? Math.round(training) : null,
+    vol, avgVol, recordVol, recordPct,
+  };
+}
+function scoreBarHtml(score, size){
+  if(score==null) return '';
+  const tier = getTier(Math.min(score,100));
+  const w = size==='sm' ? '' : '';
+  return `<div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:${Math.min(score,100)}%;background:${tier.color}"></div></div><span class="mono score-pct" style="color:${tier.color}">${score}%</span></div>`;
+}
+function scoreCardHtml(sessionLike, label){
+  const sc = computeScore(sessionLike);
+  if(sc.overall==null) return '';
+  const tier = getTier(Math.min(sc.overall,100));
+  return `
+    <div class="frame score-card" style="--accent:${tier.color}">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem;">
+        <div class="eyebrow mono">${label||'TAGES-SCORE'}</div>
+        <div class="mono" style="font-size:1.3rem;color:${tier.color};">${sc.overall}%</div>
+      </div>
+      <div class="score-bar"><div class="score-fill" style="width:${Math.min(sc.overall,100)}%;background:${tier.color}"></div></div>
+      <div class="score-legend mono">
+        <span style="color:${tier.color}">${tier.label}</span>
+        ${sc.subjective!=null?`<span>STIMMUNG/ENERGIE ${sc.subjective}%</span>`:''}
+        ${sc.training!=null?`<span>TRAINING ${sc.training}%</span>`:''}
+        ${sc.recordPct!=null?`<span>REKORD ${sc.recordPct}%</span>`:''}
+      </div>
+    </div>`;
+}
+const DAY_SWATCHES = ['var(--lime)','var(--sky)','var(--pink)','var(--orange)','var(--green)','var(--red)'];
 const uid = () => Math.random().toString(36).slice(2,10);
 const fmtDate = iso => new Date(iso).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
 const fmtWd = iso => new Date(iso).toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
+const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ---------------------------------------------------------------------
 // Storage
 // ---------------------------------------------------------------------
 const STORE_KEY = 'trainingslog_sessions';
+const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
+const CUSTOM_POOL_KEY = 'trainingslog_custom_pool';
+
 function loadSessions(){
   try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }
   catch(e){ return []; }
 }
 function saveSessions(sessions){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(sessions)); }catch(e){ console.error('Speichern fehlgeschlagen', e); }
+}
+function loadCustomDays(){
+  try{ const raw = localStorage.getItem(CUSTOM_DAYS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }
+  catch(e){ return []; }
+}
+function saveCustomDays(days){
+  try{ localStorage.setItem(CUSTOM_DAYS_KEY, JSON.stringify(days)); }catch(e){}
+}
+function loadCustomPool(){
+  try{ const raw = localStorage.getItem(CUSTOM_POOL_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
+  catch(e){ return {}; }
+}
+function saveCustomPool(pool){
+  try{ localStorage.setItem(CUSTOM_POOL_KEY, JSON.stringify(pool)); }catch(e){}
+}
+function getPool(key){
+  const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
+  const custom = loadCustomPool()[key] || [];
+  return [...builtin, ...custom];
+}
+function getDayTypes(){
+  const merged = {};
+  Object.keys(BUILTIN_DAY_TYPES).forEach(k=>{ merged[k] = {...BUILTIN_DAY_TYPES[k], pool:getPool(k)}; });
+  loadCustomDays().forEach(d=>{ merged[d.key] = {...d, pool:getPool(d.key)}; });
+  return merged;
+}
+function exerciseStats(dayKey){
+  const stats = {};
+  state.sessions.filter(s=>s.dayType===dayKey).forEach(s=>{
+    s.exercises.forEach(ex=>{
+      if(!stats[ex.name]) stats[ex.name] = {count:0,last:null};
+      stats[ex.name].count++;
+      if(!stats[ex.name].last || new Date(s.date) > new Date(stats[ex.name].last)) stats[ex.name].last = s.date;
+    });
+  });
+  return stats;
 }
 
 // ---------------------------------------------------------------------
@@ -137,12 +320,14 @@ let state = {
   draft: null,
   detailId: null,
   confirmDelete: false,
+  newDay: { name:'', accent:DAY_SWATCHES[0] },
 };
 
 const app = document.getElementById('app');
 
 function render(){
   if(state.view==='home') app.innerHTML = renderHome();
+  else if(state.view==='newday') app.innerHTML = renderNewDay();
   else if(state.view==='session') app.innerHTML = renderSession();
   else if(state.view==='history') app.innerHTML = renderHistory();
   else if(state.view==='detail') app.innerHTML = renderDetail();
@@ -153,11 +338,12 @@ function render(){
 // Home
 // ---------------------------------------------------------------------
 function renderHome(){
+  const DAYS = getDayTypes();
   const now = new Date();
   const weekCount = state.sessions.filter(s => (now - new Date(s.date))/86400000 < 7).length;
   const lastByDay = key => state.sessions.find(s => s.dayType===key);
 
-  const cards = Object.values(DAY_TYPES).map(day => {
+  const cards = Object.values(DAYS).map(day => {
     const last = lastByDay(day.key);
     return `
     <div class="day-card">
@@ -188,7 +374,27 @@ function renderHome(){
     </div>
     <div class="eyebrow mono" style="margin-bottom:.75rem;">SESSION WÄHLEN</div>
     ${cards}
-    <button class="btn-outline mono" style="margin-top:1.5rem;" data-history="1">${ICON.history} VERLAUF (${state.sessions.length})</button>
+    <button class="btn-outline mono" style="margin-top:.75rem;" data-newday-open="1">${ICON.plus} NEUER TAG</button>
+    <button class="btn-outline mono" style="margin-top:.75rem;" data-history="1">${ICON.history} VERLAUF (${state.sessions.length})</button>
+  `;
+}
+
+// ---------------------------------------------------------------------
+// New day
+// ---------------------------------------------------------------------
+function renderNewDay(){
+  const nd = state.newDay;
+  const swatches = DAY_SWATCHES.map(c=>`
+    <button class="swatch" data-newday-color="${c}" style="background:${c};border-color:${nd.accent===c?'#fff':'transparent'};"></button>
+  `).join('');
+  return `
+    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+    <div class="h1 display">NEUER TAG</div>
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">NAME</div>
+    <input class="set-input mono" style="margin-bottom:1.5rem;" type="text" placeholder="z.B. BEINE" value="${nd.name}" data-newday-name="1" />
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">FARBE</div>
+    <div style="display:flex;gap:.6rem;margin-bottom:2rem;">${swatches}</div>
+    <button class="save-btn mono" data-newday-create="1" ${nd.name.trim()?'':'disabled'} style="background:${nd.accent};">${ICON.check} TAG ANLEGEN</button>
   `;
 }
 
@@ -196,15 +402,42 @@ function renderHome(){
 // Session
 // ---------------------------------------------------------------------
 function renderSession(){
+  const DAYS = getDayTypes();
   const d = state.draft;
-  const day = DAY_TYPES[d.dayType];
+  const day = DAYS[d.dayType];
   const active = d.exercises.map(e=>e.name);
+  const lastSession = state.sessions.find(s=>s.dayType===d.dayType);
 
   const toggles = `
     <div class="chip-row">
       <button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">${ICON.zap} PRE-WORKOUT</button>
-      <button class="chip ${d.energy?'active':''}" style="--accent:var(--pink)" data-toggle="energy">${ICON.flame} ENERGY</button>
+      <button class="chip ${d.energy?'active':''}" style="--accent:var(--pink)" data-toggle="energy">${ICON.flame} ENERGY DRINK</button>
     </div>`;
+
+  const moodRow = `
+    <div class="eyebrow mono" style="margin:0 0 .5rem;">STIMMUNG</div>
+    <div class="mood-row">
+      ${Object.entries(MOODS).map(([key,m])=>`
+        <button class="mood-btn ${d.mood===key?'active':''}" style="--accent:${m.color}" data-mood="${key}">
+          <span class="mood-icon" style="color:${m.color}">${moodIconSvg(key)}</span><span class="lbl">${m.label}</span>
+        </button>`).join('')}
+    </div>`;
+
+  const energyVal = d.energyLevel ?? 50;
+  const isPerfect = energyVal > 100;
+  const energyRow = `
+    <div class="eyebrow mono" style="margin:0 0 .5rem;">ENERGIE-LEVEL</div>
+    <div class="energy-row">
+      <input type="range" min="0" max="100" step="5" value="${Math.min(energyVal,100)}" data-energy-slider="1" style="flex:1;" />
+      <span class="mono" data-energy-value="1" style="width:3.4rem;text-align:right;color:${isPerfect?'var(--gold)':'var(--lime)'};">${energyVal}%</span>
+    </div>
+    <button class="btn-outline mono perfect-btn" style="margin-bottom:1.5rem;${isPerfect?'background:color-mix(in srgb, var(--gold) 15%, transparent);':''}" data-perfect="1">${ICON.check} PERFEKT${isPerfect?' · 110%':''}</button>
+  `;
+
+  const foodRow = `
+    <div class="eyebrow mono" style="margin:0 0 .5rem;display:flex;align-items:center;gap:.35rem;">${ICON.utensils} ERNÄHRUNG (OPTIONAL)</div>
+    <textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>
+  `;
 
   const exCards = d.exercises.map(ex => `
     <div class="ex-card frame" style="--accent:${day.accent}">
@@ -227,9 +460,18 @@ function renderSession(){
     </div>
   `).join('');
 
-  const pool = day.pool.filter(n=>!active.includes(n)).map(n=>`
-    <button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}</button>
-  `).join('');
+  const stats = exerciseStats(d.dayType);
+  const poolNames = day.pool.filter(n=>!active.includes(n)).sort((a,b)=>{
+    const sa=stats[a], sb=stats[b];
+    const ca=sa?sa.count:0, cb=sb?sb.count:0;
+    if(cb!==ca) return cb-ca;
+    const la=sa?new Date(sa.last).getTime():0, lb=sb?new Date(sb.last).getTime():0;
+    return lb-la;
+  });
+  const pool = poolNames.map(n=>{
+    const cnt = stats[n]?stats[n].count:0;
+    return `<button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>`;
+  }).join('');
 
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
@@ -239,9 +481,18 @@ function renderSession(){
     <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
     <div class="h1 display">${day.label}</div>
     ${toggles}
+    ${moodRow}
+    ${energyRow}
+    ${foodRow}
+    ${(d.exercises.length===0 && lastSession) ? `<button class="btn-outline mono" data-copy-last="1" style="margin-bottom:1.5rem;">${ICON.history} LETZTE SESSION ÜBERNEHMEN</button>` : ''}
     <div>${exCards}</div>
     <div class="eyebrow mono" style="margin:1.5rem 0 .75rem;">ÜBUNG HINZUFÜGEN</div>
     <div class="pool-wrap">${pool}</div>
+    <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;">
+      <input class="set-input mono" type="text" placeholder="Neue Übung…" data-custom-ex-input="1" style="flex:1;" />
+      <button class="pool-btn" data-add-custom-ex="1">${ICON.plus}</button>
+    </div>
+    ${scoreCardHtml(d, 'TAGES-SCORE (VORSCHAU)')}
     <button class="save-btn" data-finish="1" ${d.exercises.length===0?'disabled':''} style="background:${day.accent}">${ICON.check} SESSION SPEICHERN</button>
   `;
 }
@@ -250,24 +501,33 @@ function renderSession(){
 // History
 // ---------------------------------------------------------------------
 function renderHistory(){
+  const DAYS = getDayTypes();
   const rows = state.sessions.map(s=>{
-    const day = DAY_TYPES[s.dayType];
+    const day = DAYS[s.dayType] || {short:'?',accent:'var(--text-mute)'};
+    const mood = s.mood ? MOODS[s.mood] : null;
+    const sc = computeScore(s);
     return `
     <button class="hist-row" data-open="${s.id}">
-      <div class="hist-left">
-        <div class="hist-date">
-          <div class="hist-wd mono">${fmtWd(s.date)}</div>
-          <div class="hist-d mono">${fmtDate(s.date)}</div>
+      <div class="hist-top">
+        <div class="hist-left">
+          <div class="hist-date">
+            <div class="hist-wd mono">${fmtWd(s.date)}</div>
+            <div class="hist-d mono">${fmtDate(s.date)}</div>
+          </div>
+          <div>
+            <div class="tag mono" style="color:${day.accent}">${day.short}</div>
+            <div style="font-size:.9rem;color:var(--text-dim);">${s.exercises.length} Übungen</div>
+          </div>
         </div>
-        <div>
-          <div class="tag mono" style="color:${day.accent}">${day.short}</div>
-          <div style="font-size:.9rem;color:var(--text-dim);">${s.exercises.length} Übungen</div>
+        <div class="hist-right">
+          ${s.food?`<span style="color:var(--text-mute);">${ICON.utensils}</span>`:''}
+          ${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,18)}</span>`:''}
+          ${typeof s.energyLevel==='number'?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">${s.energyLevel}%</span>`:''}
+          ${s.preWorkout?ICON.zap.replace('currentColor','var(--lime)'):''}
+          ${s.energy?ICON.flame.replace('currentColor','var(--pink)'):''}
         </div>
       </div>
-      <div style="display:flex;gap:.4rem;color:var(--lime);">
-        ${s.preWorkout?ICON.zap.replace('currentColor','var(--lime)'):''}
-        ${s.energy?ICON.flame.replace('currentColor','var(--pink)'):''}
-      </div>
+      ${sc.overall!=null?`<div style="margin-top:.55rem;">${scoreBarHtml(sc.overall)}</div>`:''}
     </button>`;
   }).join('');
 
@@ -282,14 +542,33 @@ function renderHistory(){
 // Detail
 // ---------------------------------------------------------------------
 function renderDetail(){
+  const DAYS = getDayTypes();
   const s = state.sessions.find(x=>x.id===state.detailId);
   if(!s) return `<button class="back" data-back="history">${ICON.chevronLeft} Zurück</button><div class="empty">Session nicht gefunden.</div>`;
-  const day = DAY_TYPES[s.dayType];
+  const day = DAYS[s.dayType] || {label:'?',accent:'var(--text-mute)'};
+  const mood = s.mood ? MOODS[s.mood] : null;
 
   const badges = `
     ${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">${ICON.zap} PRE-WORKOUT</span>`:''}
-    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">${ICON.flame} ENERGY</span>`:''}
+    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">${ICON.flame} ENERGY DRINK</span>`:''}
   `;
+
+  const moodBlock = (mood || typeof s.energyLevel==='number') ? `
+    <div class="frame" style="--accent:${mood?mood.color:'var(--border)'};margin-bottom:1rem;padding:.9rem 1rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div style="display:flex;align-items:center;gap:.7rem;">
+        ${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,30)}</span>`:''}
+        ${mood?`<div><div class="mono eyebrow" style="color:${mood.color};">STIMMUNG</div><div style="font-size:.95rem;">${mood.label}</div></div>`:''}
+        ${typeof s.energyLevel==='number'?`<div style="margin-left:auto;text-align:right;"><div class="mono eyebrow">ENERGIE</div><div class="mono" style="font-size:1.1rem;color:${s.energyLevel>100?'var(--gold)':'var(--lime)'};">${s.energyLevel}%</div></div>`:''}
+      </div>
+    </div>` : '';
+
+  const foodBlock = s.food ? `
+    <div class="frame" style="margin-bottom:1rem;padding:.9rem 1rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="mono eyebrow" style="margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;">${ICON.utensils} ERNÄHRUNG</div>
+      <div style="font-size:.9rem;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(s.food)}</div>
+    </div>` : '';
 
   const exList = s.exercises.map(ex=>`
     <div class="frame" style="--accent:${day.accent};margin-bottom:.75rem;">
@@ -303,7 +582,10 @@ function renderDetail(){
     <button class="back" data-back="history">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono" style="color:${day.accent}">${fmtWd(s.date)} · ${fmtDate(s.date)}</div>
     <div class="h1 display">${day.label}</div>
-    <div style="margin-bottom:1.5rem;">${badges}</div>
+    <div style="margin-bottom:1rem;">${badges}</div>
+    ${moodBlock}
+    ${foodBlock}
+    ${scoreCardHtml(s, 'TAGES-SCORE')}
     ${exList}
     <div style="margin-top:1.5rem;">
       ${state.confirmDelete ? `
@@ -322,7 +604,7 @@ function renderDetail(){
 function attachListeners(){
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
-    state.draft = { id:uid(), date:new Date().toISOString(), dayType:key, preWorkout:false, energy:false, exercises:[] };
+    state.draft = { id:uid(), date:new Date().toISOString(), dayType:key, preWorkout:false, energy:false, mood:null, energyLevel:50, food:'', exercises:[] };
     state.view='session'; render();
   }));
 
@@ -335,9 +617,49 @@ function attachListeners(){
     const f = el.getAttribute('data-toggle'); state.draft[f] = !state.draft[f]; render();
   }));
 
+  app.querySelectorAll('[data-mood]').forEach(el=>el.addEventListener('click', ()=>{
+    state.draft.mood = el.getAttribute('data-mood'); render();
+  }));
+
+  app.querySelectorAll('[data-energy-slider]').forEach(el=>el.addEventListener('input', ()=>{
+    state.draft.energyLevel = +el.value;
+    const label = app.querySelector('[data-energy-value]');
+    if(label) label.textContent = el.value + '%';
+  }));
+
+  app.querySelectorAll('[data-perfect]').forEach(el=>el.addEventListener('click', ()=>{
+    state.draft.mood = 'sehr_gut'; state.draft.energyLevel = 110; render();
+  }));
+
+  app.querySelectorAll('[data-food-input]').forEach(el=>el.addEventListener('input', ()=>{
+    state.draft.food = el.value;
+  }));
+
+  app.querySelectorAll('[data-copy-last]').forEach(el=>el.addEventListener('click', ()=>{
+    const last = state.sessions.find(s=>s.dayType===state.draft.dayType);
+    if(last){
+      state.draft.exercises = last.exercises.map(ex=>({ name:ex.name, sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps})) }));
+    }
+    render();
+  }));
+
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-ex');
     state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] }); render();
+  }));
+  app.querySelectorAll('[data-add-custom-ex]').forEach(el=>el.addEventListener('click', ()=>{
+    const input = app.querySelector('[data-custom-ex-input]');
+    const name = input ? input.value.trim() : '';
+    if(!name) return;
+    const dayKey = state.draft.dayType;
+    const pool = loadCustomPool();
+    if(!pool[dayKey]) pool[dayKey] = [];
+    const builtinPool = BUILTIN_DAY_TYPES[dayKey] ? BUILTIN_DAY_TYPES[dayKey].pool : [];
+    if(!builtinPool.includes(name) && !pool[dayKey].includes(name)){
+      pool[dayKey].push(name); saveCustomPool(pool);
+    }
+    state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] });
+    render();
   }));
   app.querySelectorAll('[data-remove-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-remove-ex');
@@ -346,7 +668,8 @@ function attachListeners(){
   app.querySelectorAll('[data-add-set]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-set');
     const ex = state.draft.exercises.find(e=>e.name===name);
-    ex.sets.push({weight:'',reps:''}); render();
+    const lastWeight = ex.sets.length ? ex.sets[ex.sets.length-1].weight : '';
+    ex.sets.push({weight:lastWeight, reps:''}); render();
   }));
   app.querySelectorAll('[data-remove-set]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-remove-set'); const idx = +el.getAttribute('data-idx');
@@ -354,7 +677,7 @@ function attachListeners(){
     ex.sets.splice(idx,1); render();
   }));
   // inputs: update state only, no re-render (keeps focus/cursor intact)
-  app.querySelectorAll('.set-input').forEach(el=>el.addEventListener('input', ()=>{
+  app.querySelectorAll('.set-input[data-ex]').forEach(el=>el.addEventListener('input', ()=>{
     const name = el.getAttribute('data-ex'); const idx = +el.getAttribute('data-idx'); const field = el.getAttribute('data-field');
     const ex = state.draft.exercises.find(e=>e.name===name);
     ex.sets[idx][field] = el.value;
@@ -366,6 +689,28 @@ function attachListeners(){
       saveSessions(state.sessions);
     }
     state.draft=null; state.view='home'; render();
+  }));
+
+  app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
+    state.newDay = { name:'', accent:DAY_SWATCHES[0] }; state.view='newday'; render();
+  }));
+  app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{
+    state.newDay.name = el.value;
+    const btn = app.querySelector('[data-newday-create]');
+    if(btn) btn.disabled = !el.value.trim();
+  }));
+  app.querySelectorAll('[data-newday-color]').forEach(el=>el.addEventListener('click', ()=>{
+    state.newDay.accent = el.getAttribute('data-newday-color'); render();
+  }));
+  app.querySelectorAll('[data-newday-create]').forEach(el=>el.addEventListener('click', ()=>{
+    const name = state.newDay.name.trim();
+    if(!name) return;
+    const key = 'C' + uid();
+    const short = name.slice(0,3).toUpperCase();
+    const days = loadCustomDays();
+    days.push({ key, label:name.toUpperCase(), short, accent:state.newDay.accent });
+    saveCustomDays(days);
+    state.view='home'; render();
   }));
 
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{
