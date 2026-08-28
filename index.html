@@ -26,6 +26,14 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);
        -webkit-tap-highlight-color:transparent;}
   #app{max-width:480px;margin:0 auto;padding:2rem 1rem 3rem;min-height:100vh;}
+  .day-grid{display:flex;flex-direction:column;gap:.75rem;}
+  @media (min-width:860px){
+    #app{max-width:920px;padding-top:3rem;}
+    .day-grid{flex-direction:row;flex-wrap:wrap;gap:1rem;}
+    .day-grid .day-card{flex:1 1 calc(50% - .5rem);margin-bottom:0;}
+    .pool-wrap{gap:.6rem;}
+    .mood-row{gap:.5rem;}
+  }
   button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;}
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
   input[type=number]{-moz-appearance:textfield;}
@@ -58,6 +66,8 @@
   .pool-btn{display:flex;align-items:center;gap:.3rem;padding:.55rem .8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.85rem;}
   .pool-btn:hover{border-color:var(--border-hover);color:var(--text);}
   .pool-item{display:flex;align-items:center;gap:.15rem;}
+  .edit-toggle{display:flex;align-items:center;gap:.35rem;background:none;border:none;color:var(--text-mute);font-size:.68rem;letter-spacing:.15em;padding:.3rem .1rem;}
+  .edit-toggle:hover{color:var(--text);}
   .pool-edit-row{display:flex;align-items:center;gap:.4rem;width:100%;margin-bottom:.5rem;}
   .back{display:flex;align-items:center;gap:.25rem;background:none;border:none;color:var(--text-mute);font-size:.9rem;margin-bottom:1.2rem;padding:0;}
   .save-btn{width:100%;padding:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-weight:600;letter-spacing:.15em;color:#000;border:none;background:var(--accent);font-family:var(--font-display);font-size:1rem;}
@@ -137,11 +147,11 @@ const MOOD_ICONS = {
   sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
   gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 14q3.6 3.4 7.2 0"/></svg>',
   normal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.6 15h6.8"/></svg>',
-  nachdenklich:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M13.6 8.3q1.3-1 2.6-.3"/><circle cx="9" cy="10.4" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.4" r="1" fill="currentColor" stroke="none"/><path d="M8.6 15.4h4"/><path d="M17.6 5.6q1.6-.7 1.3.9t-1.7.5"/></svg>',
-  muede:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 10.6q1.4.7 2.8 0"/><path d="M13.6 10.6q1.4.7 2.8 0"/><ellipse cx="12" cy="15.6" rx="1.5" ry="1.1"/><path d="M17.3 6.2h2.3l-2.3 2.5h2.3"/></svg>',
+  nachdenklich:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.4" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.4" r="1" fill="currentColor" stroke="none"/><path d="M13.2 8.3q1.6-.7 2.7.2"/><path d="M9 15h5"/></svg>',
+  muede:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
   schlecht:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
-  gestresst:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.4 8.6 9.8 10.1M16.6 8.6 14.2 10.1"/><circle cx="9" cy="11.4" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11.4" r="1" fill="currentColor" stroke="none"/><path d="M8.2 15.6 10 14.6 11.8 15.8 13.6 14.6 15.4 15.8"/><path d="M18.4 6c0 1-.6 1.6-1.2 1.6s-.9-.6-.6-1.3c.2-.4.6-.9.7-1.2.2.4.6.8 1.1.9Z" fill="currentColor" stroke="none"/></svg>',
-  traurig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 10q1.4 1.4 2.8 0"/><path d="M13.6 10q1.4 1.4 2.8 0"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/><path d="M16 11.7c0 1.3-.8 2.2-1.7 2.2s-1.2-1-.7-1.9c.4-.6 1-1.4 1.2-2 .3.6.9 1.3 1.2 1.7Z" fill="currentColor" stroke="none"/></svg>',
+  gestresst:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.8 9.3 10.2 11.7M10.2 9.3 7.8 11.7"/><path d="M13.8 9.3 16.2 11.7M16.2 9.3 13.8 11.7"/><ellipse cx="12" cy="15.6" rx="1.8" ry="1.3"/></svg>',
+  traurig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 9.4 9 10.6 7.6 11.8"/><path d="M16.4 9.4 15 10.6 16.4 11.8"/><path d="M8 15.4q1-1 2 0t2 0 2 0 2 0"/></svg>',
   wuetend:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 8.4 10 9.7M16.4 8.4 14 9.7"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
   kein_bock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.8 10.4h2.4M13.8 10.4h2.4"/><path d="M8 15q4-1 8 .4"/></svg>',
 };
@@ -369,6 +379,7 @@ let state = {
   newDay: { name:'', accent:DAY_SWATCHES[0] },
   editPoolName: null,
   editPoolValue: '',
+  poolEditMode: false,
 };
 
 const app = document.getElementById('app');
@@ -445,7 +456,7 @@ function renderHome(){
       </div>
     </div>
     <div class="eyebrow mono" style="margin-bottom:.75rem;">SESSION WÄHLEN</div>
-    ${cards}
+    <div class="day-grid">${cards}</div>
     <button class="btn-outline mono" style="margin-top:.75rem;" data-newday-open="1">${ICON.plus} NEUER TAG</button>
     <button class="btn-outline mono" style="margin-top:.75rem;" data-history="1">${ICON.history} VERLAUF (${state.sessions.length})</button>
   `;
@@ -549,11 +560,14 @@ function renderSession(){
         <button class="x-btn" data-pool-edit-cancel="1" title="Abbrechen">${ICON.x}</button>
       </div>`;
     }
-    return `<div class="pool-item">
-      <button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>
-      <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
-      <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
-    </div>`;
+    if(state.poolEditMode){
+      return `<div class="pool-item">
+        <span class="pool-btn" style="cursor:default;">${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</span>
+        <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
+        <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
+      </div>`;
+    }
+    return `<button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>`;
   }).join('');
 
   return `
@@ -569,12 +583,16 @@ function renderSession(){
     ${foodRow}
     ${(d.exercises.length===0 && lastSession) ? `<button class="btn-outline mono" data-copy-last="1" style="margin-bottom:1.5rem;">${ICON.history} LETZTE SESSION ÜBERNEHMEN</button>` : ''}
     <div>${exCards}</div>
-    <div class="eyebrow mono" style="margin:1.5rem 0 .75rem;">ÜBUNG HINZUFÜGEN</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:1.5rem 0 .75rem;">
+      <div class="eyebrow mono">ÜBUNGEN</div>
+      <button class="edit-toggle mono" data-toggle-pool-edit="1">${ICON.edit} ${state.poolEditMode?'FERTIG':'BEARBEITEN'}</button>
+    </div>
     <div class="pool-wrap">${pool}</div>
+    ${state.poolEditMode ? `
     <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;">
       <input class="set-input mono" type="text" placeholder="Neue Übung…" data-custom-ex-input="1" style="flex:1;" />
       <button class="pool-btn" data-add-custom-ex="1">${ICON.plus}</button>
-    </div>
+    </div>` : ''}
     ${scoreCardHtml(d, 'TAGES-SCORE (VORSCHAU)')}
     <button class="save-btn" data-finish="1" ${d.exercises.length===0?'disabled':''} style="background:${day.accent}">${ICON.check} SESSION SPEICHERN</button>
   `;
@@ -742,6 +760,11 @@ function attachListeners(){
       pool[dayKey].push(name); saveCustomPool(pool);
     }
     state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] });
+    render();
+  }));
+  app.querySelectorAll('[data-toggle-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
+    state.poolEditMode = !state.poolEditMode;
+    state.editPoolName = null; state.editPoolValue = '';
     render();
   }));
   app.querySelectorAll('[data-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
