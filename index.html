@@ -19,7 +19,7 @@
     --bg:#000000; --surface:#18181b; --border:#27272a; --border-hover:#52525b;
     --text:#f4f4f5; --text-dim:#a1a1aa; --text-mute:#71717a; --text-faint:#3f3f46;
     --lime:#a3e635; --pink:#ec4899; --sky:#38bdf8;
-    --orange:#fb923c; --green:#4ade80; --blue:#60a5fa; --red:#ef4444; --gold:#fbbf24; --yellow:#facc15;
+    --orange:#fb923c; --green:#4ade80; --blue:#60a5fa; --red:#ef4444; --gold:#fbbf24; --yellow:#facc15; --purple:#a78bfa; --teal:#2dd4bf;
     --font-display:'Oswald',sans-serif; --font-mono:'JetBrains Mono',monospace; --font-body:'Inter',sans-serif;
   }
   *{box-sizing:border-box;}
@@ -42,7 +42,7 @@
   .day-card{margin-bottom:.75rem;background:#000;border:none;padding:0;}
   .day-card .frame{padding:1rem;}
   .day-row{display:flex;align-items:center;justify-content:space-between;}
-  .day-badge{display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);}
+  .day-badge{display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);font-family:var(--font-mono);font-size:.68rem;font-weight:600;letter-spacing:.02em;}
   .btn-outline{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.8rem;letter-spacing:.2em;}
   .btn-outline:hover{border-color:var(--border-hover);color:var(--text);}
   .chip-row{display:flex;gap:.5rem;margin-bottom:1.5rem;}
@@ -57,6 +57,8 @@
   .pool-wrap{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;}
   .pool-btn{display:flex;align-items:center;gap:.3rem;padding:.55rem .8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.85rem;}
   .pool-btn:hover{border-color:var(--border-hover);color:var(--text);}
+  .pool-item{display:flex;align-items:center;gap:.15rem;}
+  .pool-edit-row{display:flex;align-items:center;gap:.4rem;width:100%;margin-bottom:.5rem;}
   .back{display:flex;align-items:center;gap:.25rem;background:none;border:none;color:var(--text-mute);font-size:.9rem;margin-bottom:1.2rem;padding:0;}
   .save-btn{width:100%;padding:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-weight:600;letter-spacing:.15em;color:#000;border:none;background:var(--accent);font-family:var(--font-display);font-size:1rem;}
   .save-btn:disabled{background:var(--border);color:var(--text-faint);}
@@ -124,6 +126,7 @@ const ICON = {
   zap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
   flame:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
   utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
+  edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
 };
 
 // ---------------------------------------------------------------------
@@ -134,10 +137,13 @@ const MOOD_ICONS = {
   sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
   gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 14q3.6 3.4 7.2 0"/></svg>',
   normal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.6 15h6.8"/></svg>',
+  nachdenklich:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M13.6 8.3q1.3-1 2.6-.3"/><circle cx="9" cy="10.4" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.4" r="1" fill="currentColor" stroke="none"/><path d="M8.6 15.4h4"/><path d="M17.6 5.6q1.6-.7 1.3.9t-1.7.5"/></svg>',
+  muede:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 10.6q1.4.7 2.8 0"/><path d="M13.6 10.6q1.4.7 2.8 0"/><ellipse cx="12" cy="15.6" rx="1.5" ry="1.1"/><path d="M17.3 6.2h2.3l-2.3 2.5h2.3"/></svg>',
   schlecht:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
-  traurig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/><path d="M15.6 12.2c0 1.1-.7 1.9-1.4 1.9s-1-.9-.6-1.6c.3-.5.8-1.1 1-1.6.2.5.7 1 1 1.3Z" fill="currentColor" stroke="none"/></svg>',
+  gestresst:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.4 8.6 9.8 10.1M16.6 8.6 14.2 10.1"/><circle cx="9" cy="11.4" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11.4" r="1" fill="currentColor" stroke="none"/><path d="M8.2 15.6 10 14.6 11.8 15.8 13.6 14.6 15.4 15.8"/><path d="M18.4 6c0 1-.6 1.6-1.2 1.6s-.9-.6-.6-1.3c.2-.4.6-.9.7-1.2.2.4.6.8 1.1.9Z" fill="currentColor" stroke="none"/></svg>',
+  traurig:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 10q1.4 1.4 2.8 0"/><path d="M13.6 10q1.4 1.4 2.8 0"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/><path d="M16 11.7c0 1.3-.8 2.2-1.7 2.2s-1.2-1-.7-1.9c.4-.6 1-1.4 1.2-2 .3.6.9 1.3 1.2 1.7Z" fill="currentColor" stroke="none"/></svg>',
   wuetend:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 8.4 10 9.7M16.4 8.4 14 9.7"/><circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/><path d="M8.4 16.3q3.6-3.4 7.2 0"/></svg>',
-  kein_bock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.6 9.9 10 8.6M16.4 9.9 14 8.6"/><path d="M8 10.6h2M14 10.6h2"/><path d="M8.4 15.2q1.8.7 3.6 0q1.8.7 3.6 0"/></svg>',
+  kein_bock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M7.8 10.4h2.4M13.8 10.4h2.4"/><path d="M8 15q4-1 8 .4"/></svg>',
 };
 function moodIconSvg(key, size){
   const raw = MOOD_ICONS[key];
@@ -155,13 +161,16 @@ const BUILTIN_DAY_TYPES = {
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
 const MOODS = {
-  sehr_gut:  { label:'SEHR GUT', color:'var(--lime)', score:100 },
-  gut:       { label:'GUT', color:'var(--green)', score:80 },
-  normal:    { label:'NORMAL', color:'var(--text-dim)', score:55 },
-  schlecht:  { label:'SCHLECHT', color:'var(--orange)', score:35 },
-  traurig:   { label:'TRAURIG', color:'var(--blue)', score:25 },
-  wuetend:   { label:'WÜTEND', color:'var(--red)', score:20 },
-  kein_bock: { label:'KEIN BOCK', color:'var(--text-faint)', score:15 },
+  sehr_gut:   { label:'SEHR GUT', color:'var(--lime)', score:100 },
+  gut:        { label:'GUT', color:'var(--green)', score:80 },
+  normal:     { label:'NORMAL', color:'var(--text-dim)', score:55 },
+  nachdenklich:{ label:'NACHDENKLICH', color:'var(--sky)', score:50 },
+  muede:      { label:'MÜDE', color:'var(--teal)', score:40 },
+  schlecht:   { label:'SCHLECHT', color:'var(--orange)', score:35 },
+  gestresst:  { label:'GESTRESST', color:'var(--purple)', score:28 },
+  traurig:    { label:'TRAURIG', color:'var(--blue)', score:25 },
+  wuetend:    { label:'WÜTEND', color:'var(--red)', score:20 },
+  kein_bock:  { label:'KEIN BOCK', color:'var(--text-faint)', score:15 },
 };
 
 // ---------------------------------------------------------------------
@@ -266,6 +275,7 @@ const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<'
 const STORE_KEY = 'trainingslog_sessions';
 const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
 const CUSTOM_POOL_KEY = 'trainingslog_custom_pool';
+const EX_OVERRIDES_KEY = 'trainingslog_exercise_overrides';
 
 function loadSessions(){
   try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }
@@ -288,10 +298,46 @@ function loadCustomPool(){
 function saveCustomPool(pool){
   try{ localStorage.setItem(CUSTOM_POOL_KEY, JSON.stringify(pool)); }catch(e){}
 }
+function loadExOverrides(){
+  try{ const raw = localStorage.getItem(EX_OVERRIDES_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
+  catch(e){ return {}; }
+}
+function saveExOverrides(o){
+  try{ localStorage.setItem(EX_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+}
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
   const custom = loadCustomPool()[key] || [];
-  return [...builtin, ...custom];
+  let names = [...builtin, ...custom];
+  const ov = loadExOverrides()[key];
+  if(ov){
+    if(ov.renamed) names = names.map(n => ov.renamed[n] || n);
+    if(ov.deleted) names = names.filter(n => !ov.deleted.includes(n));
+  }
+  return [...new Set(names)];
+}
+function renameExercise(dayKey, oldName, newName){
+  newName = (newName||'').trim();
+  if(!newName || newName===oldName) return;
+  const ov = loadExOverrides();
+  if(!ov[dayKey]) ov[dayKey] = {};
+  if(!ov[dayKey].renamed) ov[dayKey].renamed = {};
+  ov[dayKey].renamed[oldName] = newName;
+  saveExOverrides(ov);
+  state.sessions.forEach(s=>{
+    if(s.dayType===dayKey) s.exercises.forEach(ex=>{ if(ex.name===oldName) ex.name = newName; });
+  });
+  saveSessions(state.sessions);
+  if(state.draft && state.draft.dayType===dayKey){
+    state.draft.exercises.forEach(ex=>{ if(ex.name===oldName) ex.name = newName; });
+  }
+}
+function deleteExercise(dayKey, name){
+  const ov = loadExOverrides();
+  if(!ov[dayKey]) ov[dayKey] = {};
+  if(!ov[dayKey].deleted) ov[dayKey].deleted = [];
+  if(!ov[dayKey].deleted.includes(name)) ov[dayKey].deleted.push(name);
+  saveExOverrides(ov);
 }
 function getDayTypes(){
   const merged = {};
@@ -321,11 +367,37 @@ let state = {
   detailId: null,
   confirmDelete: false,
   newDay: { name:'', accent:DAY_SWATCHES[0] },
+  editPoolName: null,
+  editPoolValue: '',
 };
 
 const app = document.getElementById('app');
 
+let historyInitialized = false;
+let suppressHistoryPush = false;
+function syncHistory(){
+  if(suppressHistoryPush) return;
+  if(!historyInitialized){
+    history.replaceState({ view: state.view }, '', '#'+state.view);
+    historyInitialized = true;
+    return;
+  }
+  if(!history.state || history.state.view !== state.view){
+    history.pushState({ view: state.view }, '', '#'+state.view);
+  }
+}
+window.addEventListener('popstate', (ev)=>{
+  suppressHistoryPush = true;
+  const newView = (ev.state && ev.state.view) ? ev.state.view : 'home';
+  if(state.view==='session' && newView!=='session') state.draft = null;
+  state.view = newView;
+  state.confirmDelete = false;
+  render();
+  suppressHistoryPush = false;
+});
+
 function render(){
+  syncHistory();
   if(state.view==='home') app.innerHTML = renderHome();
   else if(state.view==='newday') app.innerHTML = renderNewDay();
   else if(state.view==='session') app.innerHTML = renderSession();
@@ -355,7 +427,7 @@ function renderHome(){
             <div class="display" style="font-size:1.3rem;font-weight:600;margin-top:.2rem;">${day.label}</div>
             <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-top:.3rem;">${last?('ZULETZT: '+fmtDate(last.date)):'NOCH KEINE DATEN'}</div>
           </div>
-          <div class="day-badge" style="--accent:${day.accent}">${ICON.dumbbell.replace('currentColor', day.accent)}</div>
+          <div class="day-badge" style="--accent:${day.accent};color:${day.accent};">${day.short}</div>
         </div>
       </button>
     </div>`;
@@ -410,8 +482,8 @@ function renderSession(){
 
   const toggles = `
     <div class="chip-row">
-      <button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">${ICON.zap} PRE-WORKOUT</button>
-      <button class="chip ${d.energy?'active':''}" style="--accent:var(--pink)" data-toggle="energy">${ICON.flame} ENERGY DRINK</button>
+      <button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">PRE-WORKOUT</button>
+      <button class="chip ${d.energy?'active':''}" style="--accent:var(--pink)" data-toggle="energy">ENERGY DRINK</button>
     </div>`;
 
   const moodRow = `
@@ -435,7 +507,7 @@ function renderSession(){
   `;
 
   const foodRow = `
-    <div class="eyebrow mono" style="margin:0 0 .5rem;display:flex;align-items:center;gap:.35rem;">${ICON.utensils} ERNÄHRUNG (OPTIONAL)</div>
+    <div class="eyebrow mono" style="margin:0 0 .5rem;">ERNÄHRUNG (OPTIONAL)</div>
     <textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>
   `;
 
@@ -470,7 +542,18 @@ function renderSession(){
   });
   const pool = poolNames.map(n=>{
     const cnt = stats[n]?stats[n].count:0;
-    return `<button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>`;
+    if(state.editPoolName === n){
+      return `<div class="pool-edit-row">
+        <input class="set-input mono" type="text" value="${escapeHtml(state.editPoolValue ?? n)}" data-pool-edit-input="1" style="flex:1;" />
+        <button class="x-btn" data-pool-edit-save="${n}" title="Speichern">${ICON.check}</button>
+        <button class="x-btn" data-pool-edit-cancel="1" title="Abbrechen">${ICON.x}</button>
+      </div>`;
+    }
+    return `<div class="pool-item">
+      <button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>
+      <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
+      <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
+    </div>`;
   }).join('');
 
   return `
@@ -520,11 +603,11 @@ function renderHistory(){
           </div>
         </div>
         <div class="hist-right">
-          ${s.food?`<span style="color:var(--text-mute);">${ICON.utensils}</span>`:''}
+          ${s.food?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">ERNÄHRT</span>`:''}
           ${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,18)}</span>`:''}
           ${typeof s.energyLevel==='number'?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">${s.energyLevel}%</span>`:''}
-          ${s.preWorkout?ICON.zap.replace('currentColor','var(--lime)'):''}
-          ${s.energy?ICON.flame.replace('currentColor','var(--pink)'):''}
+          ${s.preWorkout?`<span class="mono" style="font-size:.68rem;color:var(--lime);">PW</span>`:''}
+          ${s.energy?`<span class="mono" style="font-size:.68rem;color:var(--pink);">ED</span>`:''}
         </div>
       </div>
       ${sc.overall!=null?`<div style="margin-top:.55rem;">${scoreBarHtml(sc.overall)}</div>`:''}
@@ -549,8 +632,8 @@ function renderDetail(){
   const mood = s.mood ? MOODS[s.mood] : null;
 
   const badges = `
-    ${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">${ICON.zap} PRE-WORKOUT</span>`:''}
-    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">${ICON.flame} ENERGY DRINK</span>`:''}
+    ${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">PRE-WORKOUT</span>`:''}
+    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK</span>`:''}
   `;
 
   const moodBlock = (mood || typeof s.energyLevel==='number') ? `
@@ -566,7 +649,7 @@ function renderDetail(){
   const foodBlock = s.food ? `
     <div class="frame" style="margin-bottom:1rem;padding:.9rem 1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div class="mono eyebrow" style="margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;">${ICON.utensils} ERNÄHRUNG</div>
+      <div class="mono eyebrow" style="margin-bottom:.4rem;">ERNÄHRUNG</div>
       <div style="font-size:.9rem;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(s.food)}</div>
     </div>` : '';
 
@@ -659,6 +742,28 @@ function attachListeners(){
       pool[dayKey].push(name); saveCustomPool(pool);
     }
     state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] });
+    render();
+  }));
+  app.querySelectorAll('[data-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
+    state.editPoolName = el.getAttribute('data-pool-edit');
+    state.editPoolValue = state.editPoolName;
+    render();
+  }));
+  app.querySelectorAll('[data-pool-edit-input]').forEach(el=>el.addEventListener('input', ()=>{
+    state.editPoolValue = el.value;
+  }));
+  app.querySelectorAll('[data-pool-edit-save]').forEach(el=>el.addEventListener('click', ()=>{
+    const oldName = el.getAttribute('data-pool-edit-save');
+    renameExercise(state.draft.dayType, oldName, state.editPoolValue);
+    state.editPoolName = null; state.editPoolValue = '';
+    render();
+  }));
+  app.querySelectorAll('[data-pool-edit-cancel]').forEach(el=>el.addEventListener('click', ()=>{
+    state.editPoolName = null; state.editPoolValue = '';
+    render();
+  }));
+  app.querySelectorAll('[data-pool-delete]').forEach(el=>el.addEventListener('click', ()=>{
+    deleteExercise(state.draft.dayType, el.getAttribute('data-pool-delete'));
     render();
   }));
   app.querySelectorAll('[data-remove-ex]').forEach(el=>el.addEventListener('click', ()=>{
