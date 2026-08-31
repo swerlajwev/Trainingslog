@@ -49,6 +49,16 @@
   .frame .corner.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent);}
   .day-card{margin-bottom:.75rem;background:#000;border:none;padding:0;}
   .day-card .frame{padding:1rem;}
+  .day-card.dragging{opacity:.55;}
+  .drag-handle{background:none;border:none;color:var(--text-faint);padding:.35rem;display:flex;align-items:center;touch-action:none;cursor:grab;}
+  .drag-handle:active{cursor:grabbing;}
+  .day-card-actions{display:flex;align-items:center;gap:.15rem;position:absolute;top:.2rem;left:.2rem;z-index:2;}
+  .day-edit-form{display:flex;flex-direction:column;gap:.75rem;}
+  .day-edit-swatches{display:flex;gap:.5rem;}
+  .day-edit-actions{display:flex;gap:.5rem;}
+  .day-edit-actions button{flex:1;padding:.6rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.78rem;letter-spacing:.1em;}
+  .day-edit-actions .save{border-color:var(--accent);color:var(--accent);}
+  .day-edit-actions button:disabled{border-color:var(--border);color:var(--text-faint);cursor:not-allowed;}
   .day-row{display:flex;align-items:center;justify-content:space-between;}
   .day-badge{display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);font-family:var(--font-mono);font-size:.68rem;font-weight:600;letter-spacing:.02em;}
   .btn-outline{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.8rem;letter-spacing:.2em;}
@@ -145,6 +155,9 @@ const ICON = {
   utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
   share:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="M8.1 10.8 15.9 6.2M8.1 13.2l7.8 4.6"/></svg>',
+  grip:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  chevronRight:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  star:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5l2.9 6.4 6.9.7-5.2 4.7 1.5 6.8L12 17.6l-6.1 3.5 1.5-6.8-5.2-4.7 6.9-.7Z"/></svg>',
 };
 
 // ---------------------------------------------------------------------
@@ -365,6 +378,8 @@ const STORE_KEY = 'trainingslog_sessions';
 const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
 const CUSTOM_POOL_KEY = 'trainingslog_custom_pool';
 const EX_OVERRIDES_KEY = 'trainingslog_exercise_overrides';
+const DAY_ORDER_KEY = 'trainingslog_day_order';
+const DAY_OVERRIDES_KEY = 'trainingslog_day_overrides';
 
 function loadSessions(){
   try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }
@@ -389,6 +404,36 @@ function loadCustomPool(){
 function saveCustomPool(pool, skipCloud){
   try{ localStorage.setItem(CUSTOM_POOL_KEY, JSON.stringify(pool)); }catch(e){}
   if(!skipCloud) pushToCloud();
+}
+function loadDayOrder(){
+  try{ const raw = localStorage.getItem(DAY_ORDER_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }
+  catch(e){ return []; }
+}
+function saveDayOrder(order, skipCloud){
+  try{ localStorage.setItem(DAY_ORDER_KEY, JSON.stringify(order)); }catch(e){}
+  if(!skipCloud) pushToCloud();
+}
+function loadDayOverrides(){
+  try{ const raw = localStorage.getItem(DAY_OVERRIDES_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
+  catch(e){ return {}; }
+}
+function saveDayOverrides(o, skipCloud){
+  try{ localStorage.setItem(DAY_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+  if(!skipCloud) pushToCloud();
+}
+function updateDayMeta(key, label, accent){
+  const trimmed = (label||'').trim();
+  if(!trimmed) return;
+  const overrides = loadDayOverrides();
+  overrides[key] = { label: trimmed.toUpperCase(), short: trimmed.slice(0,3).toUpperCase(), accent };
+  saveDayOverrides(overrides);
+}
+function getOrderedDayKeys(dayTypes){
+  const order = loadDayOrder();
+  const keys = Object.keys(dayTypes);
+  const ordered = order.filter(k=>keys.includes(k));
+  keys.forEach(k=>{ if(!ordered.includes(k)) ordered.push(k); });
+  return ordered;
 }
 function loadExOverrides(){
   try{ const raw = localStorage.getItem(EX_OVERRIDES_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
@@ -485,10 +530,15 @@ function getDayTypes(){
   // die lokale Nutzung ganz ohne Login behalten die alten Standard-Tage.
   // Ab dem Cutoff neu registrierte Accounts starten komplett leer.
   const includeBuiltins = !authUser || (typeof authUser.createdAt === 'number' && authUser.createdAt < LEGACY_ACCOUNT_CUTOFF);
+  const overrides = loadDayOverrides();
+  const applyOverride = (day) => {
+    const ov = overrides[day.key];
+    return ov ? { ...day, label: ov.label, short: ov.short, accent: ov.accent || day.accent } : day;
+  };
   if(includeBuiltins){
-    Object.keys(BUILTIN_DAY_TYPES).forEach(k=>{ merged[k] = {...BUILTIN_DAY_TYPES[k], pool:getPool(k)}; });
+    Object.keys(BUILTIN_DAY_TYPES).forEach(k=>{ merged[k] = applyOverride({...BUILTIN_DAY_TYPES[k], pool:getPool(k)}); });
   }
-  loadCustomDays().forEach(d=>{ merged[d.key] = {...d, pool:getPool(d.key)}; });
+  loadCustomDays().forEach(d=>{ merged[d.key] = applyOverride({...d, pool:getPool(d.key)}); });
   return merged;
 }
 function exerciseStats(dayKey){
@@ -501,6 +551,90 @@ function exerciseStats(dayKey){
     });
   });
   return stats;
+}
+
+// ---------------------------------------------------------------------
+// Fortschritt pro Übung: Verlaufs-Volumen (Gewicht × Wdh.) über alle
+// Sessions des gleichen Tag-Typs mit dieser Übung, + Rekord-Erkennung.
+// ---------------------------------------------------------------------
+function exerciseVolumeInSession(ex){
+  let vol = 0;
+  (ex.sets||[]).forEach(st=>{
+    const w = parseFloat(st.weight), r = effectiveReps(st);
+    if(!isNaN(w) && !isNaN(r)) vol += w*r;
+  });
+  return vol;
+}
+function exerciseHistoryPoints(dayKey, name){
+  return state.sessions
+    .filter(s=>s.dayType===dayKey && s.exercises.some(e=>e.name===name))
+    .map(s=>({ id:s.id, date:s.date, volume: exerciseVolumeInSession(s.exercises.find(e=>e.name===name)) }))
+    .sort((a,b)=> new Date(a.date)-new Date(b.date));
+}
+function sparklineSvg(points, accent){
+  const w=260, h=40, pad=4;
+  const vals = points.map(p=>p.volume);
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const range = (max-min) || 1;
+  const stepX = points.length>1 ? (w-2*pad)/(points.length-1) : 0;
+  const coords = points.map((p,i)=>{
+    const x = pad + i*stepX;
+    const y = h-pad - ((p.volume-min)/range)*(h-2*pad);
+    return [x,y];
+  });
+  const path = coords.map((c,i)=> (i===0?'M':'L')+c[0].toFixed(1)+','+c[1].toFixed(1)).join(' ');
+  const last = coords[coords.length-1];
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">
+    <path d="${path}" fill="none" stroke="${accent}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${accent}"/>
+  </svg>`;
+}
+
+// ---------------------------------------------------------------------
+// Tag löschen (nur selbst angelegte Tage) — historische Sessions bleiben
+// erhalten, DAYS-Lookup fällt für sie auf einen Platzhalter zurück.
+// ---------------------------------------------------------------------
+function deleteCustomDay(key){
+  saveCustomDays(loadCustomDays().filter(d=>d.key!==key));
+  const pool = loadCustomPool(); delete pool[key]; saveCustomPool(pool);
+  const ov = loadExOverrides(); delete ov[key]; saveExOverrides(ov);
+  const dov = loadDayOverrides(); delete dov[key]; saveDayOverrides(dov);
+  saveDayOrder(loadDayOrder().filter(k=>k!==key));
+}
+
+// ---------------------------------------------------------------------
+// Monats-/Jahresrückblick
+// ---------------------------------------------------------------------
+const MONTH_NAMES_DE = ['JANUAR','FEBRUAR','MÄRZ','APRIL','MAI','JUNI','JULI','AUGUST','SEPTEMBER','OKTOBER','NOVEMBER','DEZEMBER'];
+function reviewStats(period){
+  const filtered = state.sessions.filter(s=>{
+    const d = new Date(s.date);
+    if(period.type==='month') return d.getFullYear()===period.year && d.getMonth()===period.month;
+    return d.getFullYear()===period.year;
+  });
+  const totalVolume = filtered.reduce((sum,s)=>sum+sessionVolume(s),0);
+  const exerciseCounts = {};
+  filtered.forEach(s=>s.exercises.forEach(ex=>{ exerciseCounts[ex.name] = (exerciseCounts[ex.name]||0)+1; }));
+  let topExercise=null, topCount=0;
+  Object.entries(exerciseCounts).forEach(([name,count])=>{ if(count>topCount){ topCount=count; topExercise=name; } });
+  const weekVol = {};
+  filtered.forEach(s=>{ const k=weekMondayKey(s.date); weekVol[k]=(weekVol[k]||0)+sessionVolume(s); });
+  let bestWeekKey=null, bestWeekVol=0;
+  Object.entries(weekVol).forEach(([k,v])=>{ if(v>bestWeekVol){ bestWeekVol=v; bestWeekKey=k; } });
+  return { count:filtered.length, totalVolume, topExercise, topCount, bestWeekKey, bestWeekVol };
+}
+function isCurrentReviewPeriod(period){
+  const now = new Date();
+  if(period.type==='month') return period.year===now.getFullYear() && period.month===now.getMonth();
+  return period.year===now.getFullYear();
+}
+function shiftReviewPeriod(period, dir){
+  if(period.type==='month'){
+    let m = period.month + dir, y = period.year;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    return { type:'month', year:y, month:m };
+  }
+  return { type:'year', year: period.year+dir };
 }
 
 // ---------------------------------------------------------------------
@@ -539,6 +673,8 @@ function pushToCloud(){
     customDays: loadCustomDays(),
     customPool: loadCustomPool(),
     exOverrides: loadExOverrides(),
+    dayOrder: loadDayOrder(),
+    dayOverrides: loadDayOverrides(),
     updatedAt: Date.now(),
   }).catch(e=>{ console.error('Cloud-Sync fehlgeschlagen', e); });
 }
@@ -553,6 +689,8 @@ function attachCloudSync(uid){
         customDays: loadCustomDays(),
         customPool: loadCustomPool(),
         exOverrides: loadExOverrides(),
+        dayOrder: loadDayOrder(),
+        dayOverrides: loadDayOverrides(),
         updatedAt: Date.now(),
       });
     }
@@ -566,6 +704,8 @@ function attachCloudSync(uid){
     saveCustomDays(Array.isArray(data.customDays) ? data.customDays : [], true);
     saveCustomPool((data.customPool && typeof data.customPool==='object') ? data.customPool : {}, true);
     saveExOverrides((data.exOverrides && typeof data.exOverrides==='object') ? data.exOverrides : {}, true);
+    saveDayOrder(Array.isArray(data.dayOrder) ? data.dayOrder : [], true);
+    saveDayOverrides((data.dayOverrides && typeof data.dayOverrides==='object') ? data.dayOverrides : {}, true);
     render();
   });
 }
@@ -620,6 +760,11 @@ let state = {
   editPoolValue: '',
   accountPanelOpen: false,
   poolEditMode: false,
+  dayEditMode: false,
+  editDayKey: null,
+  editDayValue: { label:'', accent:'' },
+  confirmDeleteDay: null,
+  reviewPeriod: null,
   authForm: { email:'', password:'', error:'' },
 };
 
@@ -726,6 +871,7 @@ function render(){
   else if(state.view==='share') app.innerHTML = renderShare();
   else if(state.view==='auth') app.innerHTML = renderAuth();
   else if(state.view==='detail') app.innerHTML = renderDetail();
+  else if(state.view==='review') app.innerHTML = renderReview();
   attachListeners();
   renderAccountFab();
 }
@@ -739,14 +885,54 @@ function renderHome(){
   const weekCount = state.sessions.filter(s => (now - new Date(s.date))/86400000 < 7).length;
   const lastByDay = key => state.sessions.find(s => s.dayType===key);
   const streak = currentStreakWeeks(state.sessions);
+  const editMode = state.dayEditMode;
 
-  const cards = Object.values(DAYS).map(day => {
+  const orderedKeys = getOrderedDayKeys(DAYS);
+  const cards = orderedKeys.map(key => {
+    const day = DAYS[key];
+    if(!day) return '';
+
+    if(state.editDayKey === day.key){
+      const ev = state.editDayValue;
+      const swatches = DAY_SWATCHES.map(c=>`
+        <button class="swatch" data-day-edit-color="${c}" style="background:${c};border-color:${ev.accent===c?'#fff':'transparent'};"></button>
+      `).join('');
+      return `
+      <div class="day-card" data-day-key="${day.key}">
+        <div class="frame" style="--accent:${ev.accent};">
+          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div class="day-edit-form">
+            <input class="set-input mono" type="text" value="${escapeHtml(ev.label)}" data-day-edit-name="1" placeholder="Name" />
+            <div class="day-edit-swatches">${swatches}</div>
+            <div class="day-edit-actions">
+              <button class="save" data-day-edit-save="${day.key}" ${ev.label.trim()?'':'disabled'}>${ICON.check} SPEICHERN</button>
+              <button data-day-edit-cancel="1">${ICON.x} ABBRECHEN</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
     const last = lastByDay(day.key);
     return `
-    <div class="day-card">
-      <div class="frame" style="--accent:${day.accent};cursor:pointer;" data-start="${day.key}">
+    <div class="day-card" data-day-key="${day.key}">
+      <div class="frame" style="--accent:${day.accent};${editMode?'':'cursor:pointer;'}" ${editMode?'':`data-start="${day.key}"`}>
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        ${editMode ? `
+        <div class="day-card-actions">
+          ${state.confirmDeleteDay === day.key ? `
+          <span class="mono" style="font-size:.65rem;color:var(--text-mute);margin-right:.2rem;">LÖSCHEN?</span>
+          <button class="drag-handle" data-day-delete-confirm="${day.key}" title="Endgültig löschen" style="color:var(--pink);">${ICON.check}</button>
+          <button class="drag-handle" data-day-delete-cancel="1" title="Abbrechen">${ICON.x}</button>
+          ` : `
+          <button class="drag-handle" data-drag-handle="${day.key}" title="Verschieben">${ICON.grip}</button>
+          <button class="drag-handle" data-day-edit="${day.key}" title="Bearbeiten">${ICON.edit}</button>
+          ${day.key.startsWith('C') ? `<button class="drag-handle" data-day-delete="${day.key}" title="Löschen">${ICON.trash}</button>` : ''}
+          `}
+        </div>
+        ` : `
         <button data-share-day="${day.key}" title="Tag teilen" style="position:absolute;top:.4rem;right:.4rem;background:none;border:none;color:var(--text-faint);padding:.35rem;z-index:2;">${ICON.share}</button>
+        `}
         <div class="day-row">
           <div>
             <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
@@ -781,10 +967,14 @@ function renderHome(){
     ${fbEnabled && !authUser ? `
     <button class="btn-outline mono" style="margin-bottom:.75rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>
     ` : ''}
-    <div class="eyebrow mono" style="margin-bottom:.75rem;">SESSION WÄHLEN</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+      <div class="eyebrow mono">SESSION WÄHLEN</div>
+      <button class="edit-toggle mono" data-toggle-day-edit="1">${ICON.edit} ${editMode?'FERTIG':'BEARBEITEN'}</button>
+    </div>
     <div class="day-grid">${cards}</div>
     <button class="btn-outline mono" style="margin-top:.75rem;" data-newday-open="1">${ICON.plus} NEUER TAG</button>
     <div class="eyebrow mono" style="margin:1.5rem 0 .75rem;">VERLAUF</div>
+    <button class="edit-toggle mono" data-open-review="1" style="margin-bottom:.75rem;">${ICON.history} RÜCKBLICK ANZEIGEN</button>
     ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':histRows}
   `;
 }
@@ -833,6 +1023,52 @@ function renderStreak(){
     <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-top:.5rem;line-height:1.6;">
       Eine Streak-Woche zählt, wenn du in dieser Kalenderwoche (Mo–So) mindestens 3 Sessions eingetragen hast. Die laufende Woche bricht die Streak nicht, solange sie noch nicht vorbei ist.
     </div>
+  `;
+}
+
+// ---------------------------------------------------------------------
+// Rückblick (Monat / Jahr)
+// ---------------------------------------------------------------------
+function renderReview(){
+  if(!state.reviewPeriod){
+    const now = new Date();
+    state.reviewPeriod = { type:'month', year: now.getFullYear(), month: now.getMonth() };
+  }
+  const p = state.reviewPeriod;
+  const stats = reviewStats(p);
+  const label = p.type==='month' ? `${MONTH_NAMES_DE[p.month]} ${p.year}` : `${p.year}`;
+  const atLimit = isCurrentReviewPeriod(p);
+  let weekLabel = null;
+  if(stats.bestWeekKey){
+    const mon = new Date(stats.bestWeekKey+'T12:00:00');
+    const sun = new Date(mon.getTime()+6*86400000);
+    const f = d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+    weekLabel = `${f(mon)} – ${f(sun)}`;
+  }
+  const row = (label, value, accent) => `
+    <div class="frame" style="--accent:${accent};margin-bottom:.75rem;padding:1rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="eyebrow mono" style="margin-bottom:.3rem;">${label}</div>
+      <div class="display" style="font-size:1.5rem;">${value}</div>
+    </div>`;
+  return `
+    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+    <div class="h1 display">RÜCKBLICK</div>
+    <div class="chip-row">
+      <button class="chip ${p.type==='month'?'active':''}" data-review-type="month">MONAT</button>
+      <button class="chip ${p.type==='year'?'active':''}" data-review-type="year">JAHR</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+      <button class="x-btn" data-review-prev="1" style="border:1px solid var(--border);padding:.5rem;">${ICON.chevronLeft}</button>
+      <div class="display mono" style="font-size:1rem;letter-spacing:.05em;">${label}</div>
+      <button class="x-btn" data-review-next="1" style="border:1px solid var(--border);padding:.5rem;${atLimit?'opacity:.3;pointer-events:none;':''}">${ICON.chevronRight}</button>
+    </div>
+    ${stats.count===0 ? `<div class="empty">KEINE SESSIONS IN DIESEM ZEITRAUM</div>` : `
+    ${row('SESSIONS', stats.count, 'var(--sky)')}
+    ${row('GESAMTVOLUMEN', Math.round(stats.totalVolume).toLocaleString('de-DE')+' kg', 'var(--lime)')}
+    ${stats.topExercise?row('HÄUFIGSTE ÜBUNG', `${escapeHtml(stats.topExercise)} <span style="color:var(--text-faint);font-size:1rem;">×${stats.topCount}</span>`, 'var(--pink)'):''}
+    ${weekLabel?row('BESTE WOCHE', `${weekLabel} <span style="color:var(--text-faint);font-size:1rem;">(${Math.round(stats.bestWeekVol).toLocaleString('de-DE')} kg)</span>`, 'var(--orange)'):''}
+    `}
   `;
 }
 
@@ -1083,13 +1319,23 @@ function renderDetail(){
       <div style="font-size:.9rem;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(s.food)}</div>
     </div>` : '';
 
-  const exList = s.exercises.map(ex=>`
-    <div class="frame" style="--accent:${day.accent};margin-bottom:.75rem;">
+  const exList = s.exercises.map(ex=>{
+    const history = exerciseHistoryPoints(s.dayType, ex.name);
+    const curVol = exerciseVolumeInSession(ex);
+    const priorMax = history.filter(h=>h.id!==s.id).reduce((m,h)=>Math.max(m,h.volume), 0);
+    const isPR = curVol>0 && history.length>1 && curVol>priorMax;
+    const chartPoints = history.slice(-8);
+    return `
+    <div class="frame" style="--accent:${isPR?'var(--gold)':day.accent};margin-bottom:.75rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div class="ex-title" style="margin-bottom:.5rem;">${ex.name}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;gap:.5rem;">
+        <div class="ex-title">${ex.name}</div>
+        ${isPR ? `<span class="mono" style="display:flex;align-items:center;gap:.3rem;color:var(--gold);font-size:.65rem;letter-spacing:.1em;flex-shrink:0;">${ICON.star} REKORD</span>` : ''}
+      </div>
       <div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${(st.repsLeft!==undefined||st.repsRight!==undefined) ? `${st.repsLeft||'–'}L/${st.repsRight||'–'}R` : (st.reps||'–')}</span>`).join('')}</div>
+      ${chartPoints.length>1 ? `<div style="margin-top:.65rem;">${sparklineSvg(chartPoints, isPR?'var(--gold)':day.accent)}</div>` : ''}
     </div>
-  `).join('');
+  `;}).join('');
 
   return `
     <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
@@ -1127,6 +1373,116 @@ function attachListeners(){
 
   app.querySelectorAll('[data-history]').forEach(el=>el.addEventListener('click', ()=>{ state.view='history'; render(); }));
   app.querySelectorAll('[data-open-streak]').forEach(el=>el.addEventListener('click', ()=>{ state.view='streak'; render(); }));
+  app.querySelectorAll('[data-open-review]').forEach(el=>el.addEventListener('click', ()=>{
+    const now = new Date();
+    state.reviewPeriod = { type:'month', year: now.getFullYear(), month: now.getMonth() };
+    state.view = 'review'; render();
+  }));
+  app.querySelectorAll('[data-review-type]').forEach(el=>el.addEventListener('click', ()=>{
+    const type = el.getAttribute('data-review-type');
+    const now = new Date();
+    state.reviewPeriod = type==='month'
+      ? { type:'month', year: now.getFullYear(), month: now.getMonth() }
+      : { type:'year', year: now.getFullYear() };
+    render();
+  }));
+  app.querySelectorAll('[data-review-prev]').forEach(el=>el.addEventListener('click', ()=>{
+    state.reviewPeriod = shiftReviewPeriod(state.reviewPeriod, -1); render();
+  }));
+  app.querySelectorAll('[data-review-next]').forEach(el=>el.addEventListener('click', ()=>{
+    if(isCurrentReviewPeriod(state.reviewPeriod)) return;
+    state.reviewPeriod = shiftReviewPeriod(state.reviewPeriod, 1); render();
+  }));
+
+  // Tage bearbeiten: Reihenfolge (Drag & Drop) + Umbenennen/Farbe
+  app.querySelectorAll('[data-toggle-day-edit]').forEach(el=>el.addEventListener('click', ()=>{
+    state.dayEditMode = !state.dayEditMode;
+    state.editDayKey = null;
+    state.confirmDeleteDay = null;
+    render();
+  }));
+  app.querySelectorAll('[data-day-edit]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const key = el.getAttribute('data-day-edit');
+    const day = getDayTypes()[key];
+    if(!day) return;
+    state.editDayKey = key;
+    state.editDayValue = { label: day.label, accent: day.accent };
+    render();
+  }));
+  app.querySelectorAll('[data-day-edit-name]').forEach(el=>el.addEventListener('input', ()=>{
+    state.editDayValue.label = el.value;
+    const btn = app.querySelector('[data-day-edit-save]');
+    if(btn) btn.disabled = !el.value.trim();
+  }));
+  app.querySelectorAll('[data-day-edit-color]').forEach(el=>el.addEventListener('click', ()=>{
+    state.editDayValue.accent = el.getAttribute('data-day-edit-color'); render();
+  }));
+  app.querySelectorAll('[data-day-edit-save]').forEach(el=>el.addEventListener('click', ()=>{
+    if(!state.editDayValue.label.trim()) return;
+    const key = el.getAttribute('data-day-edit-save');
+    updateDayMeta(key, state.editDayValue.label, state.editDayValue.accent);
+    state.editDayKey = null;
+    render();
+  }));
+  app.querySelectorAll('[data-day-edit-cancel]').forEach(el=>el.addEventListener('click', ()=>{
+    state.editDayKey = null; render();
+  }));
+  app.querySelectorAll('[data-day-delete]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.confirmDeleteDay = el.getAttribute('data-day-delete');
+    render();
+  }));
+  app.querySelectorAll('[data-day-delete-cancel]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.confirmDeleteDay = null; render();
+  }));
+  app.querySelectorAll('[data-day-delete-confirm]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    deleteCustomDay(el.getAttribute('data-day-delete-confirm'));
+    state.confirmDeleteDay = null;
+    render();
+  }));
+  app.querySelectorAll('[data-drag-handle]').forEach(el=>el.addEventListener('pointerdown', (e)=>{
+    if(!state.dayEditMode) return;
+    e.preventDefault(); e.stopPropagation();
+    const grid = app.querySelector('.day-grid');
+    const card = el.closest('.day-card');
+    if(!grid || !card) return;
+    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    card.classList.add('dragging');
+    const pointerId = e.pointerId;
+
+    const onMove = (mv)=>{
+      if(mv.pointerId !== pointerId) return;
+      const siblings = Array.from(grid.children).filter(c=>c!==card);
+      let closest = null, closestDist = Infinity;
+      siblings.forEach(sib=>{
+        const r = sib.getBoundingClientRect();
+        const cx = r.left + r.width/2, cy = r.top + r.height/2;
+        const dist = Math.hypot(cx-mv.clientX, cy-mv.clientY);
+        if(dist < closestDist){ closestDist = dist; closest = sib; }
+      });
+      if(closest){
+        const all = Array.from(grid.children);
+        if(all.indexOf(closest) > all.indexOf(card)) closest.after(card);
+        else closest.before(card);
+      }
+    };
+    const onUp = (up)=>{
+      if(up.pointerId !== pointerId) return;
+      card.classList.remove('dragging');
+      const newOrder = Array.from(grid.children).map(c=>c.getAttribute('data-day-key')).filter(Boolean);
+      saveDayOrder(newOrder);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      render();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  }));
   app.querySelectorAll('[data-back]').forEach(el=>el.addEventListener('click', ()=>{ state.view=el.getAttribute('data-back'); state.confirmDelete=false; render(); }));
 
   app.querySelectorAll('[data-discard]').forEach(el=>el.addEventListener('click', ()=>{ state.draft=null; state.view='home'; render(); }));
