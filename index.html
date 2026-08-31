@@ -520,7 +520,7 @@ let fbAuth = null, fbDb = null, fbEnabled = false, authUser = null, authChecked 
 let cloudUnsub = null, suppressNextSnapshot = false;
 // Cutoff für den Alt-Account-Bonus (siehe getDayTypes) — davor registrierte
 // Accounts behalten Brust/Rücken + Arme/Schultern automatisch.
-const LEGACY_ACCOUNT_CUTOFF = new Date('2026-08-31T23:59:59Z').getTime();
+const LEGACY_ACCOUNT_CUTOFF = new Date('2026-08-31T19:31:28Z').getTime();
 try{
   if(window.firebase && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
     firebase.initializeApp(FIREBASE_CONFIG);
