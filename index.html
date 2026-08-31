@@ -79,10 +79,13 @@
   .hist-row:hover{border-color:var(--border-hover);}
   .hist-top{display:flex;align-items:center;justify-content:space-between;}
   .hist-left{display:flex;align-items:center;gap:.75rem;}
-  .hist-date{width:2.5rem;text-align:center;}
+  .hist-date{min-width:3.5rem;flex-shrink:0;text-align:left;}
   .hist-wd{font-size:.62rem;color:var(--text-mute);}
   .hist-d{font-size:.85rem;}
   .hist-right{display:flex;align-items:center;gap:.5rem;}
+  #accountFab{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:.6rem;}
+  .fab-btn{width:2.8rem;height:2.8rem;border-radius:50%;background:#09090b;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);}
+  .fab-panel{background:#09090b;border:1px solid var(--border);padding:.85rem;width:14rem;box-shadow:0 4px 16px rgba(0,0,0,.55);}
   .tag{font-size:.72rem;letter-spacing:.2em;}
   .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .6rem;font-size:.72rem;border:1px solid;margin-right:.5rem;}
   .set-pill{padding:.25rem .5rem;background:#09090b;border:1px solid var(--border);font-size:.85rem;margin:0 .4rem .4rem 0;display:inline-block;}
@@ -120,7 +123,11 @@
 </head>
 <body>
 <div id="app"></div>
+<div id="accountFab"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
 // ---------------------------------------------------------------------
 // Icons (minimal inline SVG, no external deps)
@@ -204,7 +211,7 @@ function sessionVolume(s){
   let vol = 0;
   (s.exercises||[]).forEach(ex=>{
     (ex.sets||[]).forEach(st=>{
-      const w = parseFloat(st.weight), r = parseFloat(st.reps);
+      const w = parseFloat(st.weight), r = effectiveReps(st);
       if(!isNaN(w) && !isNaN(r)) vol += w*r;
     });
   });
@@ -231,7 +238,7 @@ function computeScore(session){
   else if(vol>0){ training = 100; } // erste Session dieses Tagtyps -> neutral
 
   let overall = null;
-  if(subjective!=null && training!=null) overall = subjective*0.5 + training*0.5;
+  if(subjective!=null && training!=null) overall = subjective*0.3 + training*0.7;
   else if(subjective!=null) overall = subjective;
   else if(training!=null) overall = training;
   if(overall!=null) overall = Math.max(0, Math.min(110, Math.round(overall)));
@@ -362,29 +369,33 @@ function loadSessions(){
   try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }
   catch(e){ return []; }
 }
-function saveSessions(sessions){
+function saveSessions(sessions, skipCloud){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(sessions)); }catch(e){ console.error('Speichern fehlgeschlagen', e); }
+  if(!skipCloud) pushToCloud();
 }
 function loadCustomDays(){
   try{ const raw = localStorage.getItem(CUSTOM_DAYS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }
   catch(e){ return []; }
 }
-function saveCustomDays(days){
+function saveCustomDays(days, skipCloud){
   try{ localStorage.setItem(CUSTOM_DAYS_KEY, JSON.stringify(days)); }catch(e){}
+  if(!skipCloud) pushToCloud();
 }
 function loadCustomPool(){
   try{ const raw = localStorage.getItem(CUSTOM_POOL_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
   catch(e){ return {}; }
 }
-function saveCustomPool(pool){
+function saveCustomPool(pool, skipCloud){
   try{ localStorage.setItem(CUSTOM_POOL_KEY, JSON.stringify(pool)); }catch(e){}
+  if(!skipCloud) pushToCloud();
 }
 function loadExOverrides(){
   try{ const raw = localStorage.getItem(EX_OVERRIDES_KEY); const p = raw ? JSON.parse(raw) : {}; return (p && typeof p==='object')?p:{}; }
   catch(e){ return {}; }
 }
-function saveExOverrides(o){
+function saveExOverrides(o, skipCloud){
   try{ localStorage.setItem(EX_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){}
+  if(!skipCloud) pushToCloud();
 }
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
@@ -396,6 +407,27 @@ function getPool(key){
     if(ov.deleted) names = names.filter(n => !ov.deleted.includes(n));
   }
   return [...new Set(names)];
+}
+function isPerArm(dayKey, name){
+  const ov = loadExOverrides();
+  return !!(ov[dayKey] && ov[dayKey].perArm && ov[dayKey].perArm[name]);
+}
+function togglePerArm(dayKey, name){
+  const ov = loadExOverrides();
+  if(!ov[dayKey]) ov[dayKey] = {};
+  if(!ov[dayKey].perArm) ov[dayKey].perArm = {};
+  ov[dayKey].perArm[name] = !ov[dayKey].perArm[name];
+  saveExOverrides(ov);
+}
+function blankSet(dayKey, name){
+  return isPerArm(dayKey, name) ? { weight:'', repsLeft:'', repsRight:'' } : { weight:'', reps:'' };
+}
+function effectiveReps(st){
+  if(st.repsLeft!==undefined || st.repsRight!==undefined){
+    const l = parseFloat(st.repsLeft), r = parseFloat(st.repsRight);
+    return (isNaN(l)?0:l) + (isNaN(r)?0:r);
+  }
+  return parseFloat(st.reps);
 }
 function renameExercise(dayKey, oldName, newName){
   newName = (newName||'').trim();
@@ -439,6 +471,105 @@ function exerciseStats(dayKey){
 }
 
 // ---------------------------------------------------------------------
+// Cloud-Sync (Firebase) — optional. Ohne ausgefüllte Config läuft die App
+// einfach nur lokal weiter, kein Fehler, kein Zwang zum Einloggen.
+// Anleitung zum Ausfüllen: siehe Chat / README.
+// ---------------------------------------------------------------------
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBhRCi36Ac-1AO6UcfF1NVsTY9YXtwIwdE",
+  authDomain: "trainingslog-102.firebaseapp.com",
+  projectId: "trainingslog-102",
+  storageBucket: "trainingslog-102.firebasestorage.app",
+  messagingSenderId: "696947842581",
+  appId: "1:696947842581:web:d6f43f57a62d8fcfae381c"
+};
+let fbAuth = null, fbDb = null, fbEnabled = false, authUser = null, authChecked = false;
+let cloudUnsub = null, suppressNextSnapshot = false;
+try{
+  if(window.firebase && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e=>console.warn('Persistence konnte nicht gesetzt werden', e));
+    fbDb = firebase.firestore();
+    fbEnabled = true;
+  }
+}catch(e){ console.error('Firebase-Init fehlgeschlagen', e); }
+
+function pushToCloud(){
+  if(!fbEnabled || !authUser) return;
+  suppressNextSnapshot = true;
+  fbDb.collection('users').doc(authUser.uid).set({
+    sessions: state.sessions,
+    customDays: loadCustomDays(),
+    customPool: loadCustomPool(),
+    exOverrides: loadExOverrides(),
+    updatedAt: Date.now(),
+  }).catch(e=>{ console.error('Cloud-Sync fehlgeschlagen', e); });
+}
+function attachCloudSync(uid){
+  const ref = fbDb.collection('users').doc(uid);
+  ref.get().then(snap=>{
+    if(!snap.exists){
+      // erster Login auf diesem Account: lokale Daten hochladen, statt sie zu verlieren
+      suppressNextSnapshot = true;
+      ref.set({
+        sessions: state.sessions,
+        customDays: loadCustomDays(),
+        customPool: loadCustomPool(),
+        exOverrides: loadExOverrides(),
+        updatedAt: Date.now(),
+      });
+    }
+  });
+  cloudUnsub = ref.onSnapshot(snap=>{
+    if(suppressNextSnapshot){ suppressNextSnapshot = false; return; }
+    const data = snap.data();
+    if(!data) return;
+    state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    saveSessions(state.sessions, true);
+    saveCustomDays(Array.isArray(data.customDays) ? data.customDays : [], true);
+    saveCustomPool((data.customPool && typeof data.customPool==='object') ? data.customPool : {}, true);
+    saveExOverrides((data.exOverrides && typeof data.exOverrides==='object') ? data.exOverrides : {}, true);
+    render();
+  });
+}
+function detachCloudSync(){
+  if(cloudUnsub){ cloudUnsub(); cloudUnsub = null; }
+}
+function fbErrorMsg(err){
+  const map = {
+    'auth/wrong-password':'Falsches Passwort.',
+    'auth/user-not-found':'Kein Account mit dieser E-Mail gefunden.',
+    'auth/email-already-in-use':'Diese E-Mail ist schon registriert.',
+    'auth/weak-password':'Passwort zu kurz (mind. 6 Zeichen).',
+    'auth/invalid-email':'Ungültige E-Mail-Adresse.',
+    'auth/invalid-credential':'E-Mail oder Passwort falsch.',
+    'auth/missing-password':'Bitte Passwort eingeben.',
+    'auth/account-exists-with-different-credential':'Diese E-Mail ist bereits mit einer anderen Anmeldemethode verknüpft (z.B. E-Mail/Passwort statt Google).',
+    'auth/popup-closed-by-user':'Anmelde-Fenster wurde geschlossen, bevor es fertig war.',
+    'auth/unauthorized-domain':'Diese Domain ist in Firebase noch nicht als autorisiert eingetragen.',
+  };
+  return map[err.code] || ('Fehler: ' + (err.message || 'unbekannt'));
+}
+function oauthSignIn(providerId){
+  if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet (Firebase-Config fehlt).'; render(); return; }
+  const provider = providerId === 'google'
+    ? new firebase.auth.GoogleAuthProvider()
+    : new firebase.auth.GithubAuthProvider();
+  fbAuth.signInWithPopup(provider)
+    .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
+    .catch(err=>{
+      const fallbackCodes = ['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'];
+      if(fallbackCodes.includes(err.code)){
+        fbAuth.signInWithRedirect(provider);
+        return;
+      }
+      state.authForm.error = fbErrorMsg(err);
+      render();
+    });
+}
+
+// ---------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------
 let state = {
@@ -450,7 +581,9 @@ let state = {
   newDay: { name:'', accent:DAY_SWATCHES[0] },
   editPoolName: null,
   editPoolValue: '',
+  accountPanelOpen: false,
   poolEditMode: false,
+  authForm: { email:'', password:'', error:'' },
 };
 
 const app = document.getElementById('app');
@@ -471,22 +604,92 @@ function syncHistory(){
 window.addEventListener('popstate', (ev)=>{
   suppressHistoryPush = true;
   const newView = (ev.state && ev.state.view) ? ev.state.view : 'home';
-  if(state.view==='session' && newView!=='session') state.draft = null;
   state.view = newView;
   state.confirmDelete = false;
   render();
   suppressHistoryPush = false;
 });
 
+const DRAFT_KEY = 'trainingslog-draft-v1';
+function persistDraft(){
+  try{
+    if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft));
+    else localStorage.removeItem(DRAFT_KEY);
+  }catch(e){ /* Speicher voll o.ä. - Draft bleibt zumindest im Arbeitsspeicher */ }
+}
+function restoreDraft(){
+  try{
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if(raw) state.draft = JSON.parse(raw);
+  }catch(e){ /* kaputter Draft, ignorieren */ }
+}
+
+function renderAccountFab(){
+  const el = document.getElementById('accountFab');
+  if(!el) return;
+  if(!fbEnabled || !authUser || state.view==='auth'){ el.innerHTML=''; return; }
+  el.innerHTML = `
+    ${state.accountPanelOpen ? `
+    <div class="fab-panel mono">
+      <div style="color:var(--green);font-size:.72rem;margin-bottom:.5rem;">${ICON.check} SYNC AKTIV</div>
+      <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:.75rem;word-break:break-all;">${authUser.email}</div>
+      <button data-fab-logout="1" class="btn-outline mono" style="width:100%;font-size:.72rem;">LOGOUT</button>
+    </div>` : ''}
+    <button class="fab-btn" data-fab-toggle="1" style="border-color:var(--green);color:var(--green);" title="Account">${ICON.check}</button>
+  `;
+}
+document.addEventListener('click', (e)=>{
+  const toggleBtn = e.target.closest('[data-fab-toggle]');
+  if(toggleBtn){
+    e.stopPropagation();
+    state.accountPanelOpen = !state.accountPanelOpen;
+    renderAccountFab();
+    return;
+  }
+  const logoutBtn = e.target.closest('[data-fab-logout]');
+  if(logoutBtn){
+    e.stopPropagation();
+    if(fbAuth) fbAuth.signOut();
+    detachCloudSync();
+    authUser = null;
+    state.accountPanelOpen = false;
+    state.view = 'auth';
+    render();
+    return;
+  }
+  if(state.accountPanelOpen){
+    const fab = document.getElementById('accountFab');
+    if(fab && !fab.contains(e.target)){
+      state.accountPanelOpen = false;
+      renderAccountFab();
+    }
+  }
+});
+
+function renderChecking(){
+  return `<div style="display:flex;align-items:center;justify-content:center;min-height:70vh;">
+    <div class="mono" style="color:var(--text-faint);font-size:.75rem;letter-spacing:.2em;">LADEN…</div>
+  </div>`;
+}
+
 function render(){
+  if(fbEnabled && !authChecked){
+    persistDraft();
+    app.innerHTML = renderChecking();
+    return;
+  }
+  if(fbEnabled && !authUser){ state.view = 'auth'; }
+  persistDraft();
   syncHistory();
   if(state.view==='home') app.innerHTML = renderHome();
   else if(state.view==='newday') app.innerHTML = renderNewDay();
   else if(state.view==='session') app.innerHTML = renderSession();
   else if(state.view==='history') app.innerHTML = renderHistory();
   else if(state.view==='streak') app.innerHTML = renderStreak();
+  else if(state.view==='auth') app.innerHTML = renderAuth();
   else if(state.view==='detail') app.innerHTML = renderDetail();
   attachListeners();
+  renderAccountFab();
 }
 
 // ---------------------------------------------------------------------
@@ -536,11 +739,34 @@ function renderHome(){
         </button>
       </div>
     </div>
+    ${fbEnabled && !authUser ? `
+    <button class="btn-outline mono" style="margin-bottom:.75rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>
+    ` : ''}
     <div class="eyebrow mono" style="margin-bottom:.75rem;">SESSION WÄHLEN</div>
     <div class="day-grid">${cards}</div>
     <button class="btn-outline mono" style="margin-top:.75rem;" data-newday-open="1">${ICON.plus} NEUER TAG</button>
     <div class="eyebrow mono" style="margin:1.5rem 0 .75rem;">VERLAUF</div>
     ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':histRows}
+  `;
+}
+
+// ---------------------------------------------------------------------
+// Auth (Login / Registrieren)
+// ---------------------------------------------------------------------
+function renderAuth(){
+  const a = state.authForm;
+  return `
+    <div class="h1 display">ANMELDEN</div>
+    <div class="mono" style="font-size:.8rem;color:var(--text-mute);margin-bottom:1.5rem;">Login ist Pflicht — deine Daten werden über deinen Account gespeichert und zwischen Geräten synchronisiert.</div>
+    ${a.error ? `<div class="mono" style="color:var(--red);font-size:.78rem;margin-bottom:1rem;">${a.error}</div>` : ''}
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">E-MAIL</div>
+    <input class="set-input mono" type="email" autocomplete="email" style="margin-bottom:1rem;" value="${a.email}" data-auth-email="1" />
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">PASSWORT</div>
+    <input class="set-input mono" type="password" autocomplete="current-password" style="margin-bottom:1.5rem;" value="${a.password}" data-auth-password="1" />
+    <button class="save-btn mono" style="margin-bottom:.75rem;background:var(--lime);" data-auth-login="1">${ICON.check} EINLOGGEN</button>
+    <button class="btn-outline mono" style="margin-bottom:1.5rem;" data-auth-register="1">${ICON.plus} NEU REGISTRIEREN</button>
+    <div class="mono" style="text-align:center;color:var(--text-mute);font-size:.72rem;letter-spacing:.08em;margin-bottom:1rem;">ODER</div>
+    <button class="btn-outline mono" style="margin-bottom:1.5rem;" data-auth-google="1">${ICON.check} MIT GOOGLE ANMELDEN</button>
   `;
 }
 
@@ -644,7 +870,13 @@ function renderSession(){
             <span class="set-idx mono" style="color:${day.accent}">${idx+1}</span>
             <input class="set-input mono" type="number" inputmode="decimal" placeholder="kg" value="${s.weight}" data-ex="${ex.name}" data-idx="${idx}" data-field="weight" />
             <span style="color:var(--text-faint);font-size:.8rem;">×</span>
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="wdh" value="${s.reps}" data-ex="${ex.name}" data-idx="${idx}" data-field="reps" />
+            ${isPerArm(d.dayType, ex.name) ? `
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="L" title="Wiederholungen links" value="${s.repsLeft??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsLeft" style="max-width:3.4rem;" />
+            <span style="color:var(--text-faint);font-size:.75rem;">/</span>
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="R" title="Wiederholungen rechts" value="${s.repsRight??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsRight" style="max-width:3.4rem;" />
+            ` : `
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="wdh" value="${s.reps??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="reps" />
+            `}
             ${ex.sets.length>1?`<button class="x-btn" data-remove-set="${ex.name}" data-idx="${idx}">${ICON.x}</button>`:''}
           </div>`).join('')}
       </div>
@@ -670,8 +902,10 @@ function renderSession(){
       </div>`;
     }
     if(state.poolEditMode){
+      const pa = isPerArm(d.dayType, n);
       return `<div class="pool-item">
         <span class="pool-btn" style="cursor:default;">${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</span>
+        <button class="x-btn" data-pool-perarm="${n}" title="${pa?'Pro Arm: an (Wiederholungen einzeln links/rechts)':'Pro Arm: aus (eine gemeinsame Wiederholungszahl)'}" style="${pa?`color:${day.accent};border-color:${day.accent};`:''}">${ICON.dumbbell||'L/R'}</button>
         <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
         <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
       </div>`;
@@ -715,8 +949,9 @@ function historyRowHtml(s, DAYS){
   const day = DAYS[s.dayType] || {short:'?',accent:'var(--text-mute)'};
   const mood = s.mood ? MOODS[s.mood] : null;
   const sc = computeScore(s);
+  const isPerfect = typeof s.energyLevel==='number' && s.energyLevel > 100;
   return `
-    <button class="hist-row" data-open="${s.id}">
+    <button class="hist-row" data-open="${s.id}" style="${isPerfect?'border-color:var(--green);box-shadow:0 0 0 1px var(--green);':''}">
       <div class="hist-top">
         <div class="hist-left">
           <div class="hist-date">
@@ -729,9 +964,9 @@ function historyRowHtml(s, DAYS){
           </div>
         </div>
         <div class="hist-right">
-          ${s.food?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">ERNÄHRT</span>`:''}
+          ${s.food?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">ERNÄHRUNG</span>`:''}
           ${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,18)}</span>`:''}
-          ${typeof s.energyLevel==='number'?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">${s.energyLevel}%</span>`:''}
+          ${typeof s.energyLevel==='number'?`<span class="mono" style="font-size:.68rem;color:${isPerfect?'var(--green)':'var(--text-mute)'};">${s.energyLevel}%</span>`:''}
           ${s.preWorkout?`<span class="mono" style="font-size:.68rem;color:var(--lime);">PW</span>`:''}
           ${s.energy?`<span class="mono" style="font-size:.68rem;color:var(--pink);">ED</span>`:''}
         </div>
@@ -786,7 +1021,7 @@ function renderDetail(){
     <div class="frame" style="--accent:${day.accent};margin-bottom:.75rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="ex-title" style="margin-bottom:.5rem;">${ex.name}</div>
-      <div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${st.reps||'–'}</span>`).join('')}</div>
+      <div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${(st.repsLeft!==undefined||st.repsRight!==undefined) ? `${st.repsLeft||'–'}L/${st.repsRight||'–'}R` : (st.reps||'–')}</span>`).join('')}</div>
     </div>
   `).join('');
 
@@ -816,6 +1051,10 @@ function renderDetail(){
 function attachListeners(){
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
+    if(state.draft && state.draft.exercises.length>0){
+      const ok = confirm('Du hast noch eine ungespeicherte Session offen. Trotzdem eine neue starten und die alte verwerfen?');
+      if(!ok) return;
+    }
     state.draft = { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, energy:false, mood:null, energyLevel:50, food:'', exercises:[] };
     state.view='session'; render();
   }));
@@ -844,6 +1083,7 @@ function attachListeners(){
     state.draft.energyLevel = +el.value;
     const label = app.querySelector('[data-energy-value]');
     if(label) label.textContent = el.value + '%';
+    persistDraft();
   }));
 
   app.querySelectorAll('[data-perfect]').forEach(el=>el.addEventListener('click', ()=>{
@@ -852,19 +1092,20 @@ function attachListeners(){
 
   app.querySelectorAll('[data-food-input]').forEach(el=>el.addEventListener('input', ()=>{
     state.draft.food = el.value;
+    persistDraft();
   }));
 
   app.querySelectorAll('[data-copy-last]').forEach(el=>el.addEventListener('click', ()=>{
     const last = state.sessions.find(s=>s.dayType===state.draft.dayType);
     if(last){
-      state.draft.exercises = last.exercises.map(ex=>({ name:ex.name, sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps})) }));
+      state.draft.exercises = last.exercises.map(ex=>({ name:ex.name, sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps, repsLeft:s.repsLeft, repsRight:s.repsRight})) }));
     }
     render();
   }));
 
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-ex');
-    state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] }); render();
+    state.draft.exercises.push({ name, sets:[blankSet(state.draft.dayType, name)] }); render();
   }));
   app.querySelectorAll('[data-add-custom-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const input = app.querySelector('[data-custom-ex-input]');
@@ -877,7 +1118,7 @@ function attachListeners(){
     if(!builtinPool.includes(name) && !pool[dayKey].includes(name)){
       pool[dayKey].push(name); saveCustomPool(pool);
     }
-    state.draft.exercises.push({ name, sets:[{weight:'',reps:''}] });
+    state.draft.exercises.push({ name, sets:[blankSet(dayKey, name)] });
     render();
   }));
   app.querySelectorAll('[data-toggle-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
@@ -903,6 +1144,10 @@ function attachListeners(){
     state.editPoolName = null; state.editPoolValue = '';
     render();
   }));
+  app.querySelectorAll('[data-pool-perarm]').forEach(el=>el.addEventListener('click', ()=>{
+    togglePerArm(state.draft.dayType, el.getAttribute('data-pool-perarm'));
+    render();
+  }));
   app.querySelectorAll('[data-pool-delete]').forEach(el=>el.addEventListener('click', ()=>{
     deleteExercise(state.draft.dayType, el.getAttribute('data-pool-delete'));
     render();
@@ -915,7 +1160,7 @@ function attachListeners(){
     const name = el.getAttribute('data-add-set');
     const ex = state.draft.exercises.find(e=>e.name===name);
     const lastWeight = ex.sets.length ? ex.sets[ex.sets.length-1].weight : '';
-    ex.sets.push({weight:lastWeight, reps:''}); render();
+    ex.sets.push({...blankSet(state.draft.dayType, name), weight:lastWeight}); render();
   }));
   app.querySelectorAll('[data-remove-set]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-remove-set'); const idx = +el.getAttribute('data-idx');
@@ -927,6 +1172,7 @@ function attachListeners(){
     const name = el.getAttribute('data-ex'); const idx = +el.getAttribute('data-idx'); const field = el.getAttribute('data-field');
     const ex = state.draft.exercises.find(e=>e.name===name);
     ex.sets[idx][field] = el.value;
+    persistDraft();
   }));
 
   app.querySelectorAll('[data-finish]').forEach(el=>el.addEventListener('click', ()=>{
@@ -959,6 +1205,35 @@ function attachListeners(){
     state.view='home'; render();
   }));
 
+  app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{
+    state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render();
+  }));
+  app.querySelectorAll('[data-auth-email]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.email = el.value; }));
+  app.querySelectorAll('[data-auth-password]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.password = el.value; }));
+  app.querySelectorAll('[data-auth-login]').forEach(el=>el.addEventListener('click', ()=>{
+    if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet (Firebase-Config fehlt).'; render(); return; }
+    const { email, password } = state.authForm;
+    fbAuth.signInWithEmailAndPassword(email, password)
+      .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
+      .catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
+  }));
+  app.querySelectorAll('[data-auth-register]').forEach(el=>el.addEventListener('click', ()=>{
+    if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet (Firebase-Config fehlt).'; render(); return; }
+    const { email, password } = state.authForm;
+    fbAuth.createUserWithEmailAndPassword(email, password)
+      .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
+      .catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
+  }));
+  app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
+  app.querySelectorAll('[data-auth-github]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('github')));
+  app.querySelectorAll('[data-logout]').forEach(el=>el.addEventListener('click', ()=>{
+    if(fbAuth) fbAuth.signOut();
+    detachCloudSync();
+    authUser = null;
+    state.view = 'auth';
+    render();
+  }));
+
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{
     state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render();
   }));
@@ -972,7 +1247,25 @@ function attachListeners(){
   }));
 }
 
+restoreDraft();
+if(state.draft) state.view = 'session';
 render();
+
+if(fbEnabled){
+  fbAuth.getRedirectResult().catch(err=>{
+    state.authForm.error = fbErrorMsg(err);
+  });
+  fbAuth.onAuthStateChanged(user=>{
+    authChecked = true;
+    authUser = user ? { uid:user.uid, email:user.email } : null;
+    detachCloudSync();
+    if(user){
+      attachCloudSync(user.uid);
+      if(state.view==='auth'){ state.view = state.draft ? 'session' : 'home'; }
+    }
+    render();
+  });
+}
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
