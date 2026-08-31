@@ -1250,7 +1250,7 @@ function attachListeners(){
   }));
 
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
-    state.newDay = { name:'', accent:DAY_SWATCHES[0] }; state.view='newday'; render();
+    state.newDay = { name:'', accent:DAY_SWATCHES[0], importCode:'', importError:'', importBusy:false }; state.view='newday'; render();
   }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{
     state.newDay.name = el.value;
