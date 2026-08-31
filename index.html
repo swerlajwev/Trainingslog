@@ -144,6 +144,7 @@ const ICON = {
   flame:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
   utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
+  share:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="M8.1 10.8 15.9 6.2M8.1 13.2l7.8 4.6"/></svg>',
 };
 
 // ---------------------------------------------------------------------
@@ -452,9 +453,41 @@ function deleteExercise(dayKey, name){
   if(!ov[dayKey].deleted.includes(name)) ov[dayKey].deleted.push(name);
   saveExOverrides(ov);
 }
+function makeShareCode(){
+  return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+function shareDay(day){
+  if(!fbEnabled || !authUser){ return Promise.reject(new Error('Cloud ist nicht eingerichtet oder du bist nicht eingeloggt.')); }
+  const code = makeShareCode();
+  return fbDb.collection('sharedDays').doc(code).set({
+    label: day.label, short: day.short, accent: day.accent, pool: day.pool || getPool(day.key),
+    createdAt: Date.now(),
+  }).then(()=>code);
+}
+function importSharedDay(code){
+  if(!fbEnabled || !authUser){ return Promise.reject(new Error('Cloud ist nicht eingerichtet oder du bist nicht eingeloggt.')); }
+  return fbDb.collection('sharedDays').doc(code.trim().toUpperCase()).get().then(snap=>{
+    if(!snap.exists) throw new Error('Code nicht gefunden.');
+    const d = snap.data();
+    const key = 'C' + uid();
+    const days = loadCustomDays();
+    days.push({ key, label:d.label, short:d.short, accent:d.accent });
+    saveCustomDays(days);
+    const pools = loadCustomPool();
+    pools[key] = Array.isArray(d.pool) ? d.pool : [];
+    saveCustomPool(pools);
+    return key;
+  });
+}
 function getDayTypes(){
   const merged = {};
-  Object.keys(BUILTIN_DAY_TYPES).forEach(k=>{ merged[k] = {...BUILTIN_DAY_TYPES[k], pool:getPool(k)}; });
+  // Bestehende Accounts (registriert vor dem Umstieg auf Cloud-Sync) sowie
+  // die lokale Nutzung ganz ohne Login behalten die alten Standard-Tage.
+  // Ab dem Cutoff neu registrierte Accounts starten komplett leer.
+  const includeBuiltins = !authUser || (typeof authUser.createdAt === 'number' && authUser.createdAt < LEGACY_ACCOUNT_CUTOFF);
+  if(includeBuiltins){
+    Object.keys(BUILTIN_DAY_TYPES).forEach(k=>{ merged[k] = {...BUILTIN_DAY_TYPES[k], pool:getPool(k)}; });
+  }
   loadCustomDays().forEach(d=>{ merged[d.key] = {...d, pool:getPool(d.key)}; });
   return merged;
 }
@@ -485,6 +518,9 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null, fbDb = null, fbEnabled = false, authUser = null, authChecked = false;
 let cloudUnsub = null, suppressNextSnapshot = false;
+// Cutoff für den Alt-Account-Bonus (siehe getDayTypes) — davor registrierte
+// Accounts behalten Brust/Rücken + Arme/Schultern automatisch.
+const LEGACY_ACCOUNT_CUTOFF = new Date('2026-08-31T23:59:59Z').getTime();
 try{
   if(window.firebase && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -578,7 +614,8 @@ let state = {
   draft: null,
   detailId: null,
   confirmDelete: false,
-  newDay: { name:'', accent:DAY_SWATCHES[0] },
+  newDay: { name:'', accent:DAY_SWATCHES[0], importCode:'', importError:'', importBusy:false },
+  shareInfo: null,
   editPoolName: null,
   editPoolValue: '',
   accountPanelOpen: false,
@@ -686,6 +723,7 @@ function render(){
   else if(state.view==='session') app.innerHTML = renderSession();
   else if(state.view==='history') app.innerHTML = renderHistory();
   else if(state.view==='streak') app.innerHTML = renderStreak();
+  else if(state.view==='share') app.innerHTML = renderShare();
   else if(state.view==='auth') app.innerHTML = renderAuth();
   else if(state.view==='detail') app.innerHTML = renderDetail();
   attachListeners();
@@ -706,8 +744,9 @@ function renderHome(){
     const last = lastByDay(day.key);
     return `
     <div class="day-card">
-      <button class="frame" style="--accent:${day.accent}" data-start="${day.key}">
+      <div class="frame" style="--accent:${day.accent};cursor:pointer;" data-start="${day.key}">
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <button data-share-day="${day.key}" title="Tag teilen" style="position:absolute;top:.4rem;right:.4rem;background:none;border:none;color:var(--text-faint);padding:.35rem;z-index:2;">${ICON.share}</button>
         <div class="day-row">
           <div>
             <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
@@ -716,7 +755,7 @@ function renderHome(){
           </div>
           <div class="day-badge" style="--accent:${day.accent};color:${day.accent};">${day.short}</div>
         </div>
-      </button>
+      </div>
     </div>`;
   }).join('');
 
@@ -800,6 +839,29 @@ function renderStreak(){
 // ---------------------------------------------------------------------
 // New day
 // ---------------------------------------------------------------------
+function renderShare(){
+  const info = state.shareInfo;
+  if(!info || info.error){
+    return `
+      <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+      <div class="h1 display">TEILEN</div>
+      <div class="empty">${info?escapeHtml(info.error):'Etwas ist schiefgelaufen.'}</div>
+    `;
+  }
+  return `
+    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+    <div class="h1 display">TAG TEILEN</div>
+    <div class="mono" style="font-size:.8rem;color:var(--text-mute);margin-bottom:1.5rem;">
+      "${escapeHtml(info.label)}" mit diesem Code teilen. Die andere Person gibt ihn bei "Neuer Tag" ein und bekommt die gleichen Übungen.
+    </div>
+    <div class="frame" style="--accent:var(--lime);margin-bottom:1rem;padding:1.5rem;text-align:center;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="display" style="font-size:2.2rem;letter-spacing:.2em;">${info.code}</div>
+    </div>
+    <button class="btn-outline mono" data-share-copy="${info.code}">${ICON.check} CODE KOPIEREN</button>
+  `;
+}
+
 function renderNewDay(){
   const nd = state.newDay;
   const swatches = DAY_SWATCHES.map(c=>`
@@ -813,6 +875,10 @@ function renderNewDay(){
     <div class="eyebrow mono" style="margin-bottom:.5rem;">FARBE</div>
     <div style="display:flex;gap:.6rem;margin-bottom:2rem;">${swatches}</div>
     <button class="save-btn mono" data-newday-create="1" ${nd.name.trim()?'':'disabled'} style="background:${nd.accent};">${ICON.check} TAG ANLEGEN</button>
+    <div class="eyebrow mono" style="margin:2rem 0 .5rem;">ODER: CODE VON EINEM FREUND EINGEBEN</div>
+    <input class="set-input mono" style="margin-bottom:.75rem;text-transform:uppercase;" type="text" placeholder="z.B. AB12CD" maxlength="10" value="${nd.importCode}" data-newday-import-code="1" />
+    ${nd.importError?`<div class="mono" style="color:var(--pink);font-size:.75rem;margin-bottom:.75rem;">${escapeHtml(nd.importError)}</div>`:''}
+    <button class="btn-outline mono" data-newday-import="1" ${nd.importCode.trim() && !nd.importBusy?'':'disabled'}>${ICON.plus} ${nd.importBusy?'LÄDT…':'CODE ÜBERNEHMEN'}</button>
   `;
 }
 
@@ -1205,6 +1271,43 @@ function attachListeners(){
     state.view='home'; render();
   }));
 
+  app.querySelectorAll('[data-share-day]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const key = el.getAttribute('data-share-day');
+    const day = getDayTypes()[key];
+    if(!day) return;
+    shareDay(day).then(code=>{
+      state.shareInfo = { code, label: day.label };
+      state.view = 'share'; render();
+    }).catch(err=>{
+      state.shareInfo = { error: err.message || 'Teilen fehlgeschlagen.' };
+      state.view = 'share'; render();
+    });
+  }));
+  app.querySelectorAll('[data-share-copy]').forEach(el=>el.addEventListener('click', ()=>{
+    const code = el.getAttribute('data-share-copy');
+    if(navigator.clipboard) navigator.clipboard.writeText(code).catch(()=>{});
+  }));
+  app.querySelectorAll('[data-newday-import-code]').forEach(el=>el.addEventListener('input', ()=>{
+    state.newDay.importCode = el.value;
+    state.newDay.importError = '';
+    const btn = app.querySelector('[data-newday-import]');
+    if(btn) btn.disabled = !el.value.trim() || state.newDay.importBusy;
+  }));
+  app.querySelectorAll('[data-newday-import]').forEach(el=>el.addEventListener('click', ()=>{
+    const code = state.newDay.importCode.trim();
+    if(!code) return;
+    state.newDay.importBusy = true; state.newDay.importError = ''; render();
+    importSharedDay(code).then(()=>{
+      state.newDay = { name:'', accent:DAY_SWATCHES[0], importCode:'', importError:'', importBusy:false };
+      state.view='home'; render();
+    }).catch(err=>{
+      state.newDay.importBusy = false;
+      state.newDay.importError = err.message || 'Code nicht gefunden.';
+      render();
+    });
+  }));
+
   app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{
     state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render();
   }));
@@ -1257,7 +1360,7 @@ if(fbEnabled){
   });
   fbAuth.onAuthStateChanged(user=>{
     authChecked = true;
-    authUser = user ? { uid:user.uid, email:user.email } : null;
+    authUser = user ? { uid:user.uid, email:user.email, createdAt: (user.metadata && user.metadata.creationTime) ? new Date(user.metadata.creationTime).getTime() : null } : null;
     detachCloudSync();
     if(user){
       attachCloudSync(user.uid);
