@@ -579,6 +579,7 @@ let state = {
   detailId: null,
   confirmDelete: false,
   newDay: { name:'', accent:DAY_SWATCHES[0] },
+  editDay: null,
   editPoolName: null,
   editPoolValue: '',
   accountPanelOpen: false,
@@ -672,6 +673,7 @@ function render(){
   syncHistory();
   if(state.view==='home') app.innerHTML = renderHome();
   else if(state.view==='newday') app.innerHTML = renderNewDay();
+  else if(state.view==='editday') app.innerHTML = renderEditDay();
   else if(state.view==='session') app.innerHTML = renderSession();
   else if(state.view==='history') app.innerHTML = renderHistory();
   else if(state.view==='streak') app.innerHTML = renderStreak();
@@ -695,8 +697,9 @@ function renderHome(){
     const last = lastByDay(day.key);
     return `
     <div class="day-card">
-      <button class="frame" style="--accent:${day.accent}" data-start="${day.key}">
+      <div class="frame" style="--accent:${day.accent};cursor:pointer;" data-start="${day.key}">
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <button data-editday-open="${day.key}" title="Tag bearbeiten" style="position:absolute;top:.4rem;right:.4rem;background:none;border:none;color:var(--text-faint);padding:.35rem;z-index:2;">${ICON.edit}</button>
         <div class="day-row">
           <div>
             <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
@@ -705,7 +708,7 @@ function renderHome(){
           </div>
           <div class="day-badge" style="--accent:${day.accent};color:${day.accent};">${day.short}</div>
         </div>
-      </button>
+      </div>
     </div>`;
   }).join('');
 
@@ -793,6 +796,31 @@ function autoShort(name){
   const parts = name.trim().split(/[\/\s]+/).filter(Boolean);
   if(parts.length >= 2) return parts.slice(0,3).map(p=>p[0].toUpperCase()).join('/');
   return name.trim().slice(0,3).toUpperCase();
+}
+function upsertCustomDay(key, patch){
+  const days = loadCustomDays();
+  const idx = days.findIndex(d=>d.key===key);
+  if(idx>=0){ days[idx] = {...days[idx], ...patch}; }
+  else { days.push({ key, ...patch }); }
+  saveCustomDays(days);
+}
+function renderEditDay(){
+  const ed = state.editDay;
+  const swatches = DAY_SWATCHES.map(c=>`
+    <button class="swatch" data-editday-color="${c}" style="background:${c};border-color:${ed.accent===c?'#fff':'transparent'};"></button>
+  `).join('');
+  return `
+    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+    <div class="h1 display">TAG BEARBEITEN</div>
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">NAME</div>
+    <input class="set-input mono" style="margin-bottom:1.5rem;" type="text" value="${escapeHtml(ed.name)}" data-editday-name="1" />
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">KÜRZEL (Badge-Anzeige)</div>
+    <input class="set-input mono" style="margin-bottom:1.5rem;max-width:140px;text-transform:uppercase;" type="text" maxlength="4" value="${escapeHtml(ed.short)}" data-editday-short="1" />
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">FARBE</div>
+    <div style="display:flex;gap:.6rem;margin-bottom:2rem;">${swatches}</div>
+    <button class="save-btn mono" data-editday-save="1" ${ed.name.trim()?'':'disabled'} style="background:${ed.accent};margin-bottom:1rem;">${ICON.check} SPEICHERN</button>
+    <button class="btn-outline mono" data-editday-delete="1">${ICON.trash} TAG LÖSCHEN</button>
+  `;
 }
 function renderNewDay(){
   const nd = state.newDay;
@@ -1184,6 +1212,40 @@ function attachListeners(){
       saveSessions(state.sessions);
     }
     state.draft=null; state.view='home'; render();
+  }));
+
+  app.querySelectorAll('[data-editday-open]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const key = el.getAttribute('data-editday-open');
+    const day = getDayTypes()[key];
+    if(!day) return;
+    state.editDay = { key, name: day.label, short: day.short, accent: day.accent };
+    state.view = 'editday'; render();
+  }));
+  app.querySelectorAll('[data-editday-name]').forEach(el=>el.addEventListener('input', ()=>{
+    state.editDay.name = el.value;
+    const btn = app.querySelector('[data-editday-save]');
+    if(btn) btn.disabled = !el.value.trim();
+  }));
+  app.querySelectorAll('[data-editday-short]').forEach(el=>el.addEventListener('input', ()=>{
+    state.editDay.short = el.value;
+  }));
+  app.querySelectorAll('[data-editday-color]').forEach(el=>el.addEventListener('click', ()=>{
+    state.editDay.accent = el.getAttribute('data-editday-color'); render();
+  }));
+  app.querySelectorAll('[data-editday-save]').forEach(el=>el.addEventListener('click', ()=>{
+    const name = state.editDay.name.trim();
+    if(!name) return;
+    const short = (state.editDay.short.trim() || autoShort(name)).toUpperCase();
+    upsertCustomDay(state.editDay.key, { label:name.toUpperCase(), short, accent:state.editDay.accent });
+    state.editDay = null; state.view='home'; render();
+  }));
+  app.querySelectorAll('[data-editday-delete]').forEach(el=>el.addEventListener('click', ()=>{
+    const ok = confirm('Diesen Tag wirklich löschen? Bereits gespeicherte Sessions dazu bleiben im Verlauf erhalten.');
+    if(!ok) return;
+    const key = state.editDay.key;
+    saveCustomDays(loadCustomDays().filter(d=>d.key!==key));
+    state.editDay = null; state.view='home'; render();
   }));
 
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
