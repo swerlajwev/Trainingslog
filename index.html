@@ -50,7 +50,7 @@
   .day-card{margin-bottom:.75rem;background:#000;border:none;padding:0;}
   .day-card .frame{padding:1rem;}
   .day-row{display:flex;align-items:center;justify-content:space-between;}
-  .day-badge{display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);font-family:var(--font-mono);font-size:.68rem;font-weight:600;letter-spacing:.02em;}
+  .day-badge{display:flex;align-items:center;justify-content:center;min-width:2.5rem;height:2.5rem;padding:0 .4rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);font-family:var(--font-mono);font-size:.64rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;}
   .btn-outline{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.8rem;letter-spacing:.2em;}
   .btn-outline:hover{border-color:var(--border-hover);color:var(--text);}
   .chip-row{display:flex;gap:.5rem;margin-bottom:1.5rem;}
@@ -789,6 +789,11 @@ function renderStreak(){
 // ---------------------------------------------------------------------
 // New day
 // ---------------------------------------------------------------------
+function autoShort(name){
+  const parts = name.trim().split(/[\/\s]+/).filter(Boolean);
+  if(parts.length >= 2) return parts.slice(0,3).map(p=>p[0].toUpperCase()).join('/');
+  return name.trim().slice(0,3).toUpperCase();
+}
 function renderNewDay(){
   const nd = state.newDay;
   const swatches = DAY_SWATCHES.map(c=>`
@@ -799,6 +804,8 @@ function renderNewDay(){
     <div class="h1 display">NEUER TAG</div>
     <div class="eyebrow mono" style="margin-bottom:.5rem;">NAME</div>
     <input class="set-input mono" style="margin-bottom:1.5rem;" type="text" placeholder="z.B. BEINE" value="${nd.name}" data-newday-name="1" />
+    <div class="eyebrow mono" style="margin-bottom:.5rem;">KÜRZEL (Badge-Anzeige)</div>
+    <input class="set-input mono" style="margin-bottom:1.5rem;max-width:140px;text-transform:uppercase;" type="text" maxlength="4" placeholder="z.B. B/W" value="${nd.short}" data-newday-short="1" />
     <div class="eyebrow mono" style="margin-bottom:.5rem;">FARBE</div>
     <div style="display:flex;gap:.6rem;margin-bottom:2rem;">${swatches}</div>
     <button class="save-btn mono" data-newday-create="1" ${nd.name.trim()?'':'disabled'} style="background:${nd.accent};">${ICON.check} TAG ANLEGEN</button>
@@ -1041,8 +1048,12 @@ function attachListeners(){
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
     if(state.draft && state.draft.exercises.length>0){
-      const ok = confirm('Du hast noch eine ungespeicherte Session offen. Trotzdem eine neue starten und die alte verwerfen?');
-      if(!ok) return;
+      if(state.draft.dayType === key){
+        state.view='session'; render();
+        return;
+      }
+      const ok = confirm('Du hast noch eine andere ungespeicherte Session offen. Diese verwerfen und eine neue starten? (Abbrechen bringt dich zurück zur offenen Session)');
+      if(!ok){ state.view='session'; render(); return; }
     }
     state.draft = { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, energy:false, mood:null, energyLevel:50, food:'', exercises:[] };
     state.view='session'; render();
@@ -1087,7 +1098,10 @@ function attachListeners(){
   app.querySelectorAll('[data-copy-last]').forEach(el=>el.addEventListener('click', ()=>{
     const last = state.sessions.find(s=>s.dayType===state.draft.dayType);
     if(last){
-      state.draft.exercises = last.exercises.map(ex=>({ name:ex.name, sets: ex.sets.map(s=>({weight:s.weight, reps:s.reps, repsLeft:s.repsLeft, repsRight:s.repsRight})) }));
+      state.draft.exercises = last.exercises.map(ex=>({
+        name: ex.name,
+        sets: ex.sets.map(()=>blankSet(state.draft.dayType, ex.name))
+      }));
     }
     render();
   }));
@@ -1173,12 +1187,21 @@ function attachListeners(){
   }));
 
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
-    state.newDay = { name:'', accent:DAY_SWATCHES[0] }; state.view='newday'; render();
+    state.newDay = { name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0] }; state.view='newday'; render();
   }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{
     state.newDay.name = el.value;
+    if(!state.newDay.shortTouched){
+      state.newDay.short = autoShort(el.value);
+      const shortInput = app.querySelector('[data-newday-short]');
+      if(shortInput) shortInput.value = state.newDay.short;
+    }
     const btn = app.querySelector('[data-newday-create]');
     if(btn) btn.disabled = !el.value.trim();
+  }));
+  app.querySelectorAll('[data-newday-short]').forEach(el=>el.addEventListener('input', ()=>{
+    state.newDay.shortTouched = true;
+    state.newDay.short = el.value;
   }));
   app.querySelectorAll('[data-newday-color]').forEach(el=>el.addEventListener('click', ()=>{
     state.newDay.accent = el.getAttribute('data-newday-color'); render();
@@ -1187,7 +1210,7 @@ function attachListeners(){
     const name = state.newDay.name.trim();
     if(!name) return;
     const key = 'C' + uid();
-    const short = name.slice(0,3).toUpperCase();
+    const short = (state.newDay.short.trim() || autoShort(name)).toUpperCase();
     const days = loadCustomDays();
     days.push({ key, label:name.toUpperCase(), short, accent:state.newDay.accent });
     saveCustomDays(days);
