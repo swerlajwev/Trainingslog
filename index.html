@@ -895,11 +895,11 @@ function renderSession(){
             <input class="set-input mono" type="number" inputmode="decimal" placeholder="kg" value="${s.weight}" data-ex="${ex.name}" data-idx="${idx}" data-field="weight" />
             <span style="color:var(--text-faint);font-size:.8rem;">×</span>
             ${isPerArm(d.dayType, ex.name) ? `
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="L" title="Wiederholungen links" value="${s.repsLeft??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsLeft" style="max-width:3.4rem;" />
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsLeftHint!==undefined && s.repsLeftHint!=='')?s.repsLeftHint:'L'}" title="Wiederholungen links" value="${s.repsLeft??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsLeft" style="max-width:3.4rem;" />
             <span style="color:var(--text-faint);font-size:.75rem;">/</span>
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="R" title="Wiederholungen rechts" value="${s.repsRight??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsRight" style="max-width:3.4rem;" />
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsRightHint!==undefined && s.repsRightHint!=='')?s.repsRightHint:'R'}" title="Wiederholungen rechts" value="${s.repsRight??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsRight" style="max-width:3.4rem;" />
             ` : `
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="wdh" value="${s.reps??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="reps" />
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsHint!==undefined && s.repsHint!=='')?s.repsHint:'wdh'}" value="${s.reps??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="reps" />
             `}
             ${ex.sets.length>1?`<button class="x-btn" data-remove-set="${ex.name}" data-idx="${idx}">${ICON.x}</button>`:''}
           </div>`).join('')}
@@ -1128,7 +1128,12 @@ function attachListeners(){
     if(last){
       state.draft.exercises = last.exercises.map(ex=>({
         name: ex.name,
-        sets: ex.sets.map(()=>blankSet(state.draft.dayType, ex.name))
+        sets: ex.sets.map(s=>{
+          if(s.repsLeft!==undefined || s.repsRight!==undefined){
+            return { weight: s.weight, repsLeft:'', repsRight:'', repsLeftHint: s.repsLeft, repsRightHint: s.repsRight };
+          }
+          return { weight: s.weight, reps:'', repsHint: s.reps };
+        })
       }));
     }
     render();
