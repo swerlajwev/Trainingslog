@@ -619,6 +619,10 @@ window.addEventListener('popstate', (ev)=>{
 });
 
 const DRAFT_KEY = 'trainingslog-draft-v1';
+function updateScorePreview(){
+  const el = document.getElementById('scorePreview');
+  if(el && state.draft) el.innerHTML = scoreCardHtml(state.draft, 'TAGES-SCORE (VORSCHAU)');
+}
 function persistDraft(){
   try{
     if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft));
@@ -1007,7 +1011,7 @@ function renderSession(){
       <input class="set-input mono" type="text" placeholder="Neue Übung…" data-custom-ex-input="1" style="flex:1;" />
       <button class="pool-btn" data-add-custom-ex="1">${ICON.plus}</button>
     </div>` : ''}
-    ${scoreCardHtml(d, 'TAGES-SCORE (VORSCHAU)')}
+    <div id="scorePreview">${scoreCardHtml(d, 'TAGES-SCORE (VORSCHAU)')}</div>
     <button class="save-btn" data-finish="1" ${d.exercises.length===0?'disabled':''} style="background:${day.accent}">${ICON.check} SESSION SPEICHERN</button>
   `;
 }
@@ -1236,6 +1240,7 @@ function initExerciseDrag(){
         state.draft.exercises.forEach(ex=>{ byName[ex.name] = ex; });
         state.draft.exercises = newOrder.map(n=>byName[n]).filter(Boolean);
         persistDraft();
+        updateScorePreview();
       };
 
       window.addEventListener('pointermove', onMove);
@@ -1332,6 +1337,7 @@ function attachListeners(){
     const label = app.querySelector('[data-energy-value]');
     if(label) label.textContent = el.value + '%';
     persistDraft();
+    updateScorePreview();
   }));
 
   app.querySelectorAll('[data-perfect]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1429,6 +1435,7 @@ function attachListeners(){
     const ex = state.draft.exercises.find(e=>e.name===name);
     ex.sets[idx][field] = el.value;
     persistDraft();
+    updateScorePreview();
   }));
 
   app.querySelectorAll('[data-finish]').forEach(el=>el.addEventListener('click', ()=>{
