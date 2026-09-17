@@ -25,7 +25,7 @@
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);
        -webkit-tap-highlight-color:transparent;}
-  #app{max-width:480px;margin:0 auto;padding:2rem 1rem 3rem;min-height:100vh;}
+  #app{max-width:480px;margin:0 auto;padding:2rem 1rem 6rem;min-height:100vh;}
   .day-grid{display:flex;flex-direction:column;gap:.75rem;}
   @media (min-width:860px){
     #app{max-width:920px;padding-top:3rem;}
@@ -88,8 +88,8 @@
   .hist-d{font-size:.85rem;}
   .hist-right{display:flex;align-items:center;gap:.5rem;}
   #accountFab{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:.6rem;}
-  .fab-btn{width:2.8rem;height:2.8rem;border-radius:50%;background:#09090b;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5);}
-  .fab-panel{background:#09090b;border:1px solid var(--border);padding:.85rem;width:14rem;box-shadow:0 4px 16px rgba(0,0,0,.55);}
+  .fab-btn{width:3rem;height:3rem;border-radius:50%;background:#09090b;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.6);color:var(--text-dim);}
+  .fab-panel{background:#09090b;border:1px solid var(--border);padding:.85rem;width:16rem;box-shadow:0 4px 16px rgba(0,0,0,.7);}
   .tag{font-size:.72rem;letter-spacing:.2em;}
   .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .6rem;font-size:.72rem;border:1px solid;margin-right:.5rem;}
   .set-pill{padding:.25rem .5rem;background:#09090b;border:1px solid var(--border);font-size:.85rem;margin:0 .4rem .4rem 0;display:inline-block;}
@@ -123,6 +123,12 @@
   .score-card{margin-bottom:1.2rem;}
   .score-legend{display:flex;justify-content:space-between;font-size:.62rem;color:var(--text-mute);margin-top:.5rem;flex-wrap:wrap;gap:.3rem;}
   textarea.set-input{width:100%;min-height:3.2rem;resize:vertical;font-family:var(--font-body);font-size:.85rem;}
+  /* Vergleichskarte */
+  .vs-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;}
+  .vs-label{font-size:.62rem;letter-spacing:.15em;color:var(--text-mute);min-width:4.5rem;}
+  .vs-bar{flex:1;height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative;}
+  .vs-bar-fill{height:100%;border-radius:999px;}
+  .vs-val{font-family:var(--font-mono);font-size:.72rem;min-width:4.5rem;text-align:right;}
 </style>
 </head>
 <body>
@@ -149,7 +155,7 @@ const ICON = {
   flame:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
   utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
-  user:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  user:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
 };
 
 // ---------------------------------------------------------------------
@@ -242,9 +248,7 @@ function experienceLabel(v){
   return v==='anfaenger' ? 'Anfänger' : v==='erfahren' ? 'Erfahren' : 'Fortgeschritten';
 }
 
-// ---------------------------------------------------------------------
 // Score-System: 100% Trainingsleistung
-// ---------------------------------------------------------------------
 const SCORE_TIERS = [
   { min:0,  label:'SCHWACH', color:'var(--red)' },
   { min:20, label:'MAU',     color:'var(--orange)' },
@@ -326,9 +330,7 @@ function scoreCardHtml(sessionLike, label){
         <span style="color:${tier.color}">${tier.label}</span>
         ${sc.training!=null?`<span>TRAINING ${sc.training}%</span>`:''}
         ${sc.recordPct!=null?`<span>REKORD ${sc.recordPct}%</span>`:''}
-        ${sc.humanPct!=null?`<span title="Schätzung auf Basis deiner Profildaten">Ø-MENSCH ${sc.humanPct}%*</span>`:''}
       </div>
-      ${sc.humanPct!=null?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.35rem;">* SCHÄTZUNG · KEINE WISSENSCHAFTLICHE MESSUNG</div>`:''}
     </div>`;
 }
 const DAY_SWATCHES = ['var(--lime)','var(--sky)','var(--pink)','var(--orange)','var(--green)','var(--red)'];
@@ -679,30 +681,53 @@ function restoreDraft(){
   }catch(e){ }
 }
 
+// FAB unten rechts: enthält Profil + Sync/Logout
 function renderAccountFab(){
   const el = document.getElementById('accountFab');
   if(!el) return;
-  if(!fbEnabled || !authUser || state.view!=='home'){ el.innerHTML=''; return; }
-  el.innerHTML = `
-    ${state.accountPanelOpen ? `
-    <div class="fab-panel mono">
-      <div style="color:var(--green);font-size:.72rem;margin-bottom:.5rem;">${ICON.check} SYNC AKTIV</div>
-      <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:.75rem;word-break:break-all;">${authUser.email}</div>
-      <button data-fab-logout="1" class="btn-outline mono" style="width:100%;font-size:.72rem;">LOGOUT</button>
-    </div>` : ''}
-    <button class="fab-btn" data-fab-toggle="1" style="border-color:var(--green);color:var(--green);" title="Account">${ICON.check}</button>
-  `;
-}
-document.addEventListener('click', (e)=>{
-  const toggleBtn = e.target.closest('[data-fab-toggle]');
-  if(toggleBtn){
+  if(state.view==='auth'){ el.innerHTML=''; return; }
+
+  const profileComplete = isProfileComplete(loadProfile());
+
+  if(state.accountPanelOpen){
+    el.innerHTML = `
+      <div class="fab-panel mono">
+        <button data-fab-profile="1" class="btn-outline mono" style="width:100%;font-size:.72rem;margin-bottom:.5rem;${profileComplete?'':'border-color:var(--sky);color:var(--sky);'}">
+          ${ICON.user} PROFIL ${profileComplete?'BEARBEITEN':'EINRICHTEN'}
+        </button>
+        ${authUser ? `
+          <div style="color:var(--green);font-size:.7rem;margin:.5rem 0 .3rem;">${ICON.check} SYNC AKTIV</div>
+          <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:.5rem;word-break:break-all;">${authUser.email}</div>
+          <button data-fab-logout="1" class="btn-outline mono" style="width:100%;font-size:.72rem;">LOGOUT</button>
+        ` : `
+          <button data-fab-auth="1" class="btn-outline mono" style="width:100%;font-size:.72rem;">${ICON.zap} SYNC EINRICHTEN</button>
+        `}
+      </div>
+      <button class="fab-btn" data-fab-toggle="1" style="border-color:var(--lime);color:var(--lime);">${ICON.x}</button>
+    `;
+  } else {
+    el.innerHTML = `<button class="fab-btn" data-fab-toggle="1" style="${authUser?'border-color:var(--green);color:var(--green);':'border-color:var(--sky);color:var(--sky);'}" title="Menü">${ICON.user}</button>`;
+  }
+
+  // Listener (direkt, weil FAB außerhalb von #app liegt)
+  el.querySelectorAll('[data-fab-toggle]').forEach(b=>b.addEventListener('click', (e)=>{
     e.stopPropagation();
     state.accountPanelOpen = !state.accountPanelOpen;
     renderAccountFab();
-    return;
-  }
-  const logoutBtn = e.target.closest('[data-fab-logout]');
-  if(logoutBtn){
+  }));
+  el.querySelectorAll('[data-fab-profile]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.profile = loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' };
+    state.accountPanelOpen = false;
+    state.view='profile'; render();
+  }));
+  el.querySelectorAll('[data-fab-auth]').forEach(b=>b.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.authForm = { email:'', password:'', error:'' };
+    state.accountPanelOpen = false;
+    state.view='auth'; render();
+  }));
+  el.querySelectorAll('[data-fab-logout]').forEach(b=>b.addEventListener('click', (e)=>{
     e.stopPropagation();
     if(fbAuth) fbAuth.signOut();
     detachCloudSync();
@@ -710,8 +735,9 @@ document.addEventListener('click', (e)=>{
     state.accountPanelOpen = false;
     state.view = 'auth';
     render();
-    return;
-  }
+  }));
+}
+document.addEventListener('click', (e)=>{
   if(state.accountPanelOpen){
     const fab = document.getElementById('accountFab');
     if(fab && !fab.contains(e.target)){
@@ -739,15 +765,14 @@ function render(){
   renderAccountFab();
 }
 
-// Score-Verlauf (mit Auto-Zoom + klickbaren Punkten)
+// Score-Verlauf: alle Sessions, klickbare Punkte, Auto-Zoom
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
-  const recent = chronological.slice(-15);
-  if(recent.length < 2){
+  if(chronological.length < 2){
     return `<div class="empty" style="margin-top:1.5rem;">Noch nicht genug Sessions für ein Diagramm (mind. 2 nötig).</div>`;
   }
   const DAYS = getDayTypes();
-  const points = recent.map(s=>{
+  const points = chronological.map(s=>{
     const sc = computeScore(s);
     const day = DAYS[s.dayType];
     return {
@@ -772,33 +797,35 @@ function renderScoreChart(){
   if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
   if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
 
-  const w = 300, h = 140, padL = 32, padR = 12, padT = 12, padB = 12;
+  const w = 320, h = 180, padL = 34, padR = 14, padT = 14, padB = 14;
   const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
   const scaleY = v => h - padB - ((v - rangeMin) / (rangeMax - rangeMin)) * (h - padT - padB);
   const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
-  const dots = points.map((p,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="5" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"><title>${p.dayLabel} · ${fmtDate(p.date)} · ${p.y}%</title></circle>`).join('');
+  const dots = points.map((p,i)=>`
+    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"><title>${p.dayLabel} · ${fmtDate(p.date)} · ${p.y}%</title></circle>
+    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="14" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
+  `).join('');
 
   const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
   const yTicks = [rangeMin, tickMid, rangeMax];
   const yTickLines = yTicks.map(v=>`
     <line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
-    <text x="${padL-5}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="8" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>
+    <text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>
   `).join('');
 
   return `
-    <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;">SCORE-VERLAUF (letzte ${points.length})</div>
+    <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;">SCORE-VERLAUF (${points.length} SESSIONS)</div>
     <div class="frame" style="--accent:var(--lime);padding:1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
         ${yTickLines}
-        <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2"/>
+        <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2.2"/>
         ${dots}
       </svg>
-      <div class="mono" style="font-size:.65rem;color:var(--text-mute);margin-top:.5rem;">Punktfarbe = Trainingstag. <span style="color:var(--lime);">Tippe auf einen Punkt</span>, um die Session zu öffnen.</div>
     </div>`;
 }
 
-// Ø-Mensch-Vergleichskarte
+// Ø-Mensch-Vergleichskarte — neues, verständlicheres Design
 function renderHumanCompareCard(){
   const profile = loadProfile();
   if(!isProfileComplete(profile)){
@@ -815,33 +842,40 @@ function renderHumanCompareCard(){
     ? sessionsWithVol.reduce((a,s)=>a+sessionVolume(s),0)/sessionsWithVol.length
     : 0;
   const est = humanEstimate('__overall__', profile);
-  const pct = (est>0 && avgVol>0) ? Math.round((avgVol/est)*100) : null;
-  const tier = pct==null ? null : getTier(Math.min(pct,100));
+  const pct = (est>0 && avgVol>0) ? Math.round((avgVol/est)*100) : 0;
+  const factor = est>0 ? (avgVol/est) : 0;
+  const maxBar = Math.max(avgVol, est) || 1;
+  const tier = getTier(Math.min(pct,100));
 
   return `
-    <div class="frame" style="--accent:var(--sky);padding:1rem;margin-top:1rem;">
+    <div class="frame" style="--accent:${tier.color};padding:1rem;margin-top:1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;">
-        <div class="eyebrow mono">Ø-MENSCH VERGLEICH (SCHÄTZUNG)</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div class="eyebrow mono">DEIN TRAININGSVOLUMEN</div>
         <button class="edit-toggle mono" data-goto-profile="1">${ICON.edit} PROFIL</button>
       </div>
-      <div style="display:flex;justify-content:space-between;gap:1rem;margin-bottom:.7rem;">
-        <div>
-          <div class="eyebrow mono" style="font-size:.6rem;">DEIN Ø VOLUMEN</div>
-          <div class="mono" style="font-size:1.15rem;color:var(--lime);">${Math.round(avgVol).toLocaleString('de-DE')}<span style="color:var(--text-faint);font-size:.75rem;"> kg</span></div>
-        </div>
-        <div style="text-align:right;">
-          <div class="eyebrow mono" style="font-size:.6rem;">Ø MENSCH</div>
-          <div class="mono" style="font-size:1.15rem;color:var(--text-mute);">${Math.round(est).toLocaleString('de-DE')}<span style="color:var(--text-faint);font-size:.75rem;"> kg</span></div>
+
+      <div style="text-align:center;margin-bottom:1.2rem;">
+        <div class="display" style="font-size:2.4rem;color:${tier.color};line-height:1;">${factor.toFixed(1)}×</div>
+        <div class="mono" style="font-size:.7rem;color:var(--text-mute);letter-spacing:.15em;margin-top:.4rem;">
+          ${pct}% VOM Ø-MENSCH
         </div>
       </div>
-      ${pct!=null?`
-        <div class="score-bar"><div class="score-fill" style="width:${Math.min(pct,100)}%;background:${tier.color}"></div></div>
-        <div class="mono" style="font-size:.8rem;color:${tier.color};text-align:right;margin-top:.4rem;">${pct}% vom Durchschnitt</div>
-      `:''}
-      <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.7rem;line-height:1.6;">
-        PROFIL: ${profile.gender==='w'?'Weiblich':'Männlich'} · ${profile.age}J · ${profile.weight}kg · ${profile.height}cm · ${experienceLabel(profile.experience)}<br>
-        Grobe Orientierung, keine wissenschaftliche Messung.
+
+      <div class="vs-row">
+        <div class="vs-label mono">DU</div>
+        <div class="vs-bar"><div class="vs-bar-fill" style="width:${(avgVol/maxBar)*100}%;background:var(--lime);"></div></div>
+        <div class="vs-val mono" style="color:var(--lime);">${Math.round(avgVol).toLocaleString('de-DE')} kg</div>
+      </div>
+      <div class="vs-row">
+        <div class="vs-label mono">Ø MENSCH</div>
+        <div class="vs-bar"><div class="vs-bar-fill" style="width:${(est/maxBar)*100}%;background:var(--text-mute);"></div></div>
+        <div class="vs-val mono" style="color:var(--text-mute);">${Math.round(est).toLocaleString('de-DE')} kg</div>
+      </div>
+
+      <div class="mono" style="font-size:.62rem;color:var(--text-faint);margin-top:.9rem;text-align:center;line-height:1.5;">
+        Ø VOLUMEN PRO SESSION · SCHÄTZUNG
       </div>
     </div>`;
 }
@@ -853,8 +887,6 @@ function renderHome(){
   const weekCount = state.sessions.filter(s => (now - new Date(s.date))/86400000 < 7).length;
   const lastByDay = key => state.sessions.find(s => s.dayType===key);
   const streak = currentStreakWeeks(state.sessions);
-  const profile = loadProfile();
-  const profileComplete = isProfileComplete(profile);
 
   const cards = Object.values(DAYS).map(day => {
     const last = lastByDay(day.key);
@@ -894,14 +926,6 @@ function renderHome(){
         </button>
       </div>
     </div>
-    ${fbEnabled ? (authUser ? `
-    <div class="btn-outline mono" style="justify-content:space-between;margin-bottom:.5rem;border-color:var(--green);color:var(--green);">
-      <span>${ICON.check} SYNC AKTIV · ${authUser.email}</span>
-      <button data-logout="1" style="background:none;border:none;color:var(--green);font-size:.72rem;letter-spacing:.2em;padding:0;">LOGOUT</button>
-    </div>` : `
-    <button class="btn-outline mono" style="margin-bottom:.5rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>
-    `) : ''}
-    <button class="btn-outline mono" style="margin-bottom:1.2rem;font-size:.72rem;${profileComplete?'':'border-color:var(--sky);color:var(--sky);'}" data-goto-profile="1">${ICON.user} PROFIL ${profileComplete?'BEARBEITEN':'EINRICHTEN · FEHLT NOCH'}</button>
     <div class="eyebrow mono" style="margin-bottom:.75rem;">SESSION WÄHLEN</div>
     <div class="day-grid">${cards}</div>
     <button class="btn-outline mono" style="margin-top:.75rem;" data-newday-open="1">${ICON.plus} NEUER TAG</button>
@@ -920,7 +944,7 @@ function renderProfile(){
     <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
     <div class="h1 display">PROFIL</div>
     <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-bottom:1.5rem;line-height:1.55;">
-      Diese Daten werden lokal <em>und</em> in deinem Account (Firestore) gespeichert. Sie dienen ausschließlich dem geschätzten Ø-Menschen-Vergleich.
+      Diese Daten werden lokal <em>und</em> in deinem Account gespeichert. Sie dienen ausschließlich dem geschätzten Ø-Menschen-Vergleich.
     </div>
 
     <div class="eyebrow mono" style="margin-bottom:.5rem;">GRÖSSE (CM)</div>
@@ -949,9 +973,9 @@ function renderProfile(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="eyebrow mono" style="margin-bottom:.5rem;">WAS BEDEUTET DIE AUSWAHL?</div>
       <div class="mono" style="font-size:.72rem;color:var(--text-dim);line-height:1.7;">
-        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">ANFÄNGER</span> · Neu im Gym oder erst seit wenigen Monaten. Faktor 0,6.</div>
-        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">FORTSCHR.</span> · Regelmäßig seit 1–3 Jahren. Kennt Übungen, solide Kraftbasis. Faktor 1,0 (= Ø-Mensch).</div>
-        <div><span style="color:var(--lime);">ERFAHREN</span> · Seit über 3 Jahren konsequent. Deutlich über Durchschnitt. Faktor 1,4.</div>
+        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">ANFÄNGER</span> · Neu im Gym oder erst seit wenigen Monaten.</div>
+        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">FORTSCHR.</span> · Regelmäßig seit 1–3 Jahren. Solide Kraftbasis.</div>
+        <div><span style="color:var(--lime);">ERFAHREN</span> · Seit über 3 Jahren konsequent. Deutlich über Durchschnitt.</div>
       </div>
     </div>
 
@@ -1740,7 +1764,7 @@ function attachListeners(){
     state.view='home'; render();
   }));
 
-  // Chart-Punkte klickbar
+  // Chart-Punkte
   app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', ()=>{
     state.detailId = el.getAttribute('data-chart-point');
     state.confirmDelete = false;
