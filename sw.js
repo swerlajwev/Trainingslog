@@ -1,4 +1,4 @@
-const CACHE = "trainingslog-v4";
+const CACHE = "trainingslog-v5";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -16,8 +16,6 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
 
-  // HTML-Seite: immer zuerst frisch aus dem Netz holen, damit Updates sofort
-  // ankommen. Nur wenn offline/kein Netz: letzte gecachte Version zeigen.
   if (e.request.mode === "navigate" || e.request.destination === "document") {
     e.respondWith(
       fetch(e.request)
@@ -31,7 +29,6 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Restliche Assets (Icons, Manifest): cache-first, im Hintergrund aktualisieren.
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const fetchPromise = fetch(e.request)

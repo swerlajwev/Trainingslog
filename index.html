@@ -193,9 +193,7 @@ const MOODS = {
   kein_bock:  { label:'KEIN BOCK', color:'var(--text-faint)', score:15 },
 };
 
-// ---------------------------------------------------------------------
 // Ø-Mensch-Referenzwerte (Basis: männlich, 80 kg, 30 J, fortgeschritten)
-// ---------------------------------------------------------------------
 const HUMAN_REFERENCE = {
   '__overall__': 4000,
   'Bankdrücken': 2200,
@@ -349,9 +347,7 @@ function localDateInputValue(iso){
   return `${y}-${m}-${day}`;
 }
 
-// ---------------------------------------------------------------------
 // Streak
-// ---------------------------------------------------------------------
 function weekMondayKey(dateLike){
   const d = new Date(dateLike);
   const day = d.getDay();
@@ -404,9 +400,7 @@ function weeksSince(sessions){
 
 const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// ---------------------------------------------------------------------
 // Storage
-// ---------------------------------------------------------------------
 const STORE_KEY = 'trainingslog_sessions';
 const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
 const CUSTOM_POOL_KEY = 'trainingslog_custom_pool';
@@ -527,9 +521,7 @@ function exerciseStats(dayKey){
   return stats;
 }
 
-// ---------------------------------------------------------------------
 // Cloud-Sync (Firebase)
-// ---------------------------------------------------------------------
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBhRCi36Ac-1AO6UcfF1NVsTY9YXtwIwdE",
   authDomain: "trainingslog-102.firebaseapp.com",
@@ -626,9 +618,7 @@ function oauthSignIn(providerId){
     });
 }
 
-// ---------------------------------------------------------------------
 // State
-// ---------------------------------------------------------------------
 let state = {
   view: 'home',
   sessions: loadSessions(),
@@ -749,9 +739,7 @@ function render(){
   renderAccountFab();
 }
 
-// ---------------------------------------------------------------------
-// Score-Verlauf (Diagramm)
-// ---------------------------------------------------------------------
+// Score-Verlauf (mit Auto-Zoom + klickbaren Punkten)
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
   const recent = chronological.slice(-15);
@@ -762,29 +750,55 @@ function renderScoreChart(){
   const points = recent.map(s=>{
     const sc = computeScore(s);
     const day = DAYS[s.dayType];
-    return { y: Math.min(100, sc.overall ?? 0), accent: day ? day.accent : 'var(--lime)' };
+    return {
+      y: Math.max(0, Math.min(110, sc.overall ?? 0)),
+      accent: day ? day.accent : 'var(--lime)',
+      id: s.id,
+      date: s.date,
+      dayLabel: day ? day.short : '?'
+    };
   });
-  const w = 300, h = 120, pad = 10;
-  const stepX = points.length>1 ? (w - pad*2) / (points.length-1) : 0;
-  const scaleY = v => h - pad - (v/100)*(h-pad*2);
-  const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(pad+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
-  const dots = points.map((p,i)=>`<circle cx="${(pad+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="3.2" fill="${p.accent}"/>`).join('');
+
+  const ys = points.map(p=>p.y);
+  const dataMin = Math.min(...ys);
+  const dataMax = Math.max(...ys);
+  const mid = (dataMin + dataMax) / 2;
+  const MIN_SPAN = 30;
+  let span = Math.max(MIN_SPAN, (dataMax - dataMin) * 1.4);
+  let rangeMin = Math.floor((mid - span/2) / 5) * 5;
+  let rangeMax = Math.ceil((mid + span/2) / 5) * 5;
+  rangeMin = Math.max(0, rangeMin);
+  rangeMax = Math.min(110, rangeMax);
+  if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
+  if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
+
+  const w = 300, h = 140, padL = 32, padR = 12, padT = 12, padB = 12;
+  const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
+  const scaleY = v => h - padB - ((v - rangeMin) / (rangeMax - rangeMin)) * (h - padT - padB);
+  const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
+  const dots = points.map((p,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="5" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"><title>${p.dayLabel} · ${fmtDate(p.date)} · ${p.y}%</title></circle>`).join('');
+
+  const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
+  const yTicks = [rangeMin, tickMid, rangeMax];
+  const yTickLines = yTicks.map(v=>`
+    <line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+    <text x="${padL-5}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="8" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>
+  `).join('');
+
   return `
     <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;">SCORE-VERLAUF (letzte ${points.length})</div>
     <div class="frame" style="--accent:var(--lime);padding:1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
-        <line x1="${pad}" y1="${scaleY(50).toFixed(1)}" x2="${w-pad}" y2="${scaleY(50).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+        ${yTickLines}
         <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2"/>
         ${dots}
       </svg>
-      <div class="mono" style="font-size:.65rem;color:var(--text-mute);margin-top:.5rem;">Gestrichelte Linie = 50%. Punktfarbe = Trainingstag.</div>
+      <div class="mono" style="font-size:.65rem;color:var(--text-mute);margin-top:.5rem;">Punktfarbe = Trainingstag. <span style="color:var(--lime);">Tippe auf einen Punkt</span>, um die Session zu öffnen.</div>
     </div>`;
 }
 
-// ---------------------------------------------------------------------
 // Ø-Mensch-Vergleichskarte
-// ---------------------------------------------------------------------
 function renderHumanCompareCard(){
   const profile = loadProfile();
   if(!isProfileComplete(profile)){
@@ -832,9 +846,7 @@ function renderHumanCompareCard(){
     </div>`;
 }
 
-// ---------------------------------------------------------------------
 // Home
-// ---------------------------------------------------------------------
 function renderHome(){
   const DAYS = getDayTypes();
   const now = new Date();
@@ -900,12 +912,10 @@ function renderHome(){
   `;
 }
 
-// ---------------------------------------------------------------------
-// Profil
-// ---------------------------------------------------------------------
+// Profil (mit Erklärungen)
 function renderProfile(){
   const p = state.profile || {};
-  const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime)" data-profile-exp="${val}">${lbl}</button>`;
+  const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime);font-size:.6rem;letter-spacing:.1em;" data-profile-exp="${val}">${lbl}</button>`;
   return `
     <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
     <div class="h1 display">PROFIL</div>
@@ -935,13 +945,21 @@ function renderProfile(){
       ${expBtn('erfahren','ERFAHREN')}
     </div>
 
+    <div class="frame" style="--accent:var(--lime);padding:.9rem 1rem;margin-bottom:1.2rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="eyebrow mono" style="margin-bottom:.5rem;">WAS BEDEUTET DIE AUSWAHL?</div>
+      <div class="mono" style="font-size:.72rem;color:var(--text-dim);line-height:1.7;">
+        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">ANFÄNGER</span> · Neu im Gym oder erst seit wenigen Monaten. Faktor 0,6.</div>
+        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">FORTSCHR.</span> · Regelmäßig seit 1–3 Jahren. Kennt Übungen, solide Kraftbasis. Faktor 1,0 (= Ø-Mensch).</div>
+        <div><span style="color:var(--lime);">ERFAHREN</span> · Seit über 3 Jahren konsequent. Deutlich über Durchschnitt. Faktor 1,4.</div>
+      </div>
+    </div>
+
     <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);margin-top:1rem;">${ICON.check} SPEICHERN</button>
   `;
 }
 
-// ---------------------------------------------------------------------
 // Auth
-// ---------------------------------------------------------------------
 function renderAuth(){
   const a = state.authForm;
   return `
@@ -959,9 +977,7 @@ function renderAuth(){
   `;
 }
 
-// ---------------------------------------------------------------------
 // Streak
-// ---------------------------------------------------------------------
 function renderStreak(){
   const streak = currentStreakWeeks(state.sessions);
   const longest = longestStreakWeeks(state.sessions);
@@ -986,9 +1002,7 @@ function renderStreak(){
   `;
 }
 
-// ---------------------------------------------------------------------
 // New / Edit Day
-// ---------------------------------------------------------------------
 function autoShort(name){
   const parts = name.trim().split(/[\/\s]+/).filter(Boolean);
   if(parts.length >= 2) return parts.slice(0,3).map(p=>p[0].toUpperCase()).join('/');
@@ -1037,9 +1051,7 @@ function renderNewDay(){
   `;
 }
 
-// ---------------------------------------------------------------------
 // Session
-// ---------------------------------------------------------------------
 function renderSession(){
   const DAYS = getDayTypes();
   const d = state.draft;
@@ -1171,9 +1183,7 @@ function renderSession(){
   `;
 }
 
-// ---------------------------------------------------------------------
 // History
-// ---------------------------------------------------------------------
 function historyRowHtml(s, DAYS){
   const day = DAYS[s.dayType] || {short:'?',accent:'var(--text-mute)'};
   const mood = s.mood ? MOODS[s.mood] : null;
@@ -1214,9 +1224,7 @@ function renderHistory(){
   `;
 }
 
-// ---------------------------------------------------------------------
 // Detail
-// ---------------------------------------------------------------------
 function renderDetail(){
   const DAYS = getDayTypes();
   const s = state.sessions.find(x=>x.id===state.detailId);
@@ -1333,9 +1341,7 @@ function renderSessionEdit(day){
   `;
 }
 
-// ---------------------------------------------------------------------
 // Drag-to-reorder
-// ---------------------------------------------------------------------
 function initExerciseDrag(){
   const container = app.querySelector('#ex-list-container');
   if(!container) return;
@@ -1439,9 +1445,7 @@ function renderModalOverlay(){
   </div>`;
 }
 
-// ---------------------------------------------------------------------
 // Events
-// ---------------------------------------------------------------------
 function attachListeners(){
   initExerciseDrag();
   app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1734,6 +1738,14 @@ function attachListeners(){
   app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{
     saveProfile(state.profile);
     state.view='home'; render();
+  }));
+
+  // Chart-Punkte klickbar
+  app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', ()=>{
+    state.detailId = el.getAttribute('data-chart-point');
+    state.confirmDelete = false;
+    state.view = 'detail';
+    render();
   }));
 
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{
