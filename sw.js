@@ -1,4 +1,4 @@
-const CACHE = "trainingslog-v6";
+const CACHE = "trainingslog-v8";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -15,30 +15,18 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-
   if (e.request.mode === "navigate" || e.request.destination === "document") {
     e.respondWith(
       fetch(e.request)
-        .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, clone));
-          return res;
-        })
+        .then((res) => { const clone = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, clone)); return res; })
         .catch(() => caches.match(e.request))
     );
     return;
   }
-
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const fetchPromise = fetch(e.request)
-        .then((res) => {
-          if (res && res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(e.request, clone));
-          }
-          return res;
-        })
+        .then((res) => { if (res && res.ok) { const clone = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, clone)); } return res; })
         .catch(() => cached);
       return cached || fetchPromise;
     })
