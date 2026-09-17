@@ -551,12 +551,12 @@ function restoreDraft(){
     const raw = localStorage.getItem(DRAFT_KEY);
     if(raw){
       state.draft = JSON.parse(raw);
-      if(state.draft.energyZocker === undefined) state.draft.energyZocker = true;
+      if(state.draft.energyZucker === undefined) state.draft.energyZucker = true;
     }
   }catch(e){}
 }
 function newDraft(key){
-  return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZocker:true, mood:null, energyLevel:50, food:'', exercises:[] };
+  return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] };
 }
 
 function renderAccountFab(){
@@ -911,8 +911,8 @@ function renderSession(){
     </div>` : '';
   const energySub = d.energy ? `
     <div class="chip-row" style="margin-top:-1rem;">
-      <button class="chip ${d.energyZocker!==false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zocker="1">MIT ZOCKER</button>
-      <button class="chip ${d.energyZocker===false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zocker="0">OHNE ZOCKER</button>
+      <button class="chip ${d.energyZucker!==false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="1">MIT ZUCKER</button>
+      <button class="chip ${d.energyZucker===false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="0">OHNE ZUCKER</button>
     </div>` : '';
   const toggles = preToggle + preSub + energySub;
 
@@ -1079,7 +1079,7 @@ function renderDetail(){
 
   const badges = `
     ${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">PRE-WORKOUT${s.preWorkoutCaffeine===false?' (OHNE KOFFEIN)':''}</span>`:''}
-    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK${s.energyZocker===false?' (OHNE ZOCKER)':''}</span>`:''}
+    ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK${s.energyZucker===false?' (OHNE ZUCKER)':''}</span>`:''}
   `;
 
   const moodBlock = (mood || typeof s.energyLevel==='number') ? `
@@ -1378,14 +1378,14 @@ function attachListeners(){
     const f = el.getAttribute('data-toggle');
     state.draft[f] = !state.draft[f];
     if(f==='preWorkout' && state.draft.preWorkout && state.draft.preWorkoutCaffeine === undefined) state.draft.preWorkoutCaffeine = true;
-    if(f==='energy' && state.draft.energy && state.draft.energyZocker === undefined) state.draft.energyZocker = true;
+    if(f==='energy' && state.draft.energy && state.draft.energyZucker === undefined) state.draft.energyZucker = true;
     render();
   }));
   app.querySelectorAll('[data-toggle-caffeine]').forEach(el=>el.addEventListener('click', ()=>{
     state.draft.preWorkoutCaffeine = el.getAttribute('data-toggle-caffeine') === '1'; render();
   }));
-  app.querySelectorAll('[data-toggle-zocker]').forEach(el=>el.addEventListener('click', ()=>{
-    state.draft.energyZocker = el.getAttribute('data-toggle-zocker') === '1'; render();
+  app.querySelectorAll('[data-toggle-zucker]').forEach(el=>el.addEventListener('click', ()=>{
+    state.draft.energyZucker = el.getAttribute('data-toggle-zucker') === '1'; render();
   }));
 
   app.querySelectorAll('[data-mood]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.mood = el.getAttribute('data-mood'); render(); }));
