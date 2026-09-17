@@ -551,7 +551,6 @@ function restoreDraft(){
     const raw = localStorage.getItem(DRAFT_KEY);
     if(raw){
       state.draft = JSON.parse(raw);
-      // Defaults für neue Felder setzen, falls alter Draft geladen wurde
       if(state.draft.energyZocker === undefined) state.draft.energyZocker = true;
     }
   }catch(e){}
@@ -568,6 +567,13 @@ function renderAccountFab(){
   if(state.accountPanelOpen){
     el.innerHTML = `
       <div class="fab-panel mono">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem;">
+          <button data-fab-toggle="1" class="x-btn" style="color:var(--text-mute);padding:.2rem;">${ICON.x}</button>
+        </div>
+        ${authUser ? `<div style="margin-bottom:.8rem;padding-bottom:.7rem;border-bottom:1px solid var(--border);">
+          <div style="color:var(--green);font-size:.65rem;margin-bottom:.25rem;">${ICON.check} SYNC AKTIV</div>
+          <div style="font-size:.65rem;color:var(--text-mute);word-break:break-all;">${authUser.email}</div>
+        </div>` : ''}
         <div style="display:flex;gap:.5rem;">
           <button data-fab-profile="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;${profileComplete?'':'border-color:var(--sky);color:var(--sky);'}">
             ${ICON.user}<br>PROFIL
@@ -575,12 +581,7 @@ function renderAccountFab(){
           ${authUser ? `<button data-fab-logout="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;">${ICON.x}<br>LOGOUT</button>`
                      : `<button data-fab-auth="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;">${ICON.zap}<br>LOGIN</button>`}
         </div>
-        ${authUser ? `<div style="margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);">
-          <div style="color:var(--green);font-size:.65rem;margin-bottom:.25rem;">${ICON.check} SYNC AKTIV</div>
-          <div style="font-size:.65rem;color:var(--text-mute);word-break:break-all;">${authUser.email}</div>
-        </div>` : ''}
       </div>
-      <button class="fab-btn" data-fab-toggle="1" style="border-color:var(--lime);color:var(--lime);">${ICON.x}</button>
     `;
   } else {
     el.innerHTML = `<button class="fab-btn" data-fab-toggle="1" style="${authUser?'border-color:var(--green);color:var(--green);':'border-color:var(--sky);color:var(--sky);'}" title="Menü">${ICON.user}</button>`;
@@ -753,7 +754,7 @@ function renderHome(){
         </div>
         <button class="streak-btn" data-open-streak="1">
           <div class="streak-num">${String(streak).padStart(2,'0')}</div>
-          <div class="streak-label">${ICON.flame} STREAK ›</div>
+          <div class="streak-label">STREAK</div>
         </button>
       </div>
     </div>
@@ -898,7 +899,6 @@ function renderSession(){
   const active = d.exercises.map(e=>e.name);
   const lastSession = state.sessions.find(s=>s.dayType===d.dayType);
 
-  // Pre-Workout mit Koffein-Auswahl
   const preToggle = `
     <div class="chip-row">
       <button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">PRE-WORKOUT</button>
@@ -1377,7 +1377,6 @@ function attachListeners(){
   app.querySelectorAll('[data-toggle]').forEach(el=>el.addEventListener('click', ()=>{
     const f = el.getAttribute('data-toggle');
     state.draft[f] = !state.draft[f];
-    // Wenn Pre-Workout / Energy zum ersten Mal aktiviert wird, Standard-Sub setzen
     if(f==='preWorkout' && state.draft.preWorkout && state.draft.preWorkoutCaffeine === undefined) state.draft.preWorkoutCaffeine = true;
     if(f==='energy' && state.draft.energy && state.draft.energyZocker === undefined) state.draft.energyZocker = true;
     render();
@@ -1479,7 +1478,6 @@ function attachListeners(){
     state.draft=null; state.view='home'; render();
   }));
 
-  // Alte direkte Editday-Handler entfernt – jetzt via Picker
   app.querySelectorAll('[data-editday-name]').forEach(el=>el.addEventListener('input', ()=>{
     state.editDay.name = el.value;
     const btn = app.querySelector('[data-editday-save]');
