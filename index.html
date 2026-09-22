@@ -1003,36 +1003,6 @@ function renderScoreChart(){
     </div>`;
 }
 function renderHumanCompareCard(){ return ''; }	
-  const sessionsWithVol = state.sessions.filter(s=>sessionVolume(s)>0);
-  const avgVol = sessionsWithVol.length ? sessionsWithVol.reduce((a,s)=>a+sessionVolume(s),0)/sessionsWithVol.length : 0;
-  const est = humanEstimate('__overall__', profile);
-  const pct = (est>0 && avgVol>0) ? Math.round((avgVol/est)*100) : 0;
-  const factor = est>0 ? (avgVol/est) : 0;
-  const maxBar = Math.max(avgVol, est) || 1;
-  const tier = getTier(Math.min(pct,100));
-  return `
-    <div class="frame" style="--accent:${tier.color};padding:1rem;margin-top:1rem;">
-      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-        <div class="eyebrow mono">DEIN TRAININGSVOLUMEN</div>
-        <button class="edit-toggle mono" data-goto-profile="1">${ICON.edit} PROFIL</button>
-      </div>
-      <div style="text-align:center;margin-bottom:1.2rem;">
-        <div class="display" style="font-size:2.4rem;color:${tier.color};line-height:1;">${factor.toFixed(1)}×</div>
-        <div class="mono" style="font-size:.7rem;color:var(--text-mute);letter-spacing:.15em;margin-top:.4rem;">${pct}% VOM Ø-MENSCH</div>
-      </div>
-      <div class="vs-row">
-        <div class="vs-label mono">DU</div>
-        <div class="vs-bar"><div class="vs-bar-fill" style="width:${(avgVol/maxBar)*100}%;background:var(--lime);"></div></div>
-        <div class="vs-val mono" style="color:var(--lime);">${Math.round(avgVol).toLocaleString('de-DE')} kg</div>
-      </div>
-      <div class="vs-row">
-        <div class="vs-label mono">Ø MENSCH</div>
-        <div class="vs-bar"><div class="vs-bar-fill" style="width:${(est/maxBar)*100}%;background:var(--text-mute);"></div></div>
-        <div class="vs-val mono" style="color:var(--text-mute);">${Math.round(est).toLocaleString('de-DE')} kg</div>
-      </div>
-    </div>`;
-}
 function renderHome(){
   const DAYS = getDayTypes();
   const now = new Date();
