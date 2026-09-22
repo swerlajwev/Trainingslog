@@ -127,35 +127,14 @@
   .vs-bar{flex:1;height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative;}
   .vs-bar-fill{height:100%;border-radius:999px;}
   .vs-val{font-family:var(--font-mono);font-size:.72rem;min-width:4.5rem;text-align:right;}
-
-  /* Bottom Nav */
-  #bottomNav{
-    position:fixed; left:0; right:0; bottom:0;
-    background:#050505; border-top:1px solid var(--border);
-    display:none; z-index:80;
-    padding-bottom:env(safe-area-inset-bottom);
-    max-width:480px; margin:0 auto;
-  }
-  #bottomNav.visible{ display:flex; }
-  @media (min-width:860px){ #bottomNav{ max-width:920px; } }
-  #bottomNav .nav-btn{
-    flex:1; background:none; border:none; color:var(--text-faint);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:.25rem; padding:.75rem .3rem .65rem;
-    font-family:var(--font-mono); font-size:.52rem; letter-spacing:.12em;
-    position:relative; transition:color .15s;
-  }
-  #bottomNav .nav-btn svg{
-    width:22px; height:22px; stroke:currentColor; fill:none;
-    stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
-  }
-  #bottomNav .nav-btn.active{ color:var(--lime); }
-  #bottomNav .nav-btn.active svg{ stroke-width:2; filter:drop-shadow(0 0 4px color-mix(in srgb,var(--lime) 50%,transparent)); }
-  #bottomNav .nav-btn.active::before{
-    content:''; position:absolute; top:-1px; left:25%; right:25%;
-    height:2px; background:var(--lime);
-    box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);
-  }
+  #bottomNav{position:fixed;left:0;right:0;bottom:0;background:#050505;border-top:1px solid var(--border);display:none;z-index:80;padding-bottom:env(safe-area-inset-bottom);max-width:480px;margin:0 auto;}
+  #bottomNav.visible{display:flex;}
+  @media (min-width:860px){#bottomNav{max-width:920px;}}
+  #bottomNav .nav-btn{flex:1;background:none;border:none;color:var(--text-faint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem;padding:.75rem .3rem .65rem;font-family:var(--font-mono);font-size:.52rem;letter-spacing:.12em;position:relative;transition:color .15s;}
+  #bottomNav .nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  #bottomNav .nav-btn.active{color:var(--lime);}
+  #bottomNav .nav-btn.active svg{stroke-width:2;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--lime) 50%,transparent));}
+  #bottomNav .nav-btn.active::before{content:'';position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--lime);box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);}
 </style>
 </head>
 <body>
@@ -212,14 +191,10 @@ const BUILTIN_DAY_TYPES = {
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
 const MOODS = {
-  sehr_gut:{label:'SEHR GUT',color:'var(--lime)',score:100},
-  gut:{label:'GUT',color:'var(--green)',score:80},
-  normal:{label:'NORMAL',color:'var(--text)',score:55},
-  nachdenklich:{label:'NACHDENKLICH',color:'var(--yellow)',score:50},
-  muede:{label:'MÜDE',color:'var(--teal)',score:40},
-  gestresst:{label:'GESTRESST',color:'var(--purple)',score:28},
-  traurig:{label:'TRAURIG',color:'var(--blue)',score:25},
-  wuetend:{label:'WÜTEND',color:'var(--red)',score:20},
+  sehr_gut:{label:'SEHR GUT',color:'var(--lime)',score:100},gut:{label:'GUT',color:'var(--green)',score:80},
+  normal:{label:'NORMAL',color:'var(--text)',score:55},nachdenklich:{label:'NACHDENKLICH',color:'var(--yellow)',score:50},
+  muede:{label:'MÜDE',color:'var(--teal)',score:40},gestresst:{label:'GESTRESST',color:'var(--purple)',score:28},
+  traurig:{label:'TRAURIG',color:'var(--blue)',score:25},wuetend:{label:'WÜTEND',color:'var(--red)',score:20},
   kein_bock:{label:'KEIN BOCK',color:'var(--text-faint)',score:15},
 };
 
@@ -381,8 +356,6 @@ const BODY_SCANS_KEY = 'trainingslog_bodyscans';
 const SEED_FLAG_KEY = 'trainingslog_seed_v1';
 const OWNER_EMAIL   = 'swerlajwev@gmail.com';
 
-// Deine 10 echten vicoach-Messungen. Werden NUR für deinen Account
-// einmalig beim ersten Start eingetragen. Andere Nutzer starten leer.
 const INITIAL_SCANS = [
   { date:'2026-01-20', weight:75.1, muscle:33.9, fat:6.5,  visceral:0.0, cellFit:5.5, hrv:83, oxygen:98,  hr:70, bioage:14   },
   { date:'2026-02-17', weight:87.2, muscle:36.0, fat:15.1, visceral:1.9, cellFit:5.3, hrv:59, oxygen:97,  hr:76, bioage:15   },
@@ -409,7 +382,6 @@ function saveProfile(p, skipCloud){ try{ localStorage.setItem(PROFILE_KEY, JSON.
 function loadBodyScans(){ try{ const raw = localStorage.getItem(BODY_SCANS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }catch(e){ return []; } }
 function saveBodyScans(scans, skipCloud){ try{ localStorage.setItem(BODY_SCANS_KEY, JSON.stringify(scans)); }catch(e){} if(!skipCloud) pushToCloud(); }
 
-// Wird nur für deinen Account EINMALIG ausgeführt (nicht für andere Nutzer).
 function seedInitialScansForOwner(){
   if(authUser && authUser.email === OWNER_EMAIL){
     if(!localStorage.getItem(SEED_FLAG_KEY)){
@@ -483,7 +455,6 @@ function exerciseStats(dayKey){
   });
   return stats;
 }
-
 function kraftwerteByGroup(){
   const result = {};
   Object.keys(MUSCLE_GROUPS).forEach(group => {
@@ -492,12 +463,7 @@ function kraftwerteByGroup(){
       let maxWeight = 0;
       state.sessions.forEach(s => {
         s.exercises.forEach(ex => {
-          if(ex.name === name){
-            ex.sets.forEach(st => {
-              const w = parseFloat(st.weight);
-              if(!isNaN(w) && w > maxWeight) maxWeight = w;
-            });
-          }
+          if(ex.name === name){ ex.sets.forEach(st => { const w = parseFloat(st.weight); if(!isNaN(w) && w > maxWeight) maxWeight = w; }); }
         });
       });
       if(maxWeight > 0) items.push({ name, maxWeight });
@@ -595,28 +561,15 @@ function oauthSignIn(providerId){
 }
 
 let state = {
-  view: 'home',
-  sessions: loadSessions(),
-  draft: null,
-  detailId: null,
-  confirmDelete: false,
+  view: 'home', sessions: loadSessions(), draft: null, detailId: null, confirmDelete: false,
   newDay: { name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0] },
-  editDay: null,
-  editPoolName: null,
-  editPoolValue: '',
-  poolEditMode: false,
-  authForm: { email:'', password:'', error:'' },
-  modal: null,
-  editSessionDraft: null,
+  editDay: null, editPoolName: null, editPoolValue: '', poolEditMode: false,
+  authForm: { email:'', password:'', error:'' }, modal: null, editSessionDraft: null,
   profile: loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' },
-  bodyScans: loadBodyScans(),
-  scanForm: {},
+  bodyScans: loadBodyScans(), scanForm: {},
 };
-
 const app = document.getElementById('app');
-
-let historyInitialized = false;
-let suppressHistoryPush = false;
+let historyInitialized = false, suppressHistoryPush = false;
 function syncHistory(){
   if(suppressHistoryPush) return;
   if(!historyInitialized){ history.replaceState({ view: state.view }, '', '#'+state.view); historyInitialized = true; return; }
@@ -625,59 +578,39 @@ function syncHistory(){
 window.addEventListener('popstate', (ev)=>{
   suppressHistoryPush = true;
   const newView = (ev.state && ev.state.view) ? ev.state.view : 'home';
-  state.view = newView; state.confirmDelete = false;
-  render();
+  state.view = newView; state.confirmDelete = false; render();
   suppressHistoryPush = false;
 });
-
 const DRAFT_KEY = 'trainingslog-draft-v1';
-function updateScorePreview(){
-  const el = document.getElementById('scorePreview');
-  if(el && state.draft) el.innerHTML = scoreCardHtml(state.draft, 'TAGES-SCORE (VORSCHAU)');
-}
+function updateScorePreview(){ const el = document.getElementById('scorePreview'); if(el && state.draft) el.innerHTML = scoreCardHtml(state.draft, 'TAGES-SCORE (VORSCHAU)'); }
 function persistDraft(){ try{ if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft)); else localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){
-  try{
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if(raw){
-      state.draft = JSON.parse(raw);
-      if(state.draft.energyZucker === undefined) state.draft.energyZucker = true;
-    }
-  }catch(e){}
+  try{ const raw = localStorage.getItem(DRAFT_KEY); if(raw){ state.draft = JSON.parse(raw); if(state.draft.energyZucker === undefined) state.draft.energyZucker = true; } }catch(e){}
 }
-function newDraft(key){
-  return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] };
-}
+function newDraft(key){ return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] }; }
 
 const MAIN_TABS = ['home', 'history', 'scan', 'profile'];
 function renderBottomNav(){
   const el = document.getElementById('bottomNav');
   if(!el) return;
-  if(!MAIN_TABS.includes(state.view) || (fbEnabled && !authUser)){
-    el.classList.remove('visible'); el.innerHTML = ''; return;
-  }
+  if(!MAIN_TABS.includes(state.view) || (fbEnabled && !authUser)){ el.classList.remove('visible'); el.innerHTML = ''; return; }
   el.classList.add('visible');
   const tabs = [
-    { id:'home',    icon:'home',    label:'HOME' },
+    { id:'home', icon:'home', label:'HOME' },
     { id:'history', icon:'history', label:'VERLAUF' },
-    { id:'scan',    icon:'scan',    label:'SCAN' },
+    { id:'scan', icon:'scan', label:'SCAN' },
     { id:'profile', icon:'profile', label:'PROFIL' },
   ];
   el.innerHTML = tabs.map(t => `
     <button class="nav-btn ${state.view===t.id?'active':''}" data-nav="${t.id}">
-      ${NAV_ICONS[t.icon]}
-      <span>${t.label}</span>
-    </button>
-  `).join('');
-  el.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>{
-    state.view = b.getAttribute('data-nav'); state.modal = null; render();
-  }));
+      ${NAV_ICONS[t.icon]}<span>${t.label}</span>
+    </button>`).join('');
+  el.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>{ state.view = b.getAttribute('data-nav'); state.modal = null; render(); }));
 }
 
 function render(){
   if(fbEnabled && !authUser && authChecked){ state.view = 'auth'; }
-  persistDraft();
-  syncHistory();
+  persistDraft(); syncHistory();
   if(state.view==='home') app.innerHTML = renderHome();
   else if(state.view==='newday') app.innerHTML = renderNewDay();
   else if(state.view==='editday') app.innerHTML = renderEditDay();
@@ -707,12 +640,10 @@ function scanMiniChart(scans, key, color){
   const stepX = (w - padL - padR) / (pts.length - 1);
   const sY = v => h - padB - ((v - rMin) / (rMax - rMin)) * (h - padT - padB);
   const path = pts.map((v, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(v).toFixed(1)}`).join(' ');
-  const dots = pts.map((v, i) => {
-    const isLast = i === pts.length - 1;
-    return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`;
-  }).join('');
+  const dots = pts.map((v, i) => { const isLast = i === pts.length - 1; return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`; }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
 }
+
 function scanValueCard(scans, label, key, unit, color, hint, invertGood){
   if(!scans.length) return '';
   const latest = scans[scans.length-1];
@@ -724,7 +655,7 @@ function scanValueCard(scans, label, key, unit, color, hint, invertGood){
   if(!isNaN(num) && !isNaN(first) && Math.abs(num-first) > 0.05){
     const diff = num - first;
     const sign = diff > 0 ? '+' : '';
-    const dcolor = invertGood ? (diff < 0 ? 'var(--green)' : 'var(--orange)') : (diff > 0 ? 'var(--green)' : 'var(--orange)');
+    const dcolor = invertGood ? (diff < 0 ? 'var(--green)' : 'var(--red)') : (diff > 0 ? 'var(--green)' : 'var(--red)');
     delta = `<span class="mono" style="color:${dcolor};font-size:.6rem;margin-left:.4rem;">${sign}${diff.toFixed(1)}</span>`;
   }
   const chart = scanMiniChart(scans, key, color);
@@ -767,36 +698,53 @@ function renderScan(){
         </div>
       </div>
     ` : (() => {
-      const latest = scans[scans.length-1];
+      const first = scans[0];
+      const last = scans[scans.length-1];
+      const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const rows = [
+        { label:'MUSKELMASSE', first:first.muscle, last:last.muscle, unit:'kg', goodUp:true },
+        { label:'FETTMASSE',   first:first.fat,    last:last.fat,    unit:'kg', goodUp:false },
+        { label:'GEWICHT',     first:first.weight, last:last.weight, unit:'kg', goodUp:false },
+      ];
       return `
         <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
           <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="eyebrow mono" style="margin-bottom:.8rem;">LETZTE MESSUNG · ${new Date(latest.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
-          <div style="display:flex;justify-content:space-between;gap:.5rem;text-align:center;">
-            <div style="flex:1;">
-              <div class="mono" style="font-size:1.4rem;color:var(--lime);">${latest.muscle||'–'}</div>
-              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">MUSKEL kg</div>
-            </div>
-            <div style="flex:1;">
-              <div class="mono" style="font-size:1.4rem;color:var(--orange);">${latest.fat||'–'}</div>
-              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">FETT kg</div>
-            </div>
-            <div style="flex:1;">
-              <div class="mono" style="font-size:1.4rem;color:var(--sky);">${latest.weight||'–'}</div>
-              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">GEWICHT kg</div>
-            </div>
+          <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
+          ${rows.map(r => {
+            if(r.first===undefined || r.last===undefined) return '';
+            const diff = r.last - r.first;
+            const sign = diff > 0 ? '+' : '';
+            const absDiff = Math.abs(diff).toFixed(1);
+            const isGood = r.goodUp ? diff > 0 : diff < 0;
+            const isNeutral = Math.abs(diff) < 0.05;
+            const diffColor = isNeutral ? 'var(--text-mute)' : (isGood ? 'var(--green)' : 'var(--red)');
+            const symbol = isNeutral ? '—' : (isGood ? '↑' : '↓');
+            return `
+              <div style="margin-bottom:1rem;">
+                <div class="eyebrow mono" style="font-size:.6rem;color:${diffColor};margin-bottom:.35rem;">${r.label}</div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;">
+                  <div class="mono" style="font-size:.95rem;color:var(--text-dim);">
+                    ${r.first} <span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${r.last}</span> ${r.unit}
+                  </div>
+                  <div class="mono" style="font-size:1rem;color:${diffColor};">${sign}${absDiff} ${r.unit} ${symbol}</div>
+                </div>
+              </div>`;
+          }).join('')}
+          <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.3rem;text-align:right;">
+            LETZTE MESSUNG: ${lastDateStr}
           </div>
         </div>
         <div class="eyebrow mono" style="margin:1.2rem 0 .6rem;">KÖRPERWERTE (VERLAUF)</div>
         ${scanValueCard(scans, 'GEWICHT', 'weight', 'kg', 'var(--text)', '', true)}
         ${scanValueCard(scans, 'MUSKELMASSE', 'muscle', 'kg', 'var(--lime)', '', false)}
         ${scanValueCard(scans, 'FETTMASSE', 'fat', 'kg', 'var(--orange)', '', true)}
-        ${scanValueCard(scans, 'VISZERALES FETT', 'visceral', 'kg', 'var(--orange)', 'Fett um innere Organe', true)}
-        ${scanValueCard(scans, 'ZELLFITNESS', 'cellFit', '', 'var(--lime)', 'Phasenwinkel', false)}
-        ${scanValueCard(scans, 'HRV', 'hrv', 'ms', 'var(--pink)', 'Trainingsbereitschaft', false)}
-        ${scanValueCard(scans, 'SPO2', 'oxygen', '%', 'var(--sky)', '', false)}
-        ${scanValueCard(scans, 'RUHE-HF', 'hr', 'bpm', 'var(--text-dim)', '', true)}
-        ${scanValueCard(scans, 'BIOAGE', 'bioage', 'Jahre', 'var(--purple)', '', true)}
+        ${scanValueCard(scans, 'VISZERALES FETT', 'visceral', 'kg', 'var(--red)', 'Fett um innere Organe', true)}
+        ${scanValueCard(scans, 'ZELLFITNESS', 'cellFit', '', 'var(--lime)', 'Zellversorgung / Phasenwinkel', false)}
+        ${scanValueCard(scans, 'HERZFREQUENZVARIABILITÄT', 'hrv', 'ms', 'var(--pink)', 'Erholung / Trainingsbereitschaft', false)}
+        ${scanValueCard(scans, 'SAUERSTOFFSÄTTIGUNG', 'oxygen', '%', 'var(--sky)', 'O2-Gehalt im Blut', false)}
+        ${scanValueCard(scans, 'RUHE-HERZFREQUENZ', 'hr', 'bpm', 'var(--text-dim)', 'Herzfrequenz in Ruhe', true)}
+        ${scanValueCard(scans, 'BIOLOGISCHES ALTER', 'bioage', 'Jahre', 'var(--purple)', '', true)}
         ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1.5rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
       `;
     })()}
@@ -842,10 +790,10 @@ function renderScanForm(){
     ${field('FETTMASSE', 'fat', '14.8', 'kg')}
     ${field('VISZERALES FETT', 'visceral', '1.9', 'kg')}
     ${field('ZELLFITNESS', 'cellFit', '5.4', 'Phasenwinkel')}
-    ${field('HRV', 'hrv', '82', 'ms')}
+    ${field('HERZFREQUENZVARIABILITÄT', 'hrv', '82', 'ms')}
     ${field('SAUERSTOFFSÄTTIGUNG', 'oxygen', '98', '%')}
     ${field('RUHE-HERZFREQUENZ', 'hr', '73', 'bpm')}
-    ${field('BIOAGE', 'bioage', '15.7', 'Jahre')}
+    ${field('BIOLOGISCHES ALTER', 'bioage', '15.7', 'Jahre')}
     <button class="save-btn mono" data-save-scan="1" style="background:var(--lime);margin-top:1.5rem;">${ICON.check} SPEICHERN</button>
   `;
 }
@@ -873,13 +821,12 @@ function renderScanList(){
             </div>
             <button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('')}
   `;
 }
 
-// =================== Score Chart + Human Card ===================
+// =================== Charts + Cards ===================
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
   if(chronological.length < 2){ return `<div class="empty" style="margin-top:1.5rem;">Noch nicht genug Sessions für ein Diagramm (mind. 2 nötig).</div>`; }
@@ -905,14 +852,11 @@ function renderScoreChart(){
   const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
   const dots = points.map((p,i)=>`
     <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
-    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
-  `).join('');
+    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>`).join('');
   const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
-  const yTicks = [rangeMin, tickMid, rangeMax];
-  const yTickLines = yTicks.map(v=>`
+  const yTickLines = [rangeMin, tickMid, rangeMax].map(v=>`
     <line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
-    <text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>
-  `).join('');
+    <text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`).join('');
   return `
     <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;">SCORE-VERLAUF (${points.length} SESSIONS)</div>
     <div class="frame" style="--accent:var(--lime);padding:1rem;">
@@ -973,7 +917,6 @@ function renderHome(){
   const weekCount = state.sessions.filter(s => (now - new Date(s.date))/86400000 < 7).length;
   const lastByDay = key => state.sessions.find(s => s.dayType===key);
   const streak = currentStreakWeeks(state.sessions);
-
   const cards = Object.values(DAYS).map(day => {
     const last = lastByDay(day.key);
     return `
@@ -991,7 +934,6 @@ function renderHome(){
       </div>
     </div>`;
   }).join('');
-
   return `
     <div class="stat-top">
       <div>
@@ -1020,7 +962,6 @@ function renderHome(){
   `;
 }
 
-// =================== Profil ===================
 function renderProfile(){
   const p = state.profile || {};
   const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime);font-size:.6rem;letter-spacing:.1em;" data-profile-exp="${val}">${lbl}</button>`;
@@ -1031,14 +972,11 @@ function renderProfile(){
       <div class="mono" style="font-size:.65rem;color:var(--text-mute);word-break:break-all;margin-bottom:.8rem;">${authUser.email}</div>
       <button class="btn-outline mono" data-logout="1" style="font-size:.65rem;">LOGOUT</button>
     </div>
-  ` : `
-    <button class="btn-outline mono" style="margin-bottom:1rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>
-  `);
+  ` : `<button class="btn-outline mono" style="margin-bottom:1rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>`);
   return `
     <div class="eyebrow mono">PROFIL</div>
     <div class="h1 display" style="margin-bottom:1rem;">EINSTELLUNGEN</div>
     ${syncBlock}
-
     <div class="eyebrow mono" style="margin-bottom:.5rem;">GRÖSSE (CM)</div>
     <input class="set-input mono" type="number" inputmode="decimal" value="${p.height||''}" data-profile-height="1" style="margin-bottom:1rem;" />
     <div class="eyebrow mono" style="margin-bottom:.5rem;">GEWICHT (KG)</div>
@@ -1151,7 +1089,6 @@ function renderNewDay(){
   `;
 }
 
-// =================== Session ===================
 function renderSession(){
   const DAYS = getDayTypes();
   const d = state.draft;
@@ -1200,7 +1137,7 @@ function renderSession(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="ex-head">
         <div style="display:flex;align-items:center;gap:.6rem;min-width:0;">
-          <span class="drag-handle" data-drag-handle="${ex.name}" title="Ziehen zum Verschieben">${ICON.grip}</span>
+          <span class="drag-handle" data-drag-handle="${ex.name}">${ICON.grip}</span>
           <div class="ex-title">${ex.name}</div>
         </div>
         <button class="x-btn" data-remove-ex="${ex.name}">${ICON.trash}</button>
@@ -1222,8 +1159,7 @@ function renderSession(){
           </div>`).join('')}
       </div>
       <button class="add-set mono" data-add-set="${ex.name}">${ICON.plus} SATZ</button>
-    </div>
-  `).join('');
+    </div>`).join('');
   const stats = exerciseStats(d.dayType);
   const poolNames = day.pool.filter(n=>!active.includes(n)).sort((a,b)=>{
     const sa=stats[a], sb=stats[b];
@@ -1237,17 +1173,17 @@ function renderSession(){
     if(state.editPoolName === n){
       return `<div class="pool-edit-row">
         <input class="set-input mono" type="text" value="${escapeHtml(state.editPoolValue ?? n)}" data-pool-edit-input="1" style="flex:1;" />
-        <button class="x-btn" data-pool-edit-save="${n}" title="Speichern">${ICON.check}</button>
-        <button class="x-btn" data-pool-edit-cancel="1" title="Abbrechen">${ICON.x}</button>
+        <button class="x-btn" data-pool-edit-save="${n}">${ICON.check}</button>
+        <button class="x-btn" data-pool-edit-cancel="1">${ICON.x}</button>
       </div>`;
     }
     if(state.poolEditMode){
       const pa = isPerArm(d.dayType, n);
       return `<div class="pool-item">
         <span class="pool-btn" style="cursor:default;">${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</span>
-        <button class="x-btn" data-pool-perarm="${n}" title="${pa?'Pro Arm: an':'Pro Arm: aus'}" style="${pa?`color:${day.accent};border-color:${day.accent};`:''}">${ICON.dumbbell}</button>
-        <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
-        <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
+        <button class="x-btn" data-pool-perarm="${n}" style="${pa?`color:${day.accent};border-color:${day.accent};`:''}">${ICON.dumbbell}</button>
+        <button class="x-btn" data-pool-edit="${n}">${ICON.edit}</button>
+        <button class="x-btn" data-pool-delete="${n}">${ICON.trash}</button>
       </div>`;
     }
     return `<button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>`;
@@ -1260,12 +1196,8 @@ function renderSession(){
     <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
     <div class="h1 display" style="margin-bottom:.6rem;">${day.label}</div>
     <input class="set-input mono" type="date" value="${localDateInputValue(d.date)}" data-session-date="1" style="max-width:170px;margin-bottom:1.2rem;" />
-    ${preToggle}
-    ${preSub}
-    ${energySub}
-    ${moodRow}
-    ${energyRow}
-    ${foodRow}
+    ${preToggle}${preSub}${energySub}
+    ${moodRow}${energyRow}${foodRow}
     ${(d.exercises.length===0 && lastSession) ? `<button class="btn-outline mono" data-copy-last="1" style="margin-bottom:1.5rem;">${ICON.history} LETZTE SESSION ÜBERNEHMEN</button>` : ''}
     <div id="ex-list-container">${exCards}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:1.5rem 0 .75rem;">
@@ -1351,10 +1283,7 @@ function renderDetail(){
     </div>` : '';
   const exList = s.exercises.map(ex=>{
     let vol = 0;
-    ex.sets.forEach(st=>{
-      const w = parseFloat(st.weight), r = effectiveReps(st);
-      if(!isNaN(w) && !isNaN(r)) vol += w*r;
-    });
+    ex.sets.forEach(st=>{ const w = parseFloat(st.weight), r = effectiveReps(st); if(!isNaN(w) && !isNaN(r)) vol += w*r; });
     const est = humanEstimate(ex.name, profile);
     const pct = (est && vol) ? Math.round((vol/est)*100) : null;
     const tier = pct!=null ? getTier(Math.min(pct,100)) : null;
@@ -1363,11 +1292,7 @@ function renderDetail(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="ex-title" style="margin-bottom:.5rem;">${ex.name}</div>
       <div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${(st.repsLeft!==undefined||st.repsRight!==undefined) ? `${st.repsLeft||'–'}L/${st.repsRight||'–'}R` : (st.reps||'–')}</span>`).join('')}</div>
-      ${pct!=null?`
-        <div style="margin-top:.7rem;">
-          <div class="score-bar"><div class="score-fill" style="width:${Math.min(pct,100)}%;background:${tier.color}"></div></div>
-          <div class="mono" style="font-size:.65rem;color:${tier.color};text-align:right;margin-top:.3rem;">${pct}% vom Ø-Mensch*</div>
-        </div>`:''}
+      ${pct!=null?`<div style="margin-top:.7rem;"><div class="score-bar"><div class="score-fill" style="width:${Math.min(pct,100)}%;background:${tier.color}"></div></div><div class="mono" style="font-size:.65rem;color:${tier.color};text-align:right;margin-top:.3rem;">${pct}% vom Ø-Mensch*</div></div>`:''}
     </div>`;
   }).join('');
   return `
@@ -1375,8 +1300,7 @@ function renderDetail(){
     <div class="eyebrow mono" style="color:${day.accent}">${fmtWd(s.date)} · ${fmtDate(s.date)}</div>
     <div class="h1 display">${day.label}</div>
     <div style="margin-bottom:1rem;">${badges}</div>
-    ${moodBlock}
-    ${foodBlock}
+    ${moodBlock}${foodBlock}
     ${scoreCardHtml(s, 'TAGES-SCORE')}
     ${exList}
     <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.5rem;text-align:center;line-height:1.5;">* SCHÄTZUNG · KEINE WISSENSCHAFTLICHE MESSUNG</div>
@@ -1421,8 +1345,7 @@ function renderSessionEdit(day){
           </div>`).join('')}
       </div>
       <button class="add-set mono" data-edit-add-set="${exIdx}">${ICON.plus} SATZ</button>
-    </div>
-  `).join('');
+    </div>`).join('');
   return `
     <button class="back" data-edit-cancel="1">${ICON.chevronLeft} Abbrechen</button>
     <div class="eyebrow mono" style="color:${day.accent}">${fmtWd(d.date)} · ${fmtDate(d.date)}</div>
@@ -1432,7 +1355,6 @@ function renderSessionEdit(day){
   `;
 }
 
-// =================== Drag ===================
 function initExerciseDrag(){
   const container = app.querySelector('#ex-list-container');
   if(container){
@@ -1579,8 +1501,7 @@ function renderModalOverlay(){
           <span style="font-size:.85rem;">${day.label}</span>
         </span>
         <span>${ICON.edit}</span>
-      </button>
-    `).join('');
+      </button>`).join('');
     return `
     <div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
       <div class="frame" style="--accent:var(--lime);max-width:360px;width:100%;padding:1.3rem;background:#0a0a0b;">
@@ -1623,20 +1544,15 @@ function renderModalOverlay(){
   </div>`;
 }
 
-// =================== Events ===================
 function attachListeners(){
   initExerciseDrag();
   app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{
     const cb = state.modal && state.modal.onCancel;
-    state.modal = null;
-    if(cb) cb();
-    render();
+    state.modal = null; if(cb) cb(); render();
   }));
   app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{
     const cb = state.modal && state.modal.onConfirm;
-    state.modal = null;
-    if(cb) cb();
-    render();
+    state.modal = null; if(cb) cb(); render();
   }));
   app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{
     const m = state.modal; state.modal = null;
@@ -1651,7 +1567,6 @@ function attachListeners(){
     state.editDay = { key, name: day.label, short: day.short, accent: day.accent };
     state.view = 'editday'; render();
   }));
-
   app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{
     const t = el.getAttribute('data-scan-action');
     if(t==='manual'){ state.scanForm = {}; state.view = 'scan-form'; render(); }
@@ -1666,14 +1581,11 @@ function attachListeners(){
     if(!f.date) f.date = new Date().toISOString().slice(0,10);
     const scan = { date: f.date };
     ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{
-      const v = parseFloat(f[k]);
-      if(!isNaN(v)) scan[k] = v;
+      const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v;
     });
     state.bodyScans.push(scan);
     saveBodyScans(state.bodyScans);
-    state.scanForm = {};
-    state.view = 'scan';
-    render();
+    state.scanForm = {}; state.view = 'scan'; render();
   }));
   app.querySelectorAll('[data-scan-delete]').forEach(el=>el.addEventListener('click', ()=>{
     const idx = +el.getAttribute('data-scan-delete');
@@ -1683,13 +1595,11 @@ function attachListeners(){
   }));
   app.querySelectorAll('[data-pdf-input]').forEach(el=>el.addEventListener('change', (e)=>{
     if(!e.target.files.length) return;
-    alert('PDF-Erkennung wird in dieser Version simuliert.\n\nIn der finalen Version liest die App die Werte automatisch aus deiner vcioach-PDF und zeigt sie dir zum Bestätigen.\n\nÖffne jetzt das manuelle Formular und trag die Werte ein.');
+    alert('PDF-Erkennung wird in dieser Version simuliert.\n\nIn der finalen Version liest die App die Werte automatisch aus deiner vicoach-PDF und zeigt sie dir zum Bestätigen.');
     state.modal = null;
     state.scanForm = { date: new Date().toISOString().slice(0,10) };
-    state.view = 'scan-form';
-    render();
+    state.view = 'scan-form'; render();
   }));
-
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
     if(state.draft && state.draft.exercises.length>0){
@@ -1767,21 +1677,16 @@ function attachListeners(){
     render();
   }));
   app.querySelectorAll('[data-toggle-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
-    state.poolEditMode = !state.poolEditMode;
-    state.editPoolName = null; state.editPoolValue = '';
-    render();
+    state.poolEditMode = !state.poolEditMode; state.editPoolName = null; state.editPoolValue = ''; render();
   }));
   app.querySelectorAll('[data-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
-    state.editPoolName = el.getAttribute('data-pool-edit');
-    state.editPoolValue = state.editPoolName;
-    render();
+    state.editPoolName = el.getAttribute('data-pool-edit'); state.editPoolValue = state.editPoolName; render();
   }));
   app.querySelectorAll('[data-pool-edit-input]').forEach(el=>el.addEventListener('input', ()=>{ state.editPoolValue = el.value; }));
   app.querySelectorAll('[data-pool-edit-save]').forEach(el=>el.addEventListener('click', ()=>{
     const oldName = el.getAttribute('data-pool-edit-save');
     renameExercise(state.draft.dayType, oldName, state.editPoolValue);
-    state.editPoolName = null; state.editPoolValue = '';
-    render();
+    state.editPoolName = null; state.editPoolValue = ''; render();
   }));
   app.querySelectorAll('[data-pool-edit-cancel]').forEach(el=>el.addEventListener('click', ()=>{ state.editPoolName = null; state.editPoolValue = ''; render(); }));
   app.querySelectorAll('[data-pool-perarm]').forEach(el=>el.addEventListener('click', ()=>{ togglePerArm(state.draft.dayType, el.getAttribute('data-pool-perarm')); render(); }));
@@ -1883,11 +1788,9 @@ function attachListeners(){
       .catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
   }));
   app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
-  app.querySelectorAll('[data-auth-github]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('github')));
   app.querySelectorAll('[data-logout]').forEach(el=>el.addEventListener('click', ()=>{
     if(fbAuth) fbAuth.signOut();
-    detachCloudSync(); authUser = null;
-    state.view = 'auth'; render();
+    detachCloudSync(); authUser = null; state.view = 'auth'; render();
   }));
   app.querySelectorAll('[data-goto-profile]').forEach(el=>el.addEventListener('click', ()=>{ state.view='profile'; render(); }));
   app.querySelectorAll('[data-profile-height]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.height = el.value; }));
@@ -1952,7 +1855,6 @@ if(fbEnabled){
     authUser = user ? { uid:user.uid, email:user.email } : null;
     detachCloudSync();
     if(user) attachCloudSync(user.uid);
-    // Nur für deinen Account: 10 Messungen einmalig eintragen
     seedInitialScansForOwner();
     render();
   });
