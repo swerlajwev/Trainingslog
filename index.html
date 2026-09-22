@@ -1051,6 +1051,7 @@ function renderHome(){
     </div>
     ${renderScoreChart()}
   `;
+}
 function renderProfile(){
   const p = state.profile || {};
   const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime);font-size:.6rem;letter-spacing:.1em;" data-profile-exp="${val}">${lbl}</button>`;
