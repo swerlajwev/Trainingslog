@@ -198,14 +198,6 @@ const MOODS = {
   kein_bock:{label:'KEIN BOCK',color:'var(--text-faint)',score:15},
 };
 
-const MUSCLE_GROUPS = {
-  'BRUST':     { color:'var(--pink)', uebungen:['Bankdrücken','Schrägbankdrücken','Untere Brust / Kabel-Flys'] },
-  'RÜCKEN':    { color:'var(--pink)', uebungen:['High-to-Low Latziehen','T-Bar Row','Breiter Latzug','Klimmzüge','Enges Rudern'] },
-  'SCHULTERN': { color:'var(--sky)',  uebungen:['Schulterpresse','Seitheben','Hintere Schultern'] },
-  'ARME':      { color:'var(--sky)',  uebungen:['Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme'] },
-  'BEINE':     { color:'var(--lime)', uebungen:['Beinpresse','Beinstrecker','Beinbeuger','Wadenheben','Kniebeugen','Ausfallschritte'] },
-};
-
 const HUMAN_REFERENCE = {
   '__overall__': 4000,
   'Bankdrücken': 2200, 'Schrägbankdrücken': 1700, 'High-to-Low Latziehen': 1900,
@@ -237,11 +229,11 @@ function isProfileComplete(p){ return !!(p && p.weight && p.age && p.gender && p
 function experienceLabel(v){ return v==='anfaenger' ? 'Anfänger' : v==='erfahren' ? 'Erfahren' : 'Fortgeschritten'; }
 
 const SCORE_TIERS = [
-  { min:0,  label:'SCHWACH', color:'var(--red)' },
-  { min:20, label:'MAU',     color:'var(--orange)' },
-  { min:40, label:'OKAY',    color:'var(--yellow)' },
-  { min:60, label:'GUT',     color:'var(--green)' },
-  { min:80, label:'TOP',     color:'var(--lime)' },
+  { min:0, label:'SCHWACH', color:'var(--red)' },
+  { min:20, label:'MAU', color:'var(--orange)' },
+  { min:40, label:'OKAY', color:'var(--yellow)' },
+  { min:60, label:'GUT', color:'var(--green)' },
+  { min:80, label:'TOP', color:'var(--lime)' },
 ];
 function getTier(score){ let t = SCORE_TIERS[0]; for(const s of SCORE_TIERS){ if(score>=s.min) t=s; } return t; }
 function sessionVolume(s){
@@ -300,26 +292,16 @@ const uid = () => Math.random().toString(36).slice(2,10);
 const fmtDate = iso => new Date(iso).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'});
 const fmtWd = iso => new Date(iso).toLocaleDateString('de-DE',{weekday:'short'}).toUpperCase();
 function toNoonIso(dateObj){ return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 12, 0, 0).toISOString(); }
-function localDateInputValue(iso){
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function weekMondayKey(dateLike){
-  const d = new Date(dateLike); const day = d.getDay();
-  const diff = (day===0?-6:1-day);
-  d.setHours(0,0,0,0); d.setDate(d.getDate()+diff);
-  return d.toISOString().slice(0,10);
-}
+function localDateInputValue(iso){ const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function weekMondayKey(dateLike){ const d = new Date(dateLike); const day = d.getDay(); const diff = (day===0?-6:1-day); d.setHours(0,0,0,0); d.setDate(d.getDate()+diff); return d.toISOString().slice(0,10); }
 function weekCountsFrom(sessions){ const wc = {}; sessions.forEach(s=>{ const k = weekMondayKey(s.date); wc[k] = (wc[k]||0)+1; }); return wc; }
 function currentStreakWeeks(sessions){
   const wc = weekCountsFrom(sessions);
   let cursor = new Date(); let streak = 0, first = true;
   for(let i=0;i<1000;i++){
-    const key = weekMondayKey(cursor);
-    const count = wc[key] || 0;
+    const key = weekMondayKey(cursor); const count = wc[key] || 0;
     if(first){ if(count>=3) streak++; } else { if(count>=3) streak++; else break; }
-    first = false;
-    cursor = new Date(cursor.getTime() - 7*86400000);
+    first = false; cursor = new Date(cursor.getTime() - 7*86400000);
   }
   return streak;
 }
@@ -328,13 +310,11 @@ function longestStreakWeeks(sessions){
   const wc = weekCountsFrom(sessions);
   const weekTimes = Object.keys(wc).map(k=>new Date(k).getTime());
   const minT = Math.min(...weekTimes);
-  const lastCompleted = new Date(weekMondayKey(new Date()));
-  lastCompleted.setDate(lastCompleted.getDate()-7);
+  const lastCompleted = new Date(weekMondayKey(new Date())); lastCompleted.setDate(lastCompleted.getDate()-7);
   const maxT = lastCompleted.getTime();
   let run = 0, best = 0;
   for(let t=minT; t<=maxT; t+=7*86400000){
-    const key = weekMondayKey(new Date(t));
-    const count = wc[key] || 0;
+    const key = weekMondayKey(new Date(t)); const count = wc[key] || 0;
     if(count>=3){ run++; best = Math.max(best,run); } else run = 0;
   }
   return Math.max(best, currentStreakWeeks(sessions));
@@ -354,19 +334,19 @@ const EX_OVERRIDES_KEY = 'trainingslog_exercise_overrides';
 const PROFILE_KEY = 'trainingslog_profile';
 const BODY_SCANS_KEY = 'trainingslog_bodyscans';
 const SEED_FLAG_KEY = 'trainingslog_seed_v1';
-const OWNER_EMAIL   = 'swerlajwev@gmail.com';
+const OWNER_EMAIL = 'swerlajwev@gmail.com';
 
 const INITIAL_SCANS = [
-  { date:'2026-01-20', weight:75.1, muscle:33.9, fat:6.5,  visceral:0.0, cellFit:5.5, hrv:83, oxygen:98,  hr:70, bioage:14   },
-  { date:'2026-02-17', weight:87.2, muscle:36.0, fat:15.1, visceral:1.9, cellFit:5.3, hrv:59, oxygen:97,  hr:76, bioage:15   },
-  { date:'2026-03-24', weight:85.7, muscle:35.2, fat:14.3, visceral:1.9, cellFit:5.5, hrv:69, oxygen:98,  hr:80, bioage:16   },
-  { date:'2026-04-25', weight:84.7, muscle:35.1, fat:14.3, visceral:1.9, cellFit:5.6, hrv:77, oxygen:99,  hr:68, bioage:16   },
-  { date:'2026-05-21', weight:87.5, muscle:36.2, fat:15.1, visceral:1.9, cellFit:5.1, hrv:89, oxygen:98,  hr:67, bioage:15   },
-  { date:'2026-06-05', weight:86.9, muscle:35.9, fat:14.4, visceral:2.1, cellFit:5.5, hrv:84, oxygen:98,  hr:67, bioage:16   },
-  { date:'2026-06-25', weight:83.5, muscle:35.1, fat:12.8, visceral:1.3, cellFit:5.4, hrv:76, oxygen:98,  hr:73, bioage:15   },
-  { date:'2026-07-21', weight:83.6, muscle:35.1, fat:12.3, visceral:1.5, cellFit:5.3, hrv:68, oxygen:98,  hr:77, bioage:15   },
-  { date:'2026-08-18', weight:86.7, muscle:35.8, fat:15.5, visceral:1.8, cellFit:5.5, hrv:64, oxygen:100, hr:78, bioage:15   },
-  { date:'2026-09-05', weight:86.3, muscle:35.7, fat:14.8, visceral:1.9, cellFit:5.4, hrv:82, oxygen:98,  hr:73, bioage:15.7 },
+  { date:'2026-01-20', weight:75.1, muscle:33.9, fat:6.5, visceral:0.0, cellFit:5.5, hrv:83, oxygen:98, hr:70, bioage:14 },
+  { date:'2026-02-17', weight:87.2, muscle:36.0, fat:15.1, visceral:1.9, cellFit:5.3, hrv:59, oxygen:97, hr:76, bioage:15 },
+  { date:'2026-03-24', weight:85.7, muscle:35.2, fat:14.3, visceral:1.9, cellFit:5.5, hrv:69, oxygen:98, hr:80, bioage:16 },
+  { date:'2026-04-25', weight:84.7, muscle:35.1, fat:14.3, visceral:1.9, cellFit:5.6, hrv:77, oxygen:99, hr:68, bioage:16 },
+  { date:'2026-05-21', weight:87.5, muscle:36.2, fat:15.1, visceral:1.9, cellFit:5.1, hrv:89, oxygen:98, hr:67, bioage:15 },
+  { date:'2026-06-05', weight:86.9, muscle:35.9, fat:14.4, visceral:2.1, cellFit:5.5, hrv:84, oxygen:98, hr:67, bioage:16 },
+  { date:'2026-06-25', weight:83.5, muscle:35.1, fat:12.8, visceral:1.3, cellFit:5.4, hrv:76, oxygen:98, hr:73, bioage:15 },
+  { date:'2026-07-21', weight:83.6, muscle:35.1, fat:12.3, visceral:1.5, cellFit:5.3, hrv:68, oxygen:98, hr:77, bioage:15 },
+  { date:'2026-08-18', weight:86.7, muscle:35.8, fat:15.5, visceral:1.8, cellFit:5.5, hrv:64, oxygen:100, hr:78, bioage:15 },
+  { date:'2026-09-05', weight:86.3, muscle:35.7, fat:14.8, visceral:1.9, cellFit:5.4, hrv:82, oxygen:98, hr:73, bioage:15.7 },
 ];
 
 function loadSessions(){ try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }catch(e){ return []; } }
@@ -455,20 +435,30 @@ function exerciseStats(dayKey){
   });
   return stats;
 }
+
+// NEU: Kraftwerte dynamisch aus deinen eigenen Tageslisten
 function kraftwerteByGroup(){
-  const result = {};
-  Object.keys(MUSCLE_GROUPS).forEach(group => {
+  const DAYS = getDayTypes();
+  const result = [];
+  const seen = new Set();
+  Object.values(DAYS).forEach(day => {
     const items = [];
-    MUSCLE_GROUPS[group].uebungen.forEach(name => {
+    day.pool.forEach(name => {
+      if(seen.has(name)) return;
       let maxWeight = 0;
       state.sessions.forEach(s => {
         s.exercises.forEach(ex => {
-          if(ex.name === name){ ex.sets.forEach(st => { const w = parseFloat(st.weight); if(!isNaN(w) && w > maxWeight) maxWeight = w; }); }
+          if(ex.name === name){
+            ex.sets.forEach(st => {
+              const w = parseFloat(st.weight);
+              if(!isNaN(w) && w > maxWeight) maxWeight = w;
+            });
+          }
         });
       });
-      if(maxWeight > 0) items.push({ name, maxWeight });
+      if(maxWeight > 0){ items.push({ name, maxWeight }); seen.add(name); }
     });
-    if(items.length) result[group] = items;
+    if(items.length) result.push({ key: day.key, label: day.label, color: day.accent, items });
   });
   return result;
 }
@@ -512,8 +502,7 @@ function attachCloudSync(uid){
   });
   cloudUnsub = ref.onSnapshot(snap=>{
     if(suppressNextSnapshot){ suppressNextSnapshot = false; return; }
-    const data = snap.data();
-    if(!data) return;
+    const data = snap.data(); if(!data) return;
     state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
     saveSessions(state.sessions, true);
     saveCustomDays(Array.isArray(data.customDays) ? data.customDays : [], true);
@@ -537,14 +526,8 @@ function fbErrorMsg(err){
   };
   return map[err.code] || ('Fehler: ' + (err.message || 'unbekannt'));
 }
-async function signInPersistent(email, password){
-  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
-  return fbAuth.signInWithEmailAndPassword(email, password);
-}
-async function registerPersistent(email, password){
-  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
-  return fbAuth.createUserWithEmailAndPassword(email, password);
-}
+async function signInPersistent(email, password){ try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){} return fbAuth.signInWithEmailAndPassword(email, password); }
+async function registerPersistent(email, password){ try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){} return fbAuth.createUserWithEmailAndPassword(email, password); }
 function oauthSignIn(providerId){
   if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
   const provider = providerId === 'google' ? new firebase.auth.GoogleAuthProvider() : new firebase.auth.GithubAuthProvider();
@@ -554,8 +537,7 @@ function oauthSignIn(providerId){
       .catch(err=>{
         const fallbackCodes = ['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'];
         if(fallbackCodes.includes(err.code)){ fbAuth.signInWithRedirect(provider); return; }
-        state.authForm.error = fbErrorMsg(err);
-        render();
+        state.authForm.error = fbErrorMsg(err); render();
       });
   });
 }
@@ -584,9 +566,7 @@ window.addEventListener('popstate', (ev)=>{
 const DRAFT_KEY = 'trainingslog-draft-v1';
 function updateScorePreview(){ const el = document.getElementById('scorePreview'); if(el && state.draft) el.innerHTML = scoreCardHtml(state.draft, 'TAGES-SCORE (VORSCHAU)'); }
 function persistDraft(){ try{ if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft)); else localStorage.removeItem(DRAFT_KEY); }catch(e){} }
-function restoreDraft(){
-  try{ const raw = localStorage.getItem(DRAFT_KEY); if(raw){ state.draft = JSON.parse(raw); if(state.draft.energyZucker === undefined) state.draft.energyZucker = true; } }catch(e){}
-}
+function restoreDraft(){ try{ const raw = localStorage.getItem(DRAFT_KEY); if(raw){ state.draft = JSON.parse(raw); if(state.draft.energyZucker === undefined) state.draft.energyZucker = true; } }catch(e){} }
 function newDraft(key){ return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] }; }
 
 const MAIN_TABS = ['home', 'history', 'scan', 'profile'];
@@ -643,7 +623,6 @@ function scanMiniChart(scans, key, color){
   const dots = pts.map((v, i) => { const isLast = i === pts.length - 1; return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`; }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
 }
-
 function scanValueCard(scans, label, key, unit, color, hint, invertGood){
   if(!scans.length) return '';
   const latest = scans[scans.length-1];
@@ -678,7 +657,6 @@ function scanValueCard(scans, label, key, unit, color, hint, invertGood){
 function renderScan(){
   const scans = state.bodyScans;
   const kraft = kraftwerteByGroup();
-  const kraftGroups = Object.keys(kraft);
   return `
     <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
     <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
@@ -698,14 +676,13 @@ function renderScan(){
         </div>
       </div>
     ` : (() => {
-      const first = scans[0];
-      const last = scans[scans.length-1];
+      const first = scans[0], last = scans[scans.length-1];
       const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const rows = [
         { label:'MUSKELMASSE', first:first.muscle, last:last.muscle, unit:'kg', goodUp:true },
-        { label:'FETTMASSE',   first:first.fat,    last:last.fat,    unit:'kg', goodUp:false },
-        { label:'GEWICHT',     first:first.weight, last:last.weight, unit:'kg', goodUp:false },
+        { label:'FETTMASSE', first:first.fat, last:last.fat, unit:'kg', goodUp:false },
+        { label:'GEWICHT', first:first.weight, last:last.weight, unit:'kg', goodUp:false },
       ];
       return `
         <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
@@ -748,19 +725,19 @@ function renderScan(){
         ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1.5rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
       `;
     })()}
-    ${kraftGroups.length ? `
+    ${kraft.length ? `
       <div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">KRAFTWERTE AUS DEINEN SESSIONS</div>
       <div class="mono" style="font-size:.65rem;color:var(--text-faint);margin-bottom:.8rem;line-height:1.5;">
-        Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung.
+        Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung, gruppiert nach deinen Tag-Typen.
       </div>
-      ${kraftGroups.map(g => `
-        <div class="frame" style="--accent:${MUSCLE_GROUPS[g].color};padding:.9rem 1rem;margin-bottom:.6rem;">
+      ${kraft.map(g => `
+        <div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;">
           <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="eyebrow mono" style="color:${MUSCLE_GROUPS[g].color};margin-bottom:.7rem;">${g}</div>
-          ${kraft[g].map(u => `
+          <div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>
+          ${g.items.map(u => `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
               <div class="mono" style="font-size:.8rem;color:var(--text-dim);">${u.name}</div>
-              <div class="mono" style="font-size:1rem;color:${MUSCLE_GROUPS[g].color};">${u.maxWeight} kg</div>
+              <div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg</div>
             </div>
           `).join('')}
         </div>
@@ -1546,23 +1523,11 @@ function renderModalOverlay(){
 
 function attachListeners(){
   initExerciseDrag();
-  app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{
-    const cb = state.modal && state.modal.onCancel;
-    state.modal = null; if(cb) cb(); render();
-  }));
-  app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{
-    const cb = state.modal && state.modal.onConfirm;
-    state.modal = null; if(cb) cb(); render();
-  }));
-  app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{
-    const m = state.modal; state.modal = null;
-    if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; }
-    render();
-  }));
+  app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onCancel; state.modal = null; if(cb) cb(); render(); }));
+  app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onConfirm; state.modal = null; if(cb) cb(); render(); }));
+  app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{ const m = state.modal; state.modal = null; if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; } render(); }));
   app.querySelectorAll('[data-pick-day]').forEach(el=>el.addEventListener('click', ()=>{
-    const key = el.getAttribute('data-pick-day');
-    const day = getDayTypes()[key];
-    state.modal = null;
+    const key = el.getAttribute('data-pick-day'); const day = getDayTypes()[key]; state.modal = null;
     if(!day) { render(); return; }
     state.editDay = { key, name: day.label, short: day.short, accent: day.accent };
     state.view = 'editday'; render();
@@ -1573,16 +1538,12 @@ function attachListeners(){
     else if(t==='pdf'){ showPdfUpload(); }
     else if(t==='list'){ state.view = 'scan-list'; render(); }
   }));
-  app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{
-    state.scanForm[el.getAttribute('data-scan-field')] = el.value;
-  }));
+  app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
   app.querySelectorAll('[data-save-scan]').forEach(el=>el.addEventListener('click', ()=>{
     const f = state.scanForm;
     if(!f.date) f.date = new Date().toISOString().slice(0,10);
     const scan = { date: f.date };
-    ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{
-      const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v;
-    });
+    ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{ const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v; });
     state.bodyScans.push(scan);
     saveBodyScans(state.bodyScans);
     state.scanForm = {}; state.view = 'scan'; render();
@@ -1613,8 +1574,7 @@ function attachListeners(){
       });
       return;
     }
-    state.draft = newDraft(key);
-    state.view='session'; render();
+    state.draft = newDraft(key); state.view='session'; render();
   }));
   app.querySelectorAll('[data-history]').forEach(el=>el.addEventListener('click', ()=>{ state.view='history'; render(); }));
   app.querySelectorAll('[data-open-streak]').forEach(el=>el.addEventListener('click', ()=>{ state.view='streak'; render(); }));
@@ -1632,12 +1592,8 @@ function attachListeners(){
     if(f==='energy' && state.draft.energy && state.draft.energyZucker === undefined) state.draft.energyZucker = true;
     render();
   }));
-  app.querySelectorAll('[data-toggle-caffeine]').forEach(el=>el.addEventListener('click', ()=>{
-    state.draft.preWorkoutCaffeine = el.getAttribute('data-toggle-caffeine') === '1'; render();
-  }));
-  app.querySelectorAll('[data-toggle-zucker]').forEach(el=>el.addEventListener('click', ()=>{
-    state.draft.energyZucker = el.getAttribute('data-toggle-zucker') === '1'; render();
-  }));
+  app.querySelectorAll('[data-toggle-caffeine]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.preWorkoutCaffeine = el.getAttribute('data-toggle-caffeine') === '1'; render(); }));
+  app.querySelectorAll('[data-toggle-zucker]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.energyZucker = el.getAttribute('data-toggle-zucker') === '1'; render(); }));
   app.querySelectorAll('[data-mood]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.mood = el.getAttribute('data-mood'); render(); }));
   app.querySelectorAll('[data-energy-slider]').forEach(el=>el.addEventListener('input', ()=>{
     state.draft.energyLevel = +el.value;
@@ -1768,24 +1724,18 @@ function attachListeners(){
     saveCustomDays(days);
     state.view='home'; render();
   }));
-  app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{
-    state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render();
-  }));
+  app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{ state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render(); }));
   app.querySelectorAll('[data-auth-email]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.email = el.value; }));
   app.querySelectorAll('[data-auth-password]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.password = el.value; }));
   app.querySelectorAll('[data-auth-login]').forEach(el=>el.addEventListener('click', ()=>{
     if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
     const { email, password } = state.authForm;
-    signInPersistent(email, password)
-      .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
-      .catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
+    signInPersistent(email, password).then(()=>{ state.authForm.error=''; state.view='home'; render(); }).catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
   }));
   app.querySelectorAll('[data-auth-register]').forEach(el=>el.addEventListener('click', ()=>{
     if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
     const { email, password } = state.authForm;
-    registerPersistent(email, password)
-      .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
-      .catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
+    registerPersistent(email, password).then(()=>{ state.authForm.error=''; state.view='home'; render(); }).catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
   }));
   app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
   app.querySelectorAll('[data-logout]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1800,9 +1750,7 @@ function attachListeners(){
   app.querySelectorAll('[data-profile-exp]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.experience = el.getAttribute('data-profile-exp'); render(); }));
   app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); render(); }));
   app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showSessionPopup(el.getAttribute('data-chart-point')); }));
-  app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{
-    state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render();
-  }));
+  app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{ state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render(); }));
   app.querySelectorAll('[data-ask-delete]').forEach(el=>el.addEventListener('click', ()=>{ state.confirmDelete=true; render(); }));
   app.querySelectorAll('[data-edit-session-open]').forEach(el=>el.addEventListener('click', ()=>{
     const s = state.sessions.find(x=>x.id===state.detailId);
