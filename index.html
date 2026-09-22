@@ -975,12 +975,14 @@ function renderScoreChart(){
     <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>`).join('');
   const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
   const avgLineY = scaleY(avgY).toFixed(1);
+  const legendItems = [];
   const dayAvgLines = Object.values(DAYS).map(day=>{
     const dayPts = points.filter((p,i)=> chronological[i].dayType === day.key);
     if(dayPts.length < 2) return '';
     const dayAvg = dayPts.reduce((a,p)=>a+p.y,0)/dayPts.length;
     const yLine = scaleY(dayAvg).toFixed(1);
-    return `<line x1="${padL}" y1="${yLine}" x2="${w-padR}" y2="${yLine}" stroke="${day.accent}" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>`;
+    legendItems.push({short: day.short, accent: day.accent, avg: Math.round(dayAvg)});
+    return `<line x1="${padL}" y1="${yLine}" x2="${w-padR}" y2="${yLine}" stroke="${day.accent}" stroke-width="1.8" stroke-dasharray="5,3" opacity="0.9"/>`;
   }).join('');
   const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
   const yTickLines = [rangeMin, tickMid, rangeMax].map(v=>`
@@ -997,8 +999,17 @@ function renderScoreChart(){
         <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2.2"/>
         ${dots}
       </svg>
-      <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.5rem;text-align:center;">
-        gestrichelt grau: Gesamt-Ø (${Math.round(avgY)}%) · farbige Linien: Ø pro Tag-Typ
+      <div style="display:flex;flex-wrap:wrap;gap:.7rem;justify-content:center;margin-top:.7rem;">
+        <div class="mono" style="font-size:.6rem;color:var(--text-mute);display:flex;align-items:center;gap:.35rem;">
+          <span style="display:inline-block;width:16px;height:2px;background:var(--text-mute);"></span>
+          Gesamt-Ø ${Math.round(avgY)}%
+        </div>
+        ${legendItems.map(it=>`
+          <div class="mono" style="font-size:.6rem;color:${it.accent};display:flex;align-items:center;gap:.35rem;">
+            <span style="display:inline-block;width:16px;height:2px;background:${it.accent};"></span>
+            ${it.short} Ø ${it.avg}%
+          </div>
+        `).join('')}
       </div>
     </div>`;
 }
