@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="./icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     --bg:#000000; --surface:#18181b; --border:#27272a; --border-hover:#52525b;
@@ -26,13 +27,7 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-tap-highlight-color:transparent;}
   #app{max-width:480px;margin:0 auto;padding:2rem 1rem 7rem;min-height:100vh;}
   .day-grid{display:flex;flex-direction:column;gap:.75rem;}
-  @media (min-width:860px){
-    #app{max-width:920px;padding-top:3rem;}
-    .day-grid{flex-direction:row;flex-wrap:wrap;gap:1rem;}
-    .day-grid .day-card{flex:1 1 calc(50% - .5rem);margin-bottom:0;}
-    .pool-wrap{gap:.6rem;}
-    .mood-row{gap:.5rem;}
-  }
+  @media (min-width:860px){#app{max-width:920px;padding-top:3rem;}.day-grid{flex-direction:row;flex-wrap:wrap;gap:1rem;}.day-grid .day-card{flex:1 1 calc(50% - .5rem);margin-bottom:0;}.pool-wrap{gap:.6rem;}.mood-row{gap:.5rem;}}
   button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;}
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
   input[type=number]{-moz-appearance:textfield;}
@@ -75,12 +70,10 @@
   .ex-card{margin-bottom:.75rem;}
   .ex-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;}
   .drag-handle{color:var(--text-faint);touch-action:none;cursor:grab;display:flex;align-items:center;flex-shrink:0;}
-  .drag-handle:active{cursor:grabbing;}
   .ex-card.dragging{opacity:.95;box-shadow:0 10px 28px rgba(0,0,0,.6);border-color:var(--border-hover);}
   .ex-placeholder{border:1px dashed var(--border);border-radius:2px;margin-bottom:.75rem;background:rgba(255,255,255,.02);}
-  .ex-title{font-weight:500;}
+  .ex-title{font-weight:500;cursor:pointer;}
   .hist-row{width:100%;display:block;text-align:left;border:1px solid var(--border);padding:.7rem 1rem;background:none;color:inherit;margin-bottom:.5rem;}
-  .hist-row:hover{border-color:var(--border-hover);}
   .hist-top{display:flex;align-items:center;justify-content:space-between;}
   .hist-left{display:flex;align-items:center;gap:.75rem;}
   .hist-date{min-width:3.5rem;flex-shrink:0;text-align:left;}
@@ -135,16 +128,18 @@
   #bottomNav .nav-btn.active{color:var(--lime);}
   #bottomNav .nav-btn.active svg{stroke-width:2;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--lime) 50%,transparent));}
   #bottomNav .nav-btn.active::before{content:'';position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--lime);box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);}
+  .weight-suggest{font-family:var(--font-mono);font-size:.55rem;color:var(--lime);margin-left:.3rem;opacity:.75;}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="bottomNav"></div>
-
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+
 const ICON = {
   grip:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
   dumbbell:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 11 11M13 13l4.5 4.5M4.5 4.5l1-1a2 2 0 0 1 3 0l1 1a2 2 0 0 1 0 3l-1 1a2 2 0 0 1-3 0l-1-1a2 2 0 0 1 0-3ZM14.5 14.5l1-1a2 2 0 0 1 3 0l1 1a2 2 0 0 1 0 3l-1 1a2 2 0 0 1-3 0l-1-1a2 2 0 0 1 0-3Z"/></svg>',
@@ -155,18 +150,15 @@ const ICON = {
   check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   zap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
-  flame:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
   user:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
 };
-
 const NAV_ICONS = {
-  home:    '<svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9Z"/></svg>',
-  history: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="2"/></svg>',
-  scan:    '<svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="4"/></svg>',
-  profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  home:'<svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9Z"/></svg>',
+  history:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="2"/></svg>',
+  scan:'<svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="4"/></svg>',
+  profile:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
 };
-
 const MOOD_ICONS = {
   sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
   gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><circle cx="9" cy="10.2" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10.2" r="1" fill="currentColor" stroke="none"/><path d="M8.4 14q3.6 3.4 7.2 0"/></svg>',
@@ -185,9 +177,9 @@ function moodIconSvg(key, size){
 }
 
 const BUILTIN_DAY_TYPES = {
-  BR: { key:'BR', label:'BRUST / RÜCKEN', short:'B/R', accent:'var(--pink)',
+  BR:{ key:'BR', label:'BRUST / RÜCKEN', short:'B/R', accent:'var(--pink)',
     pool:['Bankdrücken','High-to-Low Latziehen','Schrägbankdrücken','T-Bar Row','Untere Brust / Kabel-Flys','Breiter Latzug','Klimmzüge','Enges Rudern','Seitheben','Hintere Schultern'] },
-  AS: { key:'AS', label:'ARME / SCHULTERN', short:'A/S', accent:'var(--sky)',
+  AS:{ key:'AS', label:'ARME / SCHULTERN', short:'A/S', accent:'var(--sky)',
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
 const MOODS = {
@@ -197,14 +189,13 @@ const MOODS = {
   traurig:{label:'TRAURIG',color:'var(--blue)',score:25},wuetend:{label:'WÜTEND',color:'var(--red)',score:20},
   kein_bock:{label:'KEIN BOCK',color:'var(--text-faint)',score:15},
 };
-
 const HUMAN_REFERENCE = {
-  '__overall__': 4000,
-  'Bankdrücken': 2200, 'Schrägbankdrücken': 1700, 'High-to-Low Latziehen': 1900,
-  'T-Bar Row': 1800, 'Breiter Latzug': 1700, 'Klimmzüge': 1400, 'Enges Rudern': 1800,
-  'Seitheben': 450, 'Hintere Schultern': 450, 'Schulterpresse': 1500,
-  'Bizepscurls': 550, 'Trizeps Push-Down': 750, 'Hammercurls (einarmig)': 550,
-  'Trizeps überkopf': 650, 'Unterarme': 400, 'Untere Brust / Kabel-Flys': 1000,
+  '__overall__':4000,
+  'Bankdrücken':2200, 'Schrägbankdrücken':1700, 'High-to-Low Latziehen':1900,
+  'T-Bar Row':1800, 'Breiter Latzug':1700, 'Klimmzüge':1400, 'Enges Rudern':1800,
+  'Seitheben':450, 'Hintere Schultern':450, 'Schulterpresse':1500,
+  'Bizepscurls':550, 'Trizeps Push-Down':750, 'Hammercurls (einarmig)':550,
+  'Trizeps überkopf':650, 'Unterarme':400, 'Untere Brust / Kabel-Flys':1000,
 };
 function humanFactor(profile){
   if(!profile) return null;
@@ -226,14 +217,10 @@ function humanEstimate(exName, profile){
   return base * f;
 }
 function isProfileComplete(p){ return !!(p && p.weight && p.age && p.gender && p.experience); }
-function experienceLabel(v){ return v==='anfaenger' ? 'Anfänger' : v==='erfahren' ? 'Erfahren' : 'Fortgeschritten'; }
-
 const SCORE_TIERS = [
-  { min:0, label:'SCHWACH', color:'var(--red)' },
-  { min:20, label:'MAU', color:'var(--orange)' },
-  { min:40, label:'OKAY', color:'var(--yellow)' },
-  { min:60, label:'GUT', color:'var(--green)' },
-  { min:80, label:'TOP', color:'var(--lime)' },
+  {min:0,label:'SCHWACH',color:'var(--red)'},{min:20,label:'MAU',color:'var(--orange)'},
+  {min:40,label:'OKAY',color:'var(--yellow)'},{min:60,label:'GUT',color:'var(--green)'},
+  {min:80,label:'TOP',color:'var(--lime)'},
 ];
 function getTier(score){ let t = SCORE_TIERS[0]; for(const s of SCORE_TIERS){ if(score>=s.min) t=s; } return t; }
 function sessionVolume(s){
@@ -261,7 +248,7 @@ function computeScore(session){
     if(est){ humanVol = est; humanPct = Math.round((vol/est)*100); }
   }
   const recordPct = (recordVol && vol) ? Math.round((vol/recordVol)*100) : null;
-  return { overall, training: training!=null?Math.round(training):null, vol, avgVol, recordVol, recordPct, humanVol, humanPct };
+  return {overall, training:training!=null?Math.round(training):null, vol, avgVol, recordVol, recordPct, humanVol, humanPct};
 }
 function scoreBarHtml(score){
   if(score==null) return '';
@@ -294,20 +281,34 @@ const fmtWd = iso => new Date(iso).toLocaleDateString('de-DE',{weekday:'short'})
 function toNoonIso(dateObj){ return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 12, 0, 0).toISOString(); }
 function localDateInputValue(iso){ const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function weekMondayKey(dateLike){ const d = new Date(dateLike); const day = d.getDay(); const diff = (day===0?-6:1-day); d.setHours(0,0,0,0); d.setDate(d.getDate()+diff); return d.toISOString().slice(0,10); }
-function weekCountsFrom(sessions){ const wc = {}; sessions.forEach(s=>{ const k = weekMondayKey(s.date); wc[k] = (wc[k]||0)+1; }); return wc; }
+function weekDistinctDaysFrom(sessions){
+  const wd = {};
+  sessions.forEach(s=>{
+    const k = weekMondayKey(s.date);
+    const d = new Date(s.date); d.setHours(0,0,0,0);
+    const dayKey = d.toISOString().slice(0,10);
+    if(!wd[k]) wd[k] = new Set();
+    wd[k].add(dayKey);
+  });
+  const counts = {};
+  Object.keys(wd).forEach(k=>{ counts[k] = wd[k].size; });
+  return counts;
+}
 function currentStreakWeeks(sessions){
-  const wc = weekCountsFrom(sessions);
+  const wc = weekDistinctDaysFrom(sessions);
   let cursor = new Date(); let streak = 0, first = true;
   for(let i=0;i<1000;i++){
-    const key = weekMondayKey(cursor); const count = wc[key] || 0;
+    const key = weekMondayKey(cursor);
+    const count = wc[key] || 0;
     if(first){ if(count>=3) streak++; } else { if(count>=3) streak++; else break; }
-    first = false; cursor = new Date(cursor.getTime() - 7*86400000);
+    first = false;
+    cursor = new Date(cursor.getTime() - 7*86400000);
   }
   return streak;
 }
 function longestStreakWeeks(sessions){
   if(!sessions.length) return 0;
-  const wc = weekCountsFrom(sessions);
+  const wc = weekDistinctDaysFrom(sessions);
   const weekTimes = Object.keys(wc).map(k=>new Date(k).getTime());
   const minT = Math.min(...weekTimes);
   const lastCompleted = new Date(weekMondayKey(new Date())); lastCompleted.setDate(lastCompleted.getDate()-7);
@@ -337,16 +338,16 @@ const SEED_FLAG_KEY = 'trainingslog_seed_v1';
 const OWNER_EMAIL = 'swerlajwev@gmail.com';
 
 const INITIAL_SCANS = [
-  { date:'2026-01-20', weight:75.1, muscle:33.9, fat:6.5, visceral:0.0, cellFit:5.5, hrv:83, oxygen:98, hr:70, bioage:14 },
-  { date:'2026-02-17', weight:87.2, muscle:36.0, fat:15.1, visceral:1.9, cellFit:5.3, hrv:59, oxygen:97, hr:76, bioage:15 },
-  { date:'2026-03-24', weight:85.7, muscle:35.2, fat:14.3, visceral:1.9, cellFit:5.5, hrv:69, oxygen:98, hr:80, bioage:16 },
-  { date:'2026-04-25', weight:84.7, muscle:35.1, fat:14.3, visceral:1.9, cellFit:5.6, hrv:77, oxygen:99, hr:68, bioage:16 },
-  { date:'2026-05-21', weight:87.5, muscle:36.2, fat:15.1, visceral:1.9, cellFit:5.1, hrv:89, oxygen:98, hr:67, bioage:15 },
-  { date:'2026-06-05', weight:86.9, muscle:35.9, fat:14.4, visceral:2.1, cellFit:5.5, hrv:84, oxygen:98, hr:67, bioage:16 },
-  { date:'2026-06-25', weight:83.5, muscle:35.1, fat:12.8, visceral:1.3, cellFit:5.4, hrv:76, oxygen:98, hr:73, bioage:15 },
-  { date:'2026-07-21', weight:83.6, muscle:35.1, fat:12.3, visceral:1.5, cellFit:5.3, hrv:68, oxygen:98, hr:77, bioage:15 },
-  { date:'2026-08-18', weight:86.7, muscle:35.8, fat:15.5, visceral:1.8, cellFit:5.5, hrv:64, oxygen:100, hr:78, bioage:15 },
-  { date:'2026-09-05', weight:86.3, muscle:35.7, fat:14.8, visceral:1.9, cellFit:5.4, hrv:82, oxygen:98, hr:73, bioage:15.7 },
+  {date:'2026-01-20',weight:75.1,muscle:33.9,fat:6.5,visceral:0.0,cellFit:5.5,hrv:83,oxygen:98,hr:70,bioage:14},
+  {date:'2026-02-17',weight:87.2,muscle:36.0,fat:15.1,visceral:1.9,cellFit:5.3,hrv:59,oxygen:97,hr:76,bioage:15},
+  {date:'2026-03-24',weight:85.7,muscle:35.2,fat:14.3,visceral:1.9,cellFit:5.5,hrv:69,oxygen:98,hr:80,bioage:16},
+  {date:'2026-04-25',weight:84.7,muscle:35.1,fat:14.3,visceral:1.9,cellFit:5.6,hrv:77,oxygen:99,hr:68,bioage:16},
+  {date:'2026-05-21',weight:87.5,muscle:36.2,fat:15.1,visceral:1.9,cellFit:5.1,hrv:89,oxygen:98,hr:67,bioage:15},
+  {date:'2026-06-05',weight:86.9,muscle:35.9,fat:14.4,visceral:2.1,cellFit:5.5,hrv:84,oxygen:98,hr:67,bioage:16},
+  {date:'2026-06-25',weight:83.5,muscle:35.1,fat:12.8,visceral:1.3,cellFit:5.4,hrv:76,oxygen:98,hr:73,bioage:15},
+  {date:'2026-07-21',weight:83.6,muscle:35.1,fat:12.3,visceral:1.5,cellFit:5.3,hrv:68,oxygen:98,hr:77,bioage:15},
+  {date:'2026-08-18',weight:86.7,muscle:35.8,fat:15.5,visceral:1.8,cellFit:5.5,hrv:64,oxygen:100,hr:78,bioage:15},
+  {date:'2026-09-05',weight:86.3,muscle:35.7,fat:14.8,visceral:1.9,cellFit:5.4,hrv:82,oxygen:98,hr:73,bioage:15.7},
 ];
 
 function loadSessions(){ try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }catch(e){ return []; } }
@@ -361,7 +362,6 @@ function loadProfile(){ try{ const raw = localStorage.getItem(PROFILE_KEY); cons
 function saveProfile(p, skipCloud){ try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); }catch(e){} if(!skipCloud) pushToCloud(); }
 function loadBodyScans(){ try{ const raw = localStorage.getItem(BODY_SCANS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }catch(e){ return []; } }
 function saveBodyScans(scans, skipCloud){ try{ localStorage.setItem(BODY_SCANS_KEY, JSON.stringify(scans)); }catch(e){} if(!skipCloud) pushToCloud(); }
-
 function seedInitialScansForOwner(){
   if(authUser && authUser.email === OWNER_EMAIL){
     if(!localStorage.getItem(SEED_FLAG_KEY)){
@@ -371,7 +371,6 @@ function seedInitialScansForOwner(){
     }
   }
 }
-
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
   const custom = loadCustomPool()[key] || [];
@@ -391,7 +390,7 @@ function togglePerArm(dayKey, name){
   ov[dayKey].perArm[name] = !ov[dayKey].perArm[name];
   saveExOverrides(ov);
 }
-function blankSet(dayKey, name){ return isPerArm(dayKey, name) ? { weight:'', repsLeft:'', repsRight:'' } : { weight:'', reps:'' }; }
+function blankSet(dayKey, name){ return isPerArm(dayKey, name) ? {weight:'',repsLeft:'',repsRight:''} : {weight:'',reps:''}; }
 function effectiveReps(st){
   if(st.repsLeft!==undefined || st.repsRight!==undefined){
     const l = parseFloat(st.repsLeft), r = parseFloat(st.repsRight);
@@ -435,31 +434,92 @@ function exerciseStats(dayKey){
   });
   return stats;
 }
-
-// NEU: Kraftwerte dynamisch aus deinen eigenen Tageslisten
 function kraftwerteByGroup(){
   const DAYS = getDayTypes();
   const result = [];
   const seen = new Set();
-  Object.values(DAYS).forEach(day => {
+  Object.values(DAYS).forEach(day=>{
     const items = [];
-    day.pool.forEach(name => {
+    day.pool.forEach(name=>{
       if(seen.has(name)) return;
       let maxWeight = 0;
-      state.sessions.forEach(s => {
-        s.exercises.forEach(ex => {
-          if(ex.name === name){
-            ex.sets.forEach(st => {
-              const w = parseFloat(st.weight);
-              if(!isNaN(w) && w > maxWeight) maxWeight = w;
-            });
-          }
-        });
-      });
-      if(maxWeight > 0){ items.push({ name, maxWeight }); seen.add(name); }
+      state.sessions.forEach(s=>{ s.exercises.forEach(ex=>{
+        if(ex.name===name) ex.sets.forEach(st=>{ const w = parseFloat(st.weight); if(!isNaN(w) && w>maxWeight) maxWeight = w; });
+      }); });
+      if(maxWeight > 0){ items.push({name, maxWeight}); seen.add(name); }
     });
-    if(items.length) result.push({ key: day.key, label: day.label, color: day.accent, items });
+    if(items.length) result.push({key:day.key, label:day.label, color:day.accent, items});
   });
+  return result;
+}
+function lastMaxFor(dayType, exName){
+  const sessions = state.sessions.filter(s=>s.dayType===dayType).sort((a,b)=> new Date(b.date) - new Date(a.date));
+  for(const s of sessions){
+    const ex = s.exercises.find(e=>e.name===exName);
+    if(ex && ex.sets.length){
+      const weights = ex.sets.map(st=>parseFloat(st.weight)).filter(w=>!isNaN(w));
+      if(weights.length) return Math.max(...weights);
+    }
+  }
+  return null;
+}
+function suggestNextWeight(lastMax){
+  if(lastMax==null) return null;
+  if(lastMax < 15) return lastMax + 1;
+  if(lastMax < 30) return lastMax + 1.25;
+  if(lastMax < 60) return lastMax + 2.5;
+  return lastMax + 2.5;
+}
+function exerciseProgress(exName){
+  const arr = [];
+  state.sessions.forEach(s=>{
+    const ex = s.exercises.find(e=>e.name===exName);
+    if(!ex) return;
+    let maxW = 0, maxReps = 0;
+    ex.sets.forEach(st=>{
+      const w = parseFloat(st.weight);
+      const r = effectiveReps(st);
+      if(!isNaN(w) && w>maxW){ maxW = w; maxReps = r; }
+    });
+    if(maxW > 0) arr.push({date: s.date, weight: maxW, reps: maxReps, dayType: s.dayType, sessionId: s.id});
+  });
+  return arr.sort((a,b)=> new Date(a.date) - new Date(b.date));
+}
+async function extractPdf(file){
+  if(!window.pdfjsLib) throw new Error('PDF-Bibliothek nicht geladen');
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  let text = '';
+  for(let i=1; i<=pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    text += tc.items.map(it=>it.str).join(' ') + '\n';
+  }
+  return parseVicoachText(text);
+}
+function parseVicoachText(raw){
+  const t = raw.replace(/\s+/g,' ');
+  const result = {date: new Date().toISOString().slice(0,10)};
+  const numOf = (str) => { if(!str) return null; const n = parseFloat(String(str).replace(',','.')); return isNaN(n) ? null : n; };
+  let m = t.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if(m){ result.date = `${m[3]}-${m[2]}-${m[1]}`; }
+  else { m = t.match(/(\d{4})\/(\d{2})\/(\d{2})/); if(m) result.date = `${m[1]}-${m[2]}-${m[3]}`; }
+  const findNear = (keyword) => {
+    const idx = t.toLowerCase().indexOf(keyword.toLowerCase());
+    if(idx < 0) return null;
+    const sub = t.substring(idx, idx + 250);
+    const nm = sub.match(/([0-9]+[.,][0-9]+|[0-9]+)/);
+    return nm ? numOf(nm[1]) : null;
+  };
+  const g = findNear('Gewicht'); if(g!=null) result.weight = g;
+  const mm = findNear('Muskelmasse'); if(mm!=null) result.muscle = mm;
+  const f = findNear('Fettmasse'); if(f!=null) result.fat = f;
+  const vz = findNear('Viszerales Fett'); if(vz!=null) result.visceral = vz;
+  const cf = findNear('Zellfitnesswert'); if(cf!=null) result.cellFit = cf;
+  const hrv = findNear('HRV-Trainingsbereitschaft'); if(hrv!=null) result.hrv = hrv;
+  const oxy = findNear('SpO2'); if(oxy!=null) result.oxygen = oxy;
+  const hr = findNear('Herzfrequenz'); if(hr!=null) result.hr = hr;
+  const ba = findNear('Bioage'); if(ba!=null) result.bioage = ba;
   return result;
 }
 
@@ -532,8 +592,7 @@ function oauthSignIn(providerId){
   if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
   const provider = providerId === 'google' ? new firebase.auth.GoogleAuthProvider() : new firebase.auth.GithubAuthProvider();
   fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
-    fbAuth.signInWithPopup(provider)
-      .then(()=>{ state.authForm.error=''; state.view='home'; render(); })
+    fbAuth.signInWithPopup(provider).then(()=>{ state.authForm.error=''; state.view='home'; render(); })
       .catch(err=>{
         const fallbackCodes = ['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'];
         if(fallbackCodes.includes(err.code)){ fbAuth.signInWithRedirect(provider); return; }
@@ -543,19 +602,21 @@ function oauthSignIn(providerId){
 }
 
 let state = {
-  view: 'home', sessions: loadSessions(), draft: null, detailId: null, confirmDelete: false,
-  newDay: { name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0] },
-  editDay: null, editPoolName: null, editPoolValue: '', poolEditMode: false,
-  authForm: { email:'', password:'', error:'' }, modal: null, editSessionDraft: null,
-  profile: loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' },
-  bodyScans: loadBodyScans(), scanForm: {},
+  view:'home', sessions:loadSessions(), draft:null, detailId:null, confirmDelete:false,
+  newDay:{name:'',short:'',shortTouched:false,accent:DAY_SWATCHES[0]},
+  editDay:null, editPoolName:null, editPoolValue:'', poolEditMode:false,
+  authForm:{email:'',password:'',error:''}, modal:null, editSessionDraft:null,
+  profile: loadProfile() || {height:'',weight:'',age:'',gender:'',experience:''},
+  bodyScans: loadBodyScans(), scanForm:{},
+  exerciseName:null,
+  pdfParsing:false, pdfError:null,
 };
 const app = document.getElementById('app');
 let historyInitialized = false, suppressHistoryPush = false;
 function syncHistory(){
   if(suppressHistoryPush) return;
-  if(!historyInitialized){ history.replaceState({ view: state.view }, '', '#'+state.view); historyInitialized = true; return; }
-  if(!history.state || history.state.view !== state.view){ history.pushState({ view: state.view }, '', '#'+state.view); }
+  if(!historyInitialized){ history.replaceState({view:state.view}, '', '#'+state.view); historyInitialized = true; return; }
+  if(!history.state || history.state.view !== state.view){ history.pushState({view:state.view}, '', '#'+state.view); }
 }
 window.addEventListener('popstate', (ev)=>{
   suppressHistoryPush = true;
@@ -567,21 +628,21 @@ const DRAFT_KEY = 'trainingslog-draft-v1';
 function updateScorePreview(){ const el = document.getElementById('scorePreview'); if(el && state.draft) el.innerHTML = scoreCardHtml(state.draft, 'TAGES-SCORE (VORSCHAU)'); }
 function persistDraft(){ try{ if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft)); else localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){ try{ const raw = localStorage.getItem(DRAFT_KEY); if(raw){ state.draft = JSON.parse(raw); if(state.draft.energyZucker === undefined) state.draft.energyZucker = true; } }catch(e){} }
-function newDraft(key){ return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] }; }
+function newDraft(key){ return {id:uid(),date:toNoonIso(new Date()),dayType:key,preWorkout:false,preWorkoutCaffeine:true,energy:false,energyZucker:true,mood:null,energyLevel:50,food:'',exercises:[]}; }
 
-const MAIN_TABS = ['home', 'history', 'scan', 'profile'];
+const MAIN_TABS = ['home','history','scan','profile'];
 function renderBottomNav(){
   const el = document.getElementById('bottomNav');
   if(!el) return;
   if(!MAIN_TABS.includes(state.view) || (fbEnabled && !authUser)){ el.classList.remove('visible'); el.innerHTML = ''; return; }
   el.classList.add('visible');
   const tabs = [
-    { id:'home', icon:'home', label:'HOME' },
-    { id:'history', icon:'history', label:'VERLAUF' },
-    { id:'scan', icon:'scan', label:'SCAN' },
-    { id:'profile', icon:'profile', label:'PROFIL' },
+    {id:'home',icon:'home',label:'HOME'},
+    {id:'history',icon:'history',label:'VERLAUF'},
+    {id:'scan',icon:'scan',label:'SCAN'},
+    {id:'profile',icon:'profile',label:'PROFIL'},
   ];
-  el.innerHTML = tabs.map(t => `
+  el.innerHTML = tabs.map(t=>`
     <button class="nav-btn ${state.view===t.id?'active':''}" data-nav="${t.id}">
       ${NAV_ICONS[t.icon]}<span>${t.label}</span>
     </button>`).join('');
@@ -603,18 +664,18 @@ function render(){
   else if(state.view==='scan') app.innerHTML = renderScan();
   else if(state.view==='scan-form') app.innerHTML = renderScanForm();
   else if(state.view==='scan-list') app.innerHTML = renderScanList();
+  else if(state.view==='exercise') app.innerHTML = renderExerciseDetail();
   app.innerHTML += renderModalOverlay();
   attachListeners();
   renderBottomNav();
 }
 
-// =================== SCAN ===================
 function scanMiniChart(scans, key, color){
   if(scans.length < 2) return '';
-  const pts = scans.map(s => parseFloat(s[key])).filter(v => !isNaN(v));
+  const pts = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
   if(pts.length < 2) return '';
   const min = Math.min(...pts), max = Math.max(...pts);
-  const span = Math.max((max - min) * 1.6, 0.5);
+  const span = Math.max((max-min)*1.6, 0.5);
   const rMin = min - span*0.25, rMax = max + span*0.25;
   const w = 280, h = 60, padL = 6, padR = 6, padT = 6, padB = 6;
   const stepX = (w - padL - padR) / (pts.length - 1);
@@ -653,7 +714,6 @@ function scanValueCard(scans, label, key, unit, color, hint, invertGood){
       </div>
     </div>`;
 }
-
 function renderScan(){
   const scans = state.bodyScans;
   const kraft = kraftwerteByGroup();
@@ -667,6 +727,7 @@ function renderScan(){
       <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
       <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
     </div>
+    ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:1rem;">${state.pdfError}</div>`:''}
     ${scans.length === 0 ? `
       <div class="frame" style="--accent:var(--sky);padding:1.5rem 1rem;text-align:center;">
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
@@ -675,20 +736,20 @@ function renderScan(){
           Lade eine vicoach-PDF hoch oder trag die Werte manuell ein.
         </div>
       </div>
-    ` : (() => {
+    ` : (()=>{
       const first = scans[0], last = scans[scans.length-1];
       const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const rows = [
-        { label:'MUSKELMASSE', first:first.muscle, last:last.muscle, unit:'kg', goodUp:true },
-        { label:'FETTMASSE', first:first.fat, last:last.fat, unit:'kg', goodUp:false },
-        { label:'GEWICHT', first:first.weight, last:last.weight, unit:'kg', goodUp:false },
+        {label:'MUSKELMASSE', first:first.muscle, last:last.muscle, unit:'kg', goodUp:true},
+        {label:'FETTMASSE', first:first.fat, last:last.fat, unit:'kg', goodUp:false},
+        {label:'GEWICHT', first:first.weight, last:last.weight, unit:'kg', goodUp:false},
       ];
       return `
         <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
           <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
           <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
-          ${rows.map(r => {
+          ${rows.map(r=>{
             if(r.first===undefined || r.last===undefined) return '';
             const diff = r.last - r.first;
             const sign = diff > 0 ? '+' : '';
@@ -713,31 +774,31 @@ function renderScan(){
           </div>
         </div>
         <div class="eyebrow mono" style="margin:1.2rem 0 .6rem;">KÖRPERWERTE (VERLAUF)</div>
-        ${scanValueCard(scans, 'GEWICHT', 'weight', 'kg', 'var(--text)', '', true)}
-        ${scanValueCard(scans, 'MUSKELMASSE', 'muscle', 'kg', 'var(--lime)', '', false)}
-        ${scanValueCard(scans, 'FETTMASSE', 'fat', 'kg', 'var(--orange)', '', true)}
-        ${scanValueCard(scans, 'VISZERALES FETT', 'visceral', 'kg', 'var(--red)', 'Fett um innere Organe', true)}
-        ${scanValueCard(scans, 'ZELLFITNESS', 'cellFit', '', 'var(--lime)', 'Zellversorgung / Phasenwinkel', false)}
-        ${scanValueCard(scans, 'HERZFREQUENZVARIABILITÄT', 'hrv', 'ms', 'var(--pink)', 'Erholung / Trainingsbereitschaft', false)}
-        ${scanValueCard(scans, 'SAUERSTOFFSÄTTIGUNG', 'oxygen', '%', 'var(--sky)', 'O2-Gehalt im Blut', false)}
-        ${scanValueCard(scans, 'RUHE-HERZFREQUENZ', 'hr', 'bpm', 'var(--text-dim)', 'Herzfrequenz in Ruhe', true)}
-        ${scanValueCard(scans, 'BIOLOGISCHES ALTER', 'bioage', 'Jahre', 'var(--purple)', '', true)}
+        ${scanValueCard(scans,'GEWICHT','weight','kg','var(--text)','',true)}
+        ${scanValueCard(scans,'MUSKELMASSE','muscle','kg','var(--lime)','',false)}
+        ${scanValueCard(scans,'FETTMASSE','fat','kg','var(--orange)','',true)}
+        ${scanValueCard(scans,'VISZERALES FETT','visceral','kg','var(--red)','Fett um innere Organe',true)}
+        ${scanValueCard(scans,'ZELLFITNESS','cellFit','','var(--lime)','Zellversorgung / Phasenwinkel',false)}
+        ${scanValueCard(scans,'HERZFREQUENZVARIABILITÄT','hrv','ms','var(--pink)','Erholung / Trainingsbereitschaft',false)}
+        ${scanValueCard(scans,'SAUERSTOFFSÄTTIGUNG','oxygen','%','var(--sky)','O2-Gehalt im Blut',false)}
+        ${scanValueCard(scans,'RUHE-HERZFREQUENZ','hr','bpm','var(--text-dim)','Herzfrequenz in Ruhe',true)}
+        ${scanValueCard(scans,'BIOLOGISCHES ALTER','bioage','Jahre','var(--purple)','',true)}
         ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1.5rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
       `;
     })()}
     ${kraft.length ? `
       <div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">KRAFTWERTE AUS DEINEN SESSIONS</div>
       <div class="mono" style="font-size:.65rem;color:var(--text-faint);margin-bottom:.8rem;line-height:1.5;">
-        Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung, gruppiert nach deinen Tag-Typen.
+        Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung. Klick auf eine Übung für den Verlauf.
       </div>
-      ${kraft.map(g => `
+      ${kraft.map(g=>`
         <div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;">
           <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
           <div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>
-          ${g.items.map(u => `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
-              <div class="mono" style="font-size:.8rem;color:var(--text-dim);">${u.name}</div>
-              <div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg</div>
+          ${g.items.map(u=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;cursor:pointer;" data-exercise-open="${escapeHtml(u.name)}">
+              <div class="mono" style="font-size:.8rem;color:var(--text-dim);text-decoration:underline;text-decoration-color:var(--text-faint);text-underline-offset:3px;">${u.name}</div>
+              <div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg ›</div>
             </div>
           `).join('')}
         </div>
@@ -745,7 +806,6 @@ function renderScan(){
     ` : ''}
   `;
 }
-
 function renderScanForm(){
   const f = state.scanForm;
   const field = (label, key, placeholder, unit) => `
@@ -762,19 +822,18 @@ function renderScanForm(){
     </div>
     <div class="eyebrow mono" style="margin-bottom:.4rem;">DATUM</div>
     <input class="set-input mono" type="date" data-scan-field="date" value="${f.date || new Date().toISOString().slice(0,10)}" />
-    ${field('GEWICHT', 'weight', '86.3', 'kg')}
-    ${field('MUSKELMASSE', 'muscle', '35.7', 'kg')}
-    ${field('FETTMASSE', 'fat', '14.8', 'kg')}
-    ${field('VISZERALES FETT', 'visceral', '1.9', 'kg')}
-    ${field('ZELLFITNESS', 'cellFit', '5.4', 'Phasenwinkel')}
-    ${field('HERZFREQUENZVARIABILITÄT', 'hrv', '82', 'ms')}
-    ${field('SAUERSTOFFSÄTTIGUNG', 'oxygen', '98', '%')}
-    ${field('RUHE-HERZFREQUENZ', 'hr', '73', 'bpm')}
-    ${field('BIOLOGISCHES ALTER', 'bioage', '15.7', 'Jahre')}
+    ${field('GEWICHT','weight','86.3','kg')}
+    ${field('MUSKELMASSE','muscle','35.7','kg')}
+    ${field('FETTMASSE','fat','14.8','kg')}
+    ${field('VISZERALES FETT','visceral','1.9','kg')}
+    ${field('ZELLFITNESS','cellFit','5.4','Phasenwinkel')}
+    ${field('HERZFREQUENZVARIABILITÄT','hrv','82','ms')}
+    ${field('SAUERSTOFFSÄTTIGUNG','oxygen','98','%')}
+    ${field('RUHE-HERZFREQUENZ','hr','73','bpm')}
+    ${field('BIOLOGISCHES ALTER','bioage','15.7','Jahre')}
     <button class="save-btn mono" data-save-scan="1" style="background:var(--lime);margin-top:1.5rem;">${ICON.check} SPEICHERN</button>
   `;
 }
-
 function renderScanList(){
   const scans = state.bodyScans;
   if(!scans.length) return '';
@@ -782,7 +841,7 @@ function renderScanList(){
     <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono">BODY-SCANS</div>
     <div class="h1 display" style="margin-bottom:1rem;">ALLE MESSUNGEN</div>
-    ${[...scans].reverse().map((s, idx) => {
+    ${[...scans].reverse().map((s, idx)=>{
       const origIdx = scans.length - 1 - idx;
       return `
         <div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.5rem;">
@@ -802,8 +861,75 @@ function renderScanList(){
     }).join('')}
   `;
 }
-
-// =================== Charts + Cards ===================
+function renderExerciseDetail(){
+  const exName = state.exerciseName;
+  if(!exName) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Keine Übung ausgewählt.</div>`;
+  const progress = exerciseProgress(exName);
+  if(!progress.length) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Für "${exName}" gibt es noch keine Einträge.</div>`;
+  const latest = progress[progress.length-1];
+  const first = progress[0];
+  const diff = latest.weight - first.weight;
+  const sign = diff > 0 ? '+' : '';
+  const dcolor = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--red)' : 'var(--text-mute)';
+  const w = 300, h = 140, padL = 36, padR = 12, padT = 12, padB = 20;
+  const weights = progress.map(p=>p.weight);
+  const minW = Math.min(...weights), maxW = Math.max(...weights);
+  const span = Math.max((maxW - minW) * 1.4, 5);
+  const rMin = Math.max(0, Math.floor((minW - span*0.25)/2.5)*2.5);
+  const rMax = Math.ceil((maxW + span*0.25)/2.5)*2.5;
+  const stepX = progress.length > 1 ? (w - padL - padR) / (progress.length - 1) : 0;
+  const sY = v => h - padB - ((v - rMin) / (rMax - rMin)) * (h - padT - padB);
+  const path = progress.map((p, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(p.weight).toFixed(1)}`).join(' ');
+  const dots = progress.map((p, i) => {
+    const isLast = i === progress.length - 1;
+    return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(p.weight).toFixed(1)}" r="${isLast?5:3}" fill="${isLast?'var(--lime)':'var(--text-faint)'}"><title>${fmtDate(p.date)}: ${p.weight} kg</title></circle>`;
+  }).join('');
+  const tickMid = Math.round((rMin + rMax) / 2 / 2.5) * 2.5;
+  const yTicks = [rMin, tickMid, rMax];
+  const yTickLines = yTicks.map(v=>`
+    <line x1="${padL}" y1="${sY(v).toFixed(1)}" x2="${w-padR}" y2="${sY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
+    <text x="${padL-6}" y="${(sY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}</text>
+  `).join('');
+  return `
+    <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
+    <div class="eyebrow mono">ÜBUNGS-VERLAUF</div>
+    <div class="h1 display" style="margin-bottom:1rem;">${escapeHtml(exName)}</div>
+    <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:1rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div style="display:flex;justify-content:space-between;gap:1rem;text-align:center;margin-bottom:1rem;">
+        <div style="flex:1;">
+          <div class="eyebrow mono" style="font-size:.55rem;">AKTUELL MAX</div>
+          <div class="mono" style="font-size:1.6rem;color:var(--lime);">${latest.weight}<span style="font-size:.7rem;color:var(--text-mute);"> kg</span></div>
+        </div>
+        <div style="flex:1;">
+          <div class="eyebrow mono" style="font-size:.55rem;">GESAMT</div>
+          <div class="mono" style="font-size:1.6rem;color:${dcolor};">${sign}${diff.toFixed(1)}<span style="font-size:.7rem;color:var(--text-mute);"> kg</span></div>
+        </div>
+      </div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
+        ${yTickLines}
+        <path d="${path}" fill="none" stroke="var(--lime)" stroke-width="2.2"/>
+        ${dots}
+      </svg>
+      <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.6rem;text-align:center;">
+        ${progress.length} EINTRÄGE · ERSTE: ${first.weight} kg (${fmtDate(first.date)})
+      </div>
+    </div>
+    <div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">ALLE SESSIONS</div>
+    ${[...progress].reverse().map(p=>`
+      <div class="frame" style="--accent:var(--text-mute);padding:.7rem 1rem;margin-bottom:.4rem;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="mono" style="font-size:.7rem;color:var(--text-mute);">${fmtWd(p.date)} · ${fmtDate(p.date)}</div>
+            <div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight} kg <span style="color:var(--text-faint);">× ${p.reps||'–'}</span></div>
+          </div>
+          <button class="x-btn" data-exercise-goto-session="${p.sessionId}" title="Session öffnen">${ICON.check}</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
   if(chronological.length < 2){ return `<div class="empty" style="margin-top:1.5rem;">Noch nicht genug Sessions für ein Diagramm (mind. 2 nötig).</div>`; }
@@ -830,6 +956,15 @@ function renderScoreChart(){
   const dots = points.map((p,i)=>`
     <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
     <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>`).join('');
+  const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
+  const avgLineY = scaleY(avgY).toFixed(1);
+  const dayAvgLines = Object.values(DAYS).map(day=>{
+    const dayPts = points.filter((p,i)=> chronological[i].dayType === day.key);
+    if(dayPts.length < 2) return '';
+    const dayAvg = dayPts.reduce((a,p)=>a+p.y,0)/dayPts.length;
+    const yLine = scaleY(dayAvg).toFixed(1);
+    return `<line x1="${padL}" y1="${yLine}" x2="${w-padR}" y2="${yLine}" stroke="${day.accent}" stroke-width="1" stroke-dasharray="4,3" opacity="0.55"/>`;
+  }).join('');
   const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
   const yTickLines = [rangeMin, tickMid, rangeMax].map(v=>`
     <line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/>
@@ -840,12 +975,16 @@ function renderScoreChart(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
         ${yTickLines}
+        ${dayAvgLines}
+        <line x1="${padL}" y1="${avgLineY}" x2="${w-padR}" y2="${avgLineY}" stroke="var(--text-mute)" stroke-width="1.2" stroke-dasharray="6,3"/>
         <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2.2"/>
         ${dots}
       </svg>
+      <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.5rem;text-align:center;">
+        gestrichelt grau: Gesamt-Ø (${Math.round(avgY)}%) · farbige Linien: Ø pro Tag-Typ
+      </div>
     </div>`;
 }
-
 function renderHumanCompareCard(){
   const profile = loadProfile();
   if(!isProfileComplete(profile)){
@@ -887,7 +1026,6 @@ function renderHumanCompareCard(){
       </div>
     </div>`;
 }
-
 function renderHome(){
   const DAYS = getDayTypes();
   const now = new Date();
@@ -938,7 +1076,6 @@ function renderHome(){
     ${renderHumanCompareCard()}
   `;
 }
-
 function renderProfile(){
   const p = state.profile || {};
   const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime);font-size:.6rem;letter-spacing:.1em;" data-profile-exp="${val}">${lbl}</button>`;
@@ -981,7 +1118,6 @@ function renderProfile(){
     <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);">${ICON.check} PROFIL SPEICHERN</button>
   `;
 }
-
 function renderAuth(){
   const a = state.authForm;
   return `
@@ -998,7 +1134,6 @@ function renderAuth(){
     <button class="btn-outline mono" style="margin-bottom:1.5rem;" data-auth-google="1">${ICON.check} MIT GOOGLE ANMELDEN</button>
   `;
 }
-
 function renderStreak(){
   const streak = currentStreakWeeks(state.sessions);
   const longest = longestStreakWeeks(state.sessions);
@@ -1018,11 +1153,10 @@ function renderStreak(){
     ${row('SESSIONS INSGESAMT', total, 'var(--sky)')}
     ${row('DABEI SEIT', since+' Wochen', 'var(--text-mute)')}
     <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-top:.5rem;line-height:1.6;">
-      Eine Streak-Woche zählt, wenn du in dieser Kalenderwoche (Mo–So) mindestens 3 Sessions eingetragen hast. Die laufende Woche bricht die Streak nicht, solange sie noch nicht vorbei ist.
+      Eine Streak-Woche zählt, wenn du an mindestens 3 verschiedenen Tagen (Mo–So) trainiert hast. Die laufende Woche bricht die Streak nicht, solange sie noch nicht vorbei ist.
     </div>
   `;
 }
-
 function autoShort(name){
   const parts = name.trim().split(/[\/\s]+/).filter(Boolean);
   if(parts.length >= 2) return parts.slice(0,3).map(p=>p[0].toUpperCase()).join('/');
@@ -1031,7 +1165,7 @@ function autoShort(name){
 function upsertCustomDay(key, patch){
   const days = loadCustomDays();
   const idx = days.findIndex(d=>d.key===key);
-  if(idx>=0){ days[idx] = {...days[idx], ...patch}; } else { days.push({ key, ...patch }); }
+  if(idx>=0){ days[idx] = {...days[idx], ...patch}; } else { days.push({key, ...patch}); }
   saveCustomDays(days);
 }
 function renderEditDay(){
@@ -1065,7 +1199,6 @@ function renderNewDay(){
     <button class="save-btn mono" data-newday-create="1" ${nd.name.trim()?'':'disabled'} style="background:${nd.accent};">${ICON.check} TAG ANLEGEN</button>
   `;
 }
-
 function renderSession(){
   const DAYS = getDayTypes();
   const d = state.draft;
@@ -1109,13 +1242,16 @@ function renderSession(){
     <div class="eyebrow mono" style="margin:0 0 .5rem;">ERNÄHRUNG (OPTIONAL)</div>
     <textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>
   `;
-  const exCards = d.exercises.map((ex) => `
+  const exCards = d.exercises.map((ex)=>{
+    const lastMax = lastMaxFor(d.dayType, ex.name);
+    const suggestion = suggestNextWeight(lastMax);
+    return `
     <div class="ex-card frame" style="--accent:${day.accent}" data-ex-card="${ex.name}">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="ex-head">
         <div style="display:flex;align-items:center;gap:.6rem;min-width:0;">
           <span class="drag-handle" data-drag-handle="${ex.name}">${ICON.grip}</span>
-          <div class="ex-title">${ex.name}</div>
+          <div class="ex-title" data-exercise-open="${escapeHtml(ex.name)}">${ex.name}${suggestion?`<span class="weight-suggest" title="Vorschlag fürs nächste Mal">→ ${suggestion}kg</span>`:''}</div>
         </div>
         <button class="x-btn" data-remove-ex="${ex.name}">${ICON.trash}</button>
       </div>
@@ -1136,7 +1272,8 @@ function renderSession(){
           </div>`).join('')}
       </div>
       <button class="add-set mono" data-add-set="${ex.name}">${ICON.plus} SATZ</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const stats = exerciseStats(d.dayType);
   const poolNames = day.pool.filter(n=>!active.includes(n)).sort((a,b)=>{
     const sa=stats[a], sb=stats[b];
@@ -1191,7 +1328,6 @@ function renderSession(){
     <button class="save-btn" data-finish="1" ${d.exercises.length===0?'disabled':''} style="background:${day.accent}">${ICON.check} SESSION SPEICHERN</button>
   `;
 }
-
 function historyRowHtml(s, DAYS){
   const day = DAYS[s.dayType] || {short:'?',accent:'var(--text-mute)'};
   const mood = s.mood ? MOODS[s.mood] : null;
@@ -1230,7 +1366,6 @@ function renderHistory(){
     ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':rows}
   `;
 }
-
 function renderDetail(){
   const DAYS = getDayTypes();
   const s = state.sessions.find(x=>x.id===state.detailId);
@@ -1267,7 +1402,7 @@ function renderDetail(){
     return `
     <div class="frame" style="--accent:${day.accent};margin-bottom:.75rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div class="ex-title" style="margin-bottom:.5rem;">${ex.name}</div>
+      <div class="ex-title" style="margin-bottom:.5rem;" data-exercise-open="${escapeHtml(ex.name)}">${ex.name}</div>
       <div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${(st.repsLeft!==undefined||st.repsRight!==undefined) ? `${st.repsLeft||'–'}L/${st.repsRight||'–'}R` : (st.reps||'–')}</span>`).join('')}</div>
       ${pct!=null?`<div style="margin-top:.7rem;"><div class="score-bar"><div class="score-fill" style="width:${Math.min(pct,100)}%;background:${tier.color}"></div></div><div class="mono" style="font-size:.65rem;color:${tier.color};text-align:right;margin-top:.3rem;">${pct}% vom Ø-Mensch*</div></div>`:''}
     </div>`;
@@ -1292,7 +1427,6 @@ function renderDetail(){
     </div>
   `;
 }
-
 function renderSessionEdit(day){
   const d = state.editSessionDraft;
   const exCards = d.exercises.map((ex, exIdx) => `
@@ -1331,7 +1465,6 @@ function renderSessionEdit(day){
     <button class="save-btn mono" data-edit-save="1" style="background:${day.accent};margin-top:1rem;">${ICON.check} ÄNDERUNGEN SPEICHERN</button>
   `;
 }
-
 function initExerciseDrag(){
   const container = app.querySelector('#ex-list-container');
   if(container){
@@ -1433,15 +1566,13 @@ function initExerciseDrag(){
     });
   }
 }
-
 function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel }){
-  state.modal = { type:'confirm', title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel };
+  state.modal = {type:'confirm', title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel};
   render();
 }
-function showSessionPopup(sessionId){ state.modal = { type:'session-preview', sessionId }; render(); }
-function showDayPicker(){ state.modal = { type:'day-picker' }; render(); }
-function showPdfUpload(){ state.modal = { type:'pdf-upload' }; render(); }
-
+function showSessionPopup(sessionId){ state.modal = {type:'session-preview', sessionId}; render(); }
+function showDayPicker(){ state.modal = {type:'day-picker'}; render(); }
+function showPdfUpload(){ state.modal = {type:'pdf-upload'}; render(); }
 function renderModalOverlay(){
   const m = state.modal;
   if(!m) return '';
@@ -1471,7 +1602,7 @@ function renderModalOverlay(){
   }
   if(m.type === 'day-picker'){
     const DAYS = getDayTypes();
-    const list = Object.values(DAYS).map(day => `
+    const list = Object.values(DAYS).map(day=>`
       <button class="btn-outline mono" data-pick-day="${day.key}" style="margin-bottom:.5rem;justify-content:space-between;padding:.9rem 1rem;border-color:${day.accent};color:${day.accent};">
         <span style="display:flex;align-items:center;gap:.6rem;">
           <span class="day-badge" style="--accent:${day.accent};color:${day.accent};width:2rem;height:2rem;min-width:2rem;font-size:.55rem;">${day.short}</span>
@@ -1497,12 +1628,13 @@ function renderModalOverlay(){
         <div class="eyebrow mono" style="margin-bottom:.3rem;">PDF-IMPORT</div>
         <div class="display" style="font-size:1.1rem;margin-bottom:1rem;">VICOACH-PDF HOCHLADEN</div>
         <div class="mono" style="font-size:.7rem;color:var(--text-dim);margin-bottom:1.2rem;line-height:1.6;">
-          Wähle deine vicoach-mescan-PDF. Die App liest die Werte raus und zeigt sie dir zur Bestätigung.
+          Wähle deine vicoach-mescan-PDF. Die Werte werden automatisch ausgelesen und du kannst sie vor dem Speichern prüfen.
         </div>
+        ${state.pdfParsing ? `<div class="mono" style="font-size:.8rem;color:var(--lime);text-align:center;padding:1.5rem 0;">PDF wird gelesen…</div>` : `
         <label style="display:block;position:relative;border:1px dashed var(--sky);padding:2rem 1rem;text-align:center;cursor:pointer;margin-bottom:1rem;">
           <div class="mono" style="font-size:.75rem;color:var(--sky);">PDF HIER AUSWÄHLEN</div>
           <input type="file" accept=".pdf" data-pdf-input="1" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
-        </label>
+        </label>`}
         <button class="btn-outline mono" data-modal-cancel="1" style="font-size:.7rem;">ABBRECHEN</button>
       </div>
     </div>`;
@@ -1520,7 +1652,6 @@ function renderModalOverlay(){
     </div>
   </div>`;
 }
-
 function attachListeners(){
   initExerciseDrag();
   app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onCancel; state.modal = null; if(cb) cb(); render(); }));
@@ -1529,20 +1660,20 @@ function attachListeners(){
   app.querySelectorAll('[data-pick-day]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-pick-day'); const day = getDayTypes()[key]; state.modal = null;
     if(!day) { render(); return; }
-    state.editDay = { key, name: day.label, short: day.short, accent: day.accent };
+    state.editDay = {key, name:day.label, short:day.short, accent:day.accent};
     state.view = 'editday'; render();
   }));
   app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{
     const t = el.getAttribute('data-scan-action');
     if(t==='manual'){ state.scanForm = {}; state.view = 'scan-form'; render(); }
-    else if(t==='pdf'){ showPdfUpload(); }
+    else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); }
     else if(t==='list'){ state.view = 'scan-list'; render(); }
   }));
   app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
   app.querySelectorAll('[data-save-scan]').forEach(el=>el.addEventListener('click', ()=>{
     const f = state.scanForm;
     if(!f.date) f.date = new Date().toISOString().slice(0,10);
-    const scan = { date: f.date };
+    const scan = {date: f.date};
     ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{ const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v; });
     state.bodyScans.push(scan);
     saveBodyScans(state.bodyScans);
@@ -1554,23 +1685,42 @@ function attachListeners(){
     saveBodyScans(state.bodyScans);
     render();
   }));
-  app.querySelectorAll('[data-pdf-input]').forEach(el=>el.addEventListener('change', (e)=>{
-    if(!e.target.files.length) return;
-    alert('PDF-Erkennung wird in dieser Version simuliert.\n\nIn der finalen Version liest die App die Werte automatisch aus deiner vicoach-PDF und zeigt sie dir zum Bestätigen.');
-    state.modal = null;
-    state.scanForm = { date: new Date().toISOString().slice(0,10) };
-    state.view = 'scan-form'; render();
+  app.querySelectorAll('[data-pdf-input]').forEach(el=>el.addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    state.pdfParsing = true; state.pdfError = null; render();
+    try{
+      const data = await extractPdf(file);
+      state.pdfParsing = false;
+      state.modal = null;
+      state.scanForm = data;
+      state.view = 'scan-form'; render();
+    }catch(err){
+      state.pdfParsing = false;
+      state.pdfError = 'PDF konnte nicht gelesen werden: ' + (err.message || err);
+      state.modal = null; render();
+    }
+  }));
+  app.querySelectorAll('[data-exercise-open]').forEach(el=>el.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.exerciseName = el.getAttribute('data-exercise-open');
+    state.view = 'exercise'; render();
+  }));
+  app.querySelectorAll('[data-exercise-goto-session]').forEach(el=>el.addEventListener('click', ()=>{
+    state.detailId = el.getAttribute('data-exercise-goto-session');
+    state.confirmDelete = false;
+    state.view = 'detail'; render();
   }));
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
     if(state.draft && state.draft.exercises.length>0){
       if(state.draft.dayType === key){ state.view='session'; render(); return; }
       askConfirm({
-        title: 'Offene Session',
-        message: 'Du hast noch eine andere ungespeicherte Session offen. Willst du sie behalten (weiter bearbeiten) oder verwerfen und eine neue starten?',
-        confirmLabel: 'VERWERFEN', cancelLabel: 'BEHALTEN', danger: true,
-        onConfirm: ()=>{ state.draft = newDraft(key); state.view='session'; },
-        onCancel: ()=>{ state.view='session'; },
+        title:'Offene Session',
+        message:'Du hast noch eine andere ungespeicherte Session offen. Willst du sie behalten (weiter bearbeiten) oder verwerfen und eine neue starten?',
+        confirmLabel:'VERWERFEN', cancelLabel:'BEHALTEN', danger:true,
+        onConfirm:()=>{ state.draft = newDraft(key); state.view='session'; },
+        onCancel:()=>{ state.view='session'; },
       });
       return;
     }
@@ -1609,8 +1759,8 @@ function attachListeners(){
       state.draft.exercises = last.exercises.map(ex=>({
         name: ex.name,
         sets: ex.sets.map(s=>{
-          if(s.repsLeft!==undefined || s.repsRight!==undefined){ return { weight: s.weight, repsLeft:'', repsRight:'', repsLeftHint: s.repsLeft, repsRightHint: s.repsRight }; }
-          return { weight: s.weight, reps:'', repsHint: s.reps };
+          if(s.repsLeft!==undefined || s.repsRight!==undefined){ return {weight:s.weight, repsLeft:'', repsRight:'', repsLeftHint:s.repsLeft, repsRightHint:s.repsRight}; }
+          return {weight:s.weight, reps:'', repsHint:s.reps};
         })
       }));
     }
@@ -1618,7 +1768,7 @@ function attachListeners(){
   }));
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-ex');
-    state.draft.exercises.push({ name, sets:[blankSet(state.draft.dayType, name)] }); render();
+    state.draft.exercises.push({name, sets:[blankSet(state.draft.dayType, name)]}); render();
   }));
   app.querySelectorAll('[data-add-custom-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const input = app.querySelector('[data-custom-ex-input]');
@@ -1629,7 +1779,7 @@ function attachListeners(){
     if(!pool[dayKey]) pool[dayKey] = [];
     const builtinPool = BUILTIN_DAY_TYPES[dayKey] ? BUILTIN_DAY_TYPES[dayKey].pool : [];
     if(!builtinPool.includes(name) && !pool[dayKey].includes(name)){ pool[dayKey].push(name); saveCustomPool(pool); }
-    state.draft.exercises.push({ name, sets:[blankSet(dayKey, name)] });
+    state.draft.exercises.push({name, sets:[blankSet(dayKey, name)]});
     render();
   }));
   app.querySelectorAll('[data-toggle-pool-edit]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1686,20 +1836,20 @@ function attachListeners(){
     const name = state.editDay.name.trim();
     if(!name) return;
     const short = (state.editDay.short.trim() || autoShort(name)).toUpperCase();
-    upsertCustomDay(state.editDay.key, { label:name.toUpperCase(), short, accent:state.editDay.accent });
+    upsertCustomDay(state.editDay.key, {label:name.toUpperCase(), short, accent:state.editDay.accent});
     state.editDay = null; state.view='home'; render();
   }));
   app.querySelectorAll('[data-editday-delete]').forEach(el=>el.addEventListener('click', ()=>{
     const key = state.editDay.key;
     askConfirm({
-      title: 'Tag löschen',
-      message: 'Diesen Tag wirklich löschen? Bereits gespeicherte Sessions dazu bleiben im Verlauf erhalten.',
-      confirmLabel: 'LÖSCHEN', cancelLabel: 'BEHALTEN', danger: true,
-      onConfirm: ()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; },
+      title:'Tag löschen',
+      message:'Diesen Tag wirklich löschen? Bereits gespeicherte Sessions dazu bleiben im Verlauf erhalten.',
+      confirmLabel:'LÖSCHEN', cancelLabel:'BEHALTEN', danger:true,
+      onConfirm:()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; },
     });
   }));
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
-    state.newDay = { name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0] }; state.view='newday'; render();
+    state.newDay = {name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0]}; state.view='newday'; render();
   }));
   app.querySelectorAll('[data-editmode-open]').forEach(el=>el.addEventListener('click', ()=>{ showDayPicker(); }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{
@@ -1720,21 +1870,21 @@ function attachListeners(){
     const key = 'C' + uid();
     const short = (state.newDay.short.trim() || autoShort(name)).toUpperCase();
     const days = loadCustomDays();
-    days.push({ key, label:name.toUpperCase(), short, accent:state.newDay.accent });
+    days.push({key, label:name.toUpperCase(), short, accent:state.newDay.accent});
     saveCustomDays(days);
     state.view='home'; render();
   }));
-  app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{ state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render(); }));
+  app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{ state.authForm = {email:'',password:'',error:''}; state.view='auth'; render(); }));
   app.querySelectorAll('[data-auth-email]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.email = el.value; }));
   app.querySelectorAll('[data-auth-password]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.password = el.value; }));
   app.querySelectorAll('[data-auth-login]').forEach(el=>el.addEventListener('click', ()=>{
     if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
-    const { email, password } = state.authForm;
+    const {email, password} = state.authForm;
     signInPersistent(email, password).then(()=>{ state.authForm.error=''; state.view='home'; render(); }).catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
   }));
   app.querySelectorAll('[data-auth-register]').forEach(el=>el.addEventListener('click', ()=>{
     if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; }
-    const { email, password } = state.authForm;
+    const {email, password} = state.authForm;
     registerPersistent(email, password).then(()=>{ state.authForm.error=''; state.view='home'; render(); }).catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); });
   }));
   app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
@@ -1766,7 +1916,7 @@ function attachListeners(){
     const i = +el.getAttribute('data-edit-add-set');
     const ex = state.editSessionDraft.exercises[i];
     const last = ex.sets[ex.sets.length-1] || {};
-    const newSet = { weight: last.weight||'', reps:'' };
+    const newSet = {weight: last.weight||'', reps:''};
     if(last.repsLeft!==undefined || last.repsRight!==undefined){ newSet.repsLeft=''; newSet.repsRight=''; delete newSet.reps; }
     ex.sets.push(newSet); render();
   }));
@@ -1791,16 +1941,14 @@ function attachListeners(){
     state.confirmDelete=false; state.detailId=null; state.view='history'; render();
   }));
 }
-
 restoreDraft();
 if(state.draft) state.view = 'session';
 render();
-
 if(fbEnabled){
   fbAuth.getRedirectResult().catch(err=>{ state.authForm.error = fbErrorMsg(err); });
   fbAuth.onAuthStateChanged(user=>{
     authChecked = true;
-    authUser = user ? { uid:user.uid, email:user.email } : null;
+    authUser = user ? {uid:user.uid, email:user.email} : null;
     detachCloudSync();
     if(user) attachCloudSync(user.uid);
     seedInitialScansForOwner();
@@ -1810,7 +1958,6 @@ if(fbEnabled){
   authChecked = true;
   seedInitialScansForOwner();
 }
-
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
 }
