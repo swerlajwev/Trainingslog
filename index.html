@@ -24,7 +24,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-tap-highlight-color:transparent;}
-  #app{max-width:480px;margin:0 auto;padding:2rem 1rem 6rem;min-height:100vh;}
+  #app{max-width:480px;margin:0 auto;padding:2rem 1rem 7rem;min-height:100vh;}
   .day-grid{display:flex;flex-direction:column;gap:.75rem;}
   @media (min-width:860px){
     #app{max-width:920px;padding-top:3rem;}
@@ -52,6 +52,7 @@
   .day-badge{display:flex;align-items:center;justify-content:center;min-width:2.5rem;height:2.5rem;padding:0 .4rem;border-radius:999px;border:1px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);font-family:var(--font-mono);font-size:.64rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;}
   .btn-outline{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:.8rem;letter-spacing:.2em;}
   .btn-outline:hover{border-color:var(--border-hover);color:var(--text);}
+  .btn-primary{width:100%;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.9rem;border:none;background:var(--lime);color:#000;font-family:var(--font-display);font-weight:600;font-size:.85rem;letter-spacing:.1em;}
   .chip-row{display:flex;gap:.5rem;margin-bottom:1.5rem;}
   .chip{flex:1;display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.65rem;border:1px solid var(--border);background:transparent;color:var(--text-mute);font-size:.72rem;letter-spacing:.2em;}
   .chip.active{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);}
@@ -86,9 +87,6 @@
   .hist-wd{font-size:.62rem;color:var(--text-mute);}
   .hist-d{font-size:.85rem;}
   .hist-right{display:flex;align-items:center;gap:.5rem;}
-  #accountFab{position:fixed;right:1rem;bottom:calc(1rem + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:.6rem;}
-  .fab-btn{width:3rem;height:3rem;border-radius:50%;background:#09090b;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.6);color:var(--text-dim);}
-  .fab-panel{background:#09090b;border:1px solid var(--border);padding:.85rem;width:17rem;box-shadow:0 4px 16px rgba(0,0,0,.7);}
   .tag{font-size:.72rem;letter-spacing:.2em;}
   .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .6rem;font-size:.72rem;border:1px solid;margin-right:.5rem;}
   .set-pill{padding:.25rem .5rem;background:#09090b;border:1px solid var(--border);font-size:.85rem;margin:0 .4rem .4rem 0;display:inline-block;}
@@ -99,10 +97,9 @@
   .stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;}
   .stat-num{font-size:1.6rem;color:var(--lime);text-align:right;}
   .stat-lbl{font-size:.6rem;letter-spacing:.15em;color:var(--text-mute);text-align:right;}
-  .streak-btn{background:transparent;border:1.5px solid var(--pink);padding:.5rem .7rem;display:flex;flex-direction:column;align-items:center;gap:.15rem;cursor:pointer;transition:background .15s;min-width:4.5rem;}
-  .streak-btn:hover{background:color-mix(in srgb, var(--pink) 15%, transparent);}
+  .streak-btn{background:transparent;border:1.5px solid var(--pink);padding:.5rem .7rem;display:flex;flex-direction:column;align-items:center;gap:.15rem;cursor:pointer;min-width:4.5rem;}
   .streak-btn .streak-num{font-family:var(--font-mono);font-size:1.5rem;color:var(--pink);line-height:1;}
-  .streak-btn .streak-label{font-family:var(--font-mono);font-size:.55rem;letter-spacing:.15em;color:var(--pink);display:flex;align-items:center;gap:.2rem;}
+  .streak-btn .streak-label{font-family:var(--font-mono);font-size:.55rem;letter-spacing:.15em;color:var(--pink);}
   svg{display:block;}
   @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
   .pulse{width:6px;height:6px;border-radius:999px;background:currentColor;display:inline-block;animation:pulse 1.4s ease-in-out infinite;}
@@ -118,7 +115,6 @@
   .perfect-btn{border-color:var(--gold) !important;color:var(--gold) !important;}
   .swatch{width:2.1rem;height:2.1rem;border-radius:999px;border:2px solid transparent;padding:0;}
   .mood-btn span.mood-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
-  .mood-btn span.mood-icon svg{display:block;}
   .score-wrap{display:flex;align-items:center;gap:.5rem;}
   .score-bar{flex:1;height:6px;background:var(--border);border-radius:999px;overflow:hidden;}
   .score-fill{height:100%;border-radius:999px;transition:width .25s ease;}
@@ -131,11 +127,40 @@
   .vs-bar{flex:1;height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative;}
   .vs-bar-fill{height:100%;border-radius:999px;}
   .vs-val{font-family:var(--font-mono);font-size:.72rem;min-width:4.5rem;text-align:right;}
+
+  /* Bottom Nav */
+  #bottomNav{
+    position:fixed; left:0; right:0; bottom:0;
+    background:#050505; border-top:1px solid var(--border);
+    display:none; z-index:80;
+    padding-bottom:env(safe-area-inset-bottom);
+    max-width:480px; margin:0 auto;
+  }
+  #bottomNav.visible{ display:flex; }
+  @media (min-width:860px){ #bottomNav{ max-width:920px; } }
+  #bottomNav .nav-btn{
+    flex:1; background:none; border:none; color:var(--text-faint);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.25rem; padding:.75rem .3rem .65rem;
+    font-family:var(--font-mono); font-size:.52rem; letter-spacing:.12em;
+    position:relative; transition:color .15s;
+  }
+  #bottomNav .nav-btn svg{
+    width:22px; height:22px; stroke:currentColor; fill:none;
+    stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round;
+  }
+  #bottomNav .nav-btn.active{ color:var(--lime); }
+  #bottomNav .nav-btn.active svg{ stroke-width:2; filter:drop-shadow(0 0 4px color-mix(in srgb,var(--lime) 50%,transparent)); }
+  #bottomNav .nav-btn.active::before{
+    content:''; position:absolute; top:-1px; left:25%; right:25%;
+    height:2px; background:var(--lime);
+    box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
-<div id="accountFab"></div>
+<div id="bottomNav"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -152,9 +177,15 @@ const ICON = {
   x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   zap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
   flame:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>',
-  utensils:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-2-2.2-5-2.5-6.5-.8C3.8 8 4 12 6 15.5c1.6 2.8 3.3 4.5 5 4.5s2.7-1 4-1 2.3 1 4 1c1.7 0 3.4-1.7 5-4.5 2-3.5 2.2-7.5.5-9.3C22 3.5 19 3.8 17 6"/><path d="M12 7V3.5c1.4-1 3-1 4 0"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
   user:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+};
+
+const NAV_ICONS = {
+  home:    '<svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9Z"/></svg>',
+  history: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="2"/></svg>',
+  scan:    '<svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="4"/></svg>',
+  profile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
 };
 
 const MOOD_ICONS = {
@@ -181,15 +212,23 @@ const BUILTIN_DAY_TYPES = {
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
 const MOODS = {
-  sehr_gut:   { label:'SEHR GUT', color:'var(--lime)', score:100 },
-  gut:        { label:'GUT', color:'var(--green)', score:80 },
-  normal:     { label:'NORMAL', color:'var(--text)', score:55 },
-  nachdenklich:{ label:'NACHDENKLICH', color:'var(--yellow)', score:50 },
-  muede:      { label:'MÜDE', color:'var(--teal)', score:40 },
-  gestresst:  { label:'GESTRESST', color:'var(--purple)', score:28 },
-  traurig:    { label:'TRAURIG', color:'var(--blue)', score:25 },
-  wuetend:    { label:'WÜTEND', color:'var(--red)', score:20 },
-  kein_bock:  { label:'KEIN BOCK', color:'var(--text-faint)', score:15 },
+  sehr_gut:{label:'SEHR GUT',color:'var(--lime)',score:100},
+  gut:{label:'GUT',color:'var(--green)',score:80},
+  normal:{label:'NORMAL',color:'var(--text)',score:55},
+  nachdenklich:{label:'NACHDENKLICH',color:'var(--yellow)',score:50},
+  muede:{label:'MÜDE',color:'var(--teal)',score:40},
+  gestresst:{label:'GESTRESST',color:'var(--purple)',score:28},
+  traurig:{label:'TRAURIG',color:'var(--blue)',score:25},
+  wuetend:{label:'WÜTEND',color:'var(--red)',score:20},
+  kein_bock:{label:'KEIN BOCK',color:'var(--text-faint)',score:15},
+};
+
+const MUSCLE_GROUPS = {
+  'BRUST':     { color:'var(--pink)', uebungen:['Bankdrücken','Schrägbankdrücken','Untere Brust / Kabel-Flys'] },
+  'RÜCKEN':    { color:'var(--pink)', uebungen:['High-to-Low Latziehen','T-Bar Row','Breiter Latzug','Klimmzüge','Enges Rudern'] },
+  'SCHULTERN': { color:'var(--sky)',  uebungen:['Schulterpresse','Seitheben','Hintere Schultern'] },
+  'ARME':      { color:'var(--sky)',  uebungen:['Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme'] },
+  'BEINE':     { color:'var(--lime)', uebungen:['Beinpresse','Beinstrecker','Beinbeuger','Wadenheben','Kniebeugen','Ausfallschritte'] },
 };
 
 const HUMAN_REFERENCE = {
@@ -254,14 +293,8 @@ function computeScore(session){
     const est = humanEstimate('__overall__', profile);
     if(est){ humanVol = est; humanPct = Math.round((vol/est)*100); }
   }
-  const moodPart = (session.mood && MOODS[session.mood]) ? MOODS[session.mood].score : null;
-  const energyPart = typeof session.energyLevel==='number' ? session.energyLevel : null;
-  let subjective = null;
-  if(moodPart!=null && energyPart!=null) subjective = (moodPart+energyPart)/2;
-  else if(moodPart!=null) subjective = moodPart;
-  else if(energyPart!=null) subjective = energyPart;
   const recordPct = (recordVol && vol) ? Math.round((vol/recordVol)*100) : null;
-  return { overall, subjective: subjective!=null?Math.round(subjective):null, training: training!=null?Math.round(training):null, vol, avgVol, recordVol, recordPct, humanVol, humanPct };
+  return { overall, training: training!=null?Math.round(training):null, vol, avgVol, recordVol, recordPct, humanVol, humanPct };
 }
 function scoreBarHtml(score){
   if(score==null) return '';
@@ -344,6 +377,7 @@ const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
 const CUSTOM_POOL_KEY = 'trainingslog_custom_pool';
 const EX_OVERRIDES_KEY = 'trainingslog_exercise_overrides';
 const PROFILE_KEY = 'trainingslog_profile';
+const BODY_SCANS_KEY = 'trainingslog_bodyscans';
 
 function loadSessions(){ try{ const raw = localStorage.getItem(STORE_KEY); const parsed = raw ? JSON.parse(raw) : []; return Array.isArray(parsed)?parsed:[]; }catch(e){ return []; } }
 function saveSessions(sessions, skipCloud){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(sessions)); }catch(e){} if(!skipCloud) pushToCloud(); }
@@ -355,6 +389,8 @@ function loadExOverrides(){ try{ const raw = localStorage.getItem(EX_OVERRIDES_K
 function saveExOverrides(o, skipCloud){ try{ localStorage.setItem(EX_OVERRIDES_KEY, JSON.stringify(o)); }catch(e){} if(!skipCloud) pushToCloud(); }
 function loadProfile(){ try{ const raw = localStorage.getItem(PROFILE_KEY); const p = raw ? JSON.parse(raw) : null; return (p && typeof p==='object') ? p : null; }catch(e){ return null; } }
 function saveProfile(p, skipCloud){ try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); }catch(e){} if(!skipCloud) pushToCloud(); }
+function loadBodyScans(){ try{ const raw = localStorage.getItem(BODY_SCANS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }catch(e){ return []; } }
+function saveBodyScans(scans, skipCloud){ try{ localStorage.setItem(BODY_SCANS_KEY, JSON.stringify(scans)); }catch(e){} if(!skipCloud) pushToCloud(); }
 
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
@@ -420,6 +456,29 @@ function exerciseStats(dayKey){
   return stats;
 }
 
+function kraftwerteByGroup(){
+  const result = {};
+  Object.keys(MUSCLE_GROUPS).forEach(group => {
+    const items = [];
+    MUSCLE_GROUPS[group].uebungen.forEach(name => {
+      let maxWeight = 0;
+      state.sessions.forEach(s => {
+        s.exercises.forEach(ex => {
+          if(ex.name === name){
+            ex.sets.forEach(st => {
+              const w = parseFloat(st.weight);
+              if(!isNaN(w) && w > maxWeight) maxWeight = w;
+            });
+          }
+        });
+      });
+      if(maxWeight > 0) items.push({ name, maxWeight });
+    });
+    if(items.length) result[group] = items;
+  });
+  return result;
+}
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBhRCi36Ac-1AO6UcfF1NVsTY9YXtwIwdE",
   authDomain: "trainingslog-102.firebaseapp.com",
@@ -429,8 +488,7 @@ const FIREBASE_CONFIG = {
   appId: "1:696947842581:web:d6f43f57a62d8fcfae381c"
 };
 let fbAuth = null, fbDb = null, fbEnabled = false, authUser = null;
-let cloudUnsub = null, suppressNextSnapshot = false;
-let authChecked = false;
+let cloudUnsub = null, suppressNextSnapshot = false, authChecked = false;
 try{
   if(window.firebase && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -446,7 +504,8 @@ function pushToCloud(){
   suppressNextSnapshot = true;
   fbDb.collection('users').doc(authUser.uid).set({
     sessions: state.sessions, customDays: loadCustomDays(), customPool: loadCustomPool(),
-    exOverrides: loadExOverrides(), profile: loadProfile(), updatedAt: Date.now(),
+    exOverrides: loadExOverrides(), profile: loadProfile(), bodyScans: loadBodyScans(),
+    updatedAt: Date.now(),
   }).catch(e=>{ console.error('Cloud-Sync fehlgeschlagen', e); });
 }
 function attachCloudSync(uid){
@@ -454,7 +513,7 @@ function attachCloudSync(uid){
   ref.get().then(snap=>{
     if(!snap.exists){
       suppressNextSnapshot = true;
-      ref.set({ sessions: state.sessions, customDays: loadCustomDays(), customPool: loadCustomPool(), exOverrides: loadExOverrides(), profile: loadProfile(), updatedAt: Date.now() });
+      ref.set({ sessions: state.sessions, customDays: loadCustomDays(), customPool: loadCustomPool(), exOverrides: loadExOverrides(), profile: loadProfile(), bodyScans: loadBodyScans(), updatedAt: Date.now() });
     }
   });
   cloudUnsub = ref.onSnapshot(snap=>{
@@ -467,6 +526,8 @@ function attachCloudSync(uid){
     saveCustomPool((data.customPool && typeof data.customPool==='object') ? data.customPool : {}, true);
     saveExOverrides((data.exOverrides && typeof data.exOverrides==='object') ? data.exOverrides : {}, true);
     if(data.profile && typeof data.profile==='object'){ saveProfile(data.profile, true); state.profile = data.profile; }
+    state.bodyScans = Array.isArray(data.bodyScans) ? data.bodyScans : [];
+    saveBodyScans(state.bodyScans, true);
     render();
   });
 }
@@ -483,11 +544,11 @@ function fbErrorMsg(err){
   return map[err.code] || ('Fehler: ' + (err.message || 'unbekannt'));
 }
 async function signInPersistent(email, password){
-  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){ console.warn('setPersistence:', e); }
+  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   return fbAuth.signInWithEmailAndPassword(email, password);
 }
 async function registerPersistent(email, password){
-  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){ console.warn('setPersistence:', e); }
+  try{ await fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
   return fbAuth.createUserWithEmailAndPassword(email, password);
 }
 function oauthSignIn(providerId){
@@ -515,12 +576,13 @@ let state = {
   editDay: null,
   editPoolName: null,
   editPoolValue: '',
-  accountPanelOpen: false,
   poolEditMode: false,
   authForm: { email:'', password:'', error:'' },
   modal: null,
   editSessionDraft: null,
   profile: loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' },
+  bodyScans: loadBodyScans(),
+  scanForm: {},
 };
 
 const app = document.getElementById('app');
@@ -559,53 +621,30 @@ function newDraft(key){
   return { id:uid(), date:toNoonIso(new Date()), dayType:key, preWorkout:false, preWorkoutCaffeine:true, energy:false, energyZucker:true, mood:null, energyLevel:50, food:'', exercises:[] };
 }
 
-function renderAccountFab(){
-  const el = document.getElementById('accountFab');
+const MAIN_TABS = ['home', 'history', 'scan', 'profile'];
+function renderBottomNav(){
+  const el = document.getElementById('bottomNav');
   if(!el) return;
-  if(state.view==='auth'){ el.innerHTML=''; return; }
-  const profileComplete = isProfileComplete(loadProfile());
-  if(state.accountPanelOpen){
-    el.innerHTML = `
-      <div class="fab-panel mono">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:.6rem;">
-          <button data-fab-toggle="1" class="x-btn" style="color:var(--text-mute);padding:.2rem;">${ICON.x}</button>
-        </div>
-        ${authUser ? `<div style="margin-bottom:.8rem;padding-bottom:.7rem;border-bottom:1px solid var(--border);">
-          <div style="color:var(--green);font-size:.65rem;margin-bottom:.25rem;">${ICON.check} SYNC AKTIV</div>
-          <div style="font-size:.65rem;color:var(--text-mute);word-break:break-all;">${authUser.email}</div>
-        </div>` : ''}
-        <div style="display:flex;gap:.5rem;">
-          <button data-fab-profile="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;${profileComplete?'':'border-color:var(--sky);color:var(--sky);'}">
-            ${ICON.user}<br>PROFIL
-          </button>
-          ${authUser ? `<button data-fab-logout="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;">${ICON.x}<br>LOGOUT</button>`
-                     : `<button data-fab-auth="1" class="btn-outline mono" style="flex:1;font-size:.65rem;letter-spacing:.1em;padding:.7rem .4rem;">${ICON.zap}<br>LOGIN</button>`}
-        </div>
-      </div>
-    `;
-  } else {
-    el.innerHTML = `<button class="fab-btn" data-fab-toggle="1" style="${authUser?'border-color:var(--green);color:var(--green);':'border-color:var(--sky);color:var(--sky);'}" title="Menü">${ICON.user}</button>`;
+  if(!MAIN_TABS.includes(state.view) || (fbEnabled && !authUser)){
+    el.classList.remove('visible'); el.innerHTML = ''; return;
   }
-  el.querySelectorAll('[data-fab-toggle]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); state.accountPanelOpen = !state.accountPanelOpen; renderAccountFab(); }));
-  el.querySelectorAll('[data-fab-profile]').forEach(b=>b.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    state.profile = loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' };
-    state.accountPanelOpen = false; state.view='profile'; render();
-  }));
-  el.querySelectorAll('[data-fab-auth]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); state.authForm = { email:'', password:'', error:'' }; state.accountPanelOpen = false; state.view='auth'; render(); }));
-  el.querySelectorAll('[data-fab-logout]').forEach(b=>b.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    if(fbAuth) fbAuth.signOut();
-    detachCloudSync(); authUser = null;
-    state.accountPanelOpen = false; state.view = 'auth'; render();
+  el.classList.add('visible');
+  const tabs = [
+    { id:'home',    icon:'home',    label:'HOME' },
+    { id:'history', icon:'history', label:'VERLAUF' },
+    { id:'scan',    icon:'scan',    label:'SCAN' },
+    { id:'profile', icon:'profile', label:'PROFIL' },
+  ];
+  el.innerHTML = tabs.map(t => `
+    <button class="nav-btn ${state.view===t.id?'active':''}" data-nav="${t.id}">
+      ${NAV_ICONS[t.icon]}
+      <span>${t.label}</span>
+    </button>
+  `).join('');
+  el.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>{
+    state.view = b.getAttribute('data-nav'); state.modal = null; render();
   }));
 }
-document.addEventListener('click', (e)=>{
-  if(state.accountPanelOpen){
-    const fab = document.getElementById('accountFab');
-    if(fab && !fab.contains(e.target)){ state.accountPanelOpen = false; renderAccountFab(); }
-  }
-});
 
 function render(){
   if(fbEnabled && !authUser && authChecked){ state.view = 'auth'; }
@@ -620,11 +659,199 @@ function render(){
   else if(state.view==='auth') app.innerHTML = renderAuth();
   else if(state.view==='detail') app.innerHTML = renderDetail();
   else if(state.view==='profile') app.innerHTML = renderProfile();
+  else if(state.view==='scan') app.innerHTML = renderScan();
+  else if(state.view==='scan-form') app.innerHTML = renderScanForm();
+  else if(state.view==='scan-list') app.innerHTML = renderScanList();
   app.innerHTML += renderModalOverlay();
   attachListeners();
-  renderAccountFab();
+  renderBottomNav();
 }
 
+// =================== SCAN ===================
+function scanMiniChart(scans, key, color){
+  if(scans.length < 2) return '';
+  const pts = scans.map(s => parseFloat(s[key])).filter(v => !isNaN(v));
+  if(pts.length < 2) return '';
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const span = Math.max((max - min) * 1.6, 0.5);
+  const rMin = min - span*0.25, rMax = max + span*0.25;
+  const w = 280, h = 60, padL = 6, padR = 6, padT = 6, padB = 6;
+  const stepX = (w - padL - padR) / (pts.length - 1);
+  const sY = v => h - padB - ((v - rMin) / (rMax - rMin)) * (h - padT - padB);
+  const path = pts.map((v, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(v).toFixed(1)}`).join(' ');
+  const dots = pts.map((v, i) => {
+    const isLast = i === pts.length - 1;
+    return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
+}
+function scanValueCard(scans, label, key, unit, color, hint, invertGood){
+  if(!scans.length) return '';
+  const latest = scans[scans.length-1];
+  const value = latest[key];
+  if(value===undefined || value==='' || value===null) return '';
+  const num = parseFloat(value);
+  const first = parseFloat(scans[0][key]);
+  let delta = '';
+  if(!isNaN(num) && !isNaN(first) && Math.abs(num-first) > 0.05){
+    const diff = num - first;
+    const sign = diff > 0 ? '+' : '';
+    const dcolor = invertGood ? (diff < 0 ? 'var(--green)' : 'var(--orange)') : (diff > 0 ? 'var(--green)' : 'var(--orange)');
+    delta = `<span class="mono" style="color:${dcolor};font-size:.6rem;margin-left:.4rem;">${sign}${diff.toFixed(1)}</span>`;
+  }
+  const chart = scanMiniChart(scans, key, color);
+  return `
+    <div class="frame" style="--accent:${color};padding:.8rem 1rem;margin-bottom:.6rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem;">
+        <div style="flex:1;min-width:0;">
+          <div class="eyebrow mono" style="font-size:.6rem;margin-bottom:.3rem;">${label}</div>
+          <div class="mono" style="font-size:1.3rem;color:${color};line-height:1;">
+            ${value}<span style="font-size:.7rem;color:var(--text-mute);margin-left:.3rem;">${unit}</span>${delta}
+          </div>
+          ${hint?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.35rem;">${hint}</div>`:''}
+        </div>
+        ${chart?`<div style="flex:1.4;min-width:0;">${chart}</div>`:''}
+      </div>
+    </div>`;
+}
+
+function renderScan(){
+  const scans = state.bodyScans;
+  const kraft = kraftwerteByGroup();
+  const kraftGroups = Object.keys(kraft);
+  return `
+    <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
+    <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
+    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">
+      ${scans.length ? `${scans.length} MESSUNG${scans.length===1?'':'EN'}` : 'NOCH KEINE MESSUNG'}
+    </div>
+    <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;">
+      <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
+      <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
+    </div>
+    ${scans.length === 0 ? `
+      <div class="frame" style="--accent:var(--sky);padding:1.5rem 1rem;text-align:center;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="mono" style="font-size:.8rem;color:var(--text-dim);line-height:1.6;">
+          Noch keine Körperanalyse.<br>
+          Lade eine vicoach-PDF hoch oder trag die Werte manuell ein.
+        </div>
+      </div>
+    ` : (() => {
+      const latest = scans[scans.length-1];
+      return `
+        <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
+          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div class="eyebrow mono" style="margin-bottom:.8rem;">LETZTE MESSUNG · ${new Date(latest.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+          <div style="display:flex;justify-content:space-between;gap:.5rem;text-align:center;">
+            <div style="flex:1;">
+              <div class="mono" style="font-size:1.4rem;color:var(--lime);">${latest.muscle||'–'}</div>
+              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">MUSKEL kg</div>
+            </div>
+            <div style="flex:1;">
+              <div class="mono" style="font-size:1.4rem;color:var(--orange);">${latest.fat||'–'}</div>
+              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">FETT kg</div>
+            </div>
+            <div style="flex:1;">
+              <div class="mono" style="font-size:1.4rem;color:var(--sky);">${latest.weight||'–'}</div>
+              <div class="mono" style="font-size:.55rem;color:var(--text-mute);margin-top:.2rem;">GEWICHT kg</div>
+            </div>
+          </div>
+        </div>
+        <div class="eyebrow mono" style="margin:1.2rem 0 .6rem;">KÖRPERWERTE (VERLAUF)</div>
+        ${scanValueCard(scans, 'GEWICHT', 'weight', 'kg', 'var(--text)', '', true)}
+        ${scanValueCard(scans, 'MUSKELMASSE', 'muscle', 'kg', 'var(--lime)', '', false)}
+        ${scanValueCard(scans, 'FETTMASSE', 'fat', 'kg', 'var(--orange)', '', true)}
+        ${scanValueCard(scans, 'VISZERALES FETT', 'visceral', 'kg', 'var(--orange)', 'Fett um innere Organe', true)}
+        ${scanValueCard(scans, 'ZELLFITNESS', 'cellFit', '', 'var(--lime)', 'Phasenwinkel', false)}
+        ${scanValueCard(scans, 'HRV', 'hrv', 'ms', 'var(--pink)', 'Trainingsbereitschaft', false)}
+        ${scanValueCard(scans, 'SPO2', 'oxygen', '%', 'var(--sky)', '', false)}
+        ${scanValueCard(scans, 'RUHE-HF', 'hr', 'bpm', 'var(--text-dim)', '', true)}
+        ${scanValueCard(scans, 'BIOAGE', 'bioage', 'Jahre', 'var(--purple)', '', true)}
+        ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1.5rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
+      `;
+    })()}
+    ${kraftGroups.length ? `
+      <div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">KRAFTWERTE AUS DEINEN SESSIONS</div>
+      <div class="mono" style="font-size:.65rem;color:var(--text-faint);margin-bottom:.8rem;line-height:1.5;">
+        Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung.
+      </div>
+      ${kraftGroups.map(g => `
+        <div class="frame" style="--accent:${MUSCLE_GROUPS[g].color};padding:.9rem 1rem;margin-bottom:.6rem;">
+          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div class="eyebrow mono" style="color:${MUSCLE_GROUPS[g].color};margin-bottom:.7rem;">${g}</div>
+          ${kraft[g].map(u => `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+              <div class="mono" style="font-size:.8rem;color:var(--text-dim);">${u.name}</div>
+              <div class="mono" style="font-size:1rem;color:${MUSCLE_GROUPS[g].color};">${u.maxWeight} kg</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    ` : ''}
+  `;
+}
+
+function renderScanForm(){
+  const f = state.scanForm;
+  const field = (label, key, placeholder, unit) => `
+    <div class="eyebrow mono" style="margin:1rem 0 .4rem;">${label}</div>
+    <input class="set-input mono" type="number" step="0.1" data-scan-field="${key}" value="${f[key]??''}" placeholder="${placeholder}" />
+    ${unit?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.25rem;">${unit}</div>`:''}
+  `;
+  return `
+    <button class="back" data-back="scan">${ICON.chevronLeft} Abbrechen</button>
+    <div class="eyebrow mono">NEUE MESSUNG</div>
+    <div class="h1 display" style="margin-bottom:.5rem;">WERTE EINTRAGEN</div>
+    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.5rem;line-height:1.5;">
+      Tipp die Werte aus deiner vicoach-App ab. Leere Felder werden übersprungen.
+    </div>
+    <div class="eyebrow mono" style="margin-bottom:.4rem;">DATUM</div>
+    <input class="set-input mono" type="date" data-scan-field="date" value="${f.date || new Date().toISOString().slice(0,10)}" />
+    ${field('GEWICHT', 'weight', '86.3', 'kg')}
+    ${field('MUSKELMASSE', 'muscle', '35.7', 'kg')}
+    ${field('FETTMASSE', 'fat', '14.8', 'kg')}
+    ${field('VISZERALES FETT', 'visceral', '1.9', 'kg')}
+    ${field('ZELLFITNESS', 'cellFit', '5.4', 'Phasenwinkel')}
+    ${field('HRV', 'hrv', '82', 'ms')}
+    ${field('SAUERSTOFFSÄTTIGUNG', 'oxygen', '98', '%')}
+    ${field('RUHE-HERZFREQUENZ', 'hr', '73', 'bpm')}
+    ${field('BIOAGE', 'bioage', '15.7', 'Jahre')}
+    <button class="save-btn mono" data-save-scan="1" style="background:var(--lime);margin-top:1.5rem;">${ICON.check} SPEICHERN</button>
+  `;
+}
+
+function renderScanList(){
+  const scans = state.bodyScans;
+  if(!scans.length) return '';
+  return `
+    <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
+    <div class="eyebrow mono">BODY-SCANS</div>
+    <div class="h1 display" style="margin-bottom:1rem;">ALLE MESSUNGEN</div>
+    ${[...scans].reverse().map((s, idx) => {
+      const origIdx = scans.length - 1 - idx;
+      return `
+        <div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.5rem;">
+          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="flex:1;">
+              <div class="mono" style="font-size:.7rem;color:var(--sky);margin-bottom:.3rem;">${new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+              <div class="mono" style="font-size:.75rem;color:var(--text-dim);line-height:1.7;">
+                ${s.weight?`Gewicht: <span style="color:var(--text);">${s.weight} kg</span><br>`:''}
+                ${s.muscle?`Muskel: <span style="color:var(--text);">${s.muscle} kg</span><br>`:''}
+                ${s.fat?`Fett: <span style="color:var(--text);">${s.fat} kg</span>`:''}
+              </div>
+            </div>
+            <button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// =================== Score Chart + Human Card ===================
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
   if(chronological.length < 2){ return `<div class="empty" style="margin-top:1.5rem;">Noch nicht genug Sessions für ein Diagramm (mind. 2 nötig).</div>`; }
@@ -644,13 +871,12 @@ function renderScoreChart(){
   rangeMin = Math.max(0, rangeMin); rangeMax = Math.min(110, rangeMax);
   if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
   if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
-
   const w = 320, h = 180, padL = 34, padR = 14, padT = 14, padB = 14;
   const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
   const scaleY = v => h - padB - ((v - rangeMin) / (rangeMax - rangeMin)) * (h - padT - padB);
   const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
   const dots = points.map((p,i)=>`
-    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"><title>${p.dayLabel} · ${fmtDate(p.date)} · ${p.y}%</title></circle>
+    <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
     <circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>
   `).join('');
   const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
@@ -710,7 +936,6 @@ function renderHumanCompareCard(){
         <div class="vs-bar"><div class="vs-bar-fill" style="width:${(est/maxBar)*100}%;background:var(--text-mute);"></div></div>
         <div class="vs-val mono" style="color:var(--text-mute);">${Math.round(est).toLocaleString('de-DE')} kg</div>
       </div>
-      <div class="mono" style="font-size:.62rem;color:var(--text-faint);margin-top:.9rem;text-align:center;line-height:1.5;">Ø VOLUMEN PRO SESSION · SCHÄTZUNG</div>
     </div>`;
 }
 
@@ -739,8 +964,6 @@ function renderHome(){
     </div>`;
   }).join('');
 
-  const histRows = state.sessions.map(s=>historyRowHtml(s, getDayTypes())).join('');
-
   return `
     <div class="stat-top">
       <div>
@@ -766,20 +989,28 @@ function renderHome(){
     </div>
     ${renderScoreChart()}
     ${renderHumanCompareCard()}
-    <div class="eyebrow mono" style="margin:1.5rem 0 .75rem;">VERLAUF</div>
-    ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':histRows}
   `;
 }
 
+// =================== Profil ===================
 function renderProfile(){
   const p = state.profile || {};
   const expBtn = (val, lbl) => `<button class="chip ${p.experience===val?'active':''}" style="--accent:var(--lime);font-size:.6rem;letter-spacing:.1em;" data-profile-exp="${val}">${lbl}</button>`;
-  return `
-    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
-    <div class="h1 display">PROFIL</div>
-    <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-bottom:1.5rem;line-height:1.55;">
-      Diese Daten werden lokal <em>und</em> in deinem Account gespeichert. Sie dienen ausschließlich dem geschätzten Ø-Menschen-Vergleich.
+  const syncBlock = !fbEnabled ? '' : (authUser ? `
+    <div class="frame" style="--accent:var(--green);padding:1rem;margin-bottom:1rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div style="color:var(--green);font-size:.7rem;margin-bottom:.3rem;font-family:var(--font-mono);">${ICON.check} SYNC AKTIV</div>
+      <div class="mono" style="font-size:.65rem;color:var(--text-mute);word-break:break-all;margin-bottom:.8rem;">${authUser.email}</div>
+      <button class="btn-outline mono" data-logout="1" style="font-size:.65rem;">LOGOUT</button>
     </div>
+  ` : `
+    <button class="btn-outline mono" style="margin-bottom:1rem;" data-goto-auth="1">${ICON.zap} SYNC EINRICHTEN</button>
+  `);
+  return `
+    <div class="eyebrow mono">PROFIL</div>
+    <div class="h1 display" style="margin-bottom:1rem;">EINSTELLUNGEN</div>
+    ${syncBlock}
+
     <div class="eyebrow mono" style="margin-bottom:.5rem;">GRÖSSE (CM)</div>
     <input class="set-input mono" type="number" inputmode="decimal" value="${p.height||''}" data-profile-height="1" style="margin-bottom:1rem;" />
     <div class="eyebrow mono" style="margin-bottom:.5rem;">GEWICHT (KG)</div>
@@ -804,7 +1035,7 @@ function renderProfile(){
         <div><span style="color:var(--lime);">ERFAHREN</span> · Seit über 3 Jahren konsequent. Deutlich über Durchschnitt.</div>
       </div>
     </div>
-    <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);margin-top:1rem;">${ICON.check} SPEICHERN</button>
+    <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);">${ICON.check} PROFIL SPEICHERN</button>
   `;
 }
 
@@ -892,13 +1123,13 @@ function renderNewDay(){
   `;
 }
 
+// =================== Session ===================
 function renderSession(){
   const DAYS = getDayTypes();
   const d = state.draft;
   const day = DAYS[d.dayType];
   const active = d.exercises.map(e=>e.name);
   const lastSession = state.sessions.find(s=>s.dayType===d.dayType);
-
   const preToggle = `
     <div class="chip-row">
       <button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">PRE-WORKOUT</button>
@@ -914,8 +1145,6 @@ function renderSession(){
       <button class="chip ${d.energyZucker!==false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="1">MIT ZUCKER</button>
       <button class="chip ${d.energyZucker===false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="0">OHNE ZUCKER</button>
     </div>` : '';
-  const toggles = preToggle + preSub + energySub;
-
   const moodRow = `
     <div class="eyebrow mono" style="margin:0 0 .5rem;">STIMMUNG <span style="color:var(--text-faint);font-size:.6rem;letter-spacing:.1em;">(INFO · NICHT IM SCORE)</span></div>
     <div class="mood-row">
@@ -924,7 +1153,6 @@ function renderSession(){
           <span class="mood-icon" style="color:${m.color}">${moodIconSvg(key)}</span><span class="lbl">${m.label}</span>
         </button>`).join('')}
     </div>`;
-
   const energyVal = d.energyLevel ?? 50;
   const isPerfect = energyVal > 100;
   const energyRow = `
@@ -935,12 +1163,10 @@ function renderSession(){
     </div>
     <button class="btn-outline mono perfect-btn" style="margin-bottom:1.5rem;${isPerfect?'background:color-mix(in srgb, var(--gold) 15%, transparent);':''}" data-perfect="1">${ICON.check} PERFEKT${isPerfect?' · 110%':''}</button>
   `;
-
   const foodRow = `
     <div class="eyebrow mono" style="margin:0 0 .5rem;">ERNÄHRUNG (OPTIONAL)</div>
     <textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>
   `;
-
   const exCards = d.exercises.map((ex) => `
     <div class="ex-card frame" style="--accent:${day.accent}" data-ex-card="${ex.name}">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
@@ -951,16 +1177,16 @@ function renderSession(){
         </div>
         <button class="x-btn" data-remove-ex="${ex.name}">${ICON.trash}</button>
       </div>
-      <div data-sets-for="${ex.name}">
+      <div>
         ${ex.sets.map((s,idx)=>`
           <div class="set-row">
             <span class="set-idx mono" style="color:${day.accent}">${idx+1}</span>
             <input class="set-input mono" type="number" inputmode="decimal" placeholder="kg" value="${s.weight}" data-ex="${ex.name}" data-idx="${idx}" data-field="weight" />
             <span style="color:var(--text-faint);font-size:.8rem;">×</span>
             ${isPerArm(d.dayType, ex.name) ? `
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsLeftHint!==undefined && s.repsLeftHint!=='')?s.repsLeftHint:'L'}" title="Wiederholungen links" value="${s.repsLeft??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsLeft" style="max-width:3.4rem;" />
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsLeftHint!==undefined && s.repsLeftHint!=='')?s.repsLeftHint:'L'}" value="${s.repsLeft??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsLeft" style="max-width:3.4rem;" />
             <span style="color:var(--text-faint);font-size:.75rem;">/</span>
-            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsRightHint!==undefined && s.repsRightHint!=='')?s.repsRightHint:'R'}" title="Wiederholungen rechts" value="${s.repsRight??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsRight" style="max-width:3.4rem;" />
+            <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsRightHint!==undefined && s.repsRightHint!=='')?s.repsRightHint:'R'}" value="${s.repsRight??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="repsRight" style="max-width:3.4rem;" />
             ` : `
             <input class="set-input mono" type="number" inputmode="numeric" placeholder="${(s.repsHint!==undefined && s.repsHint!=='')?s.repsHint:'wdh'}" value="${s.reps??''}" data-ex="${ex.name}" data-idx="${idx}" data-field="reps" />
             `}
@@ -970,7 +1196,6 @@ function renderSession(){
       <button class="add-set mono" data-add-set="${ex.name}">${ICON.plus} SATZ</button>
     </div>
   `).join('');
-
   const stats = exerciseStats(d.dayType);
   const poolNames = day.pool.filter(n=>!active.includes(n)).sort((a,b)=>{
     const sa=stats[a], sb=stats[b];
@@ -992,14 +1217,13 @@ function renderSession(){
       const pa = isPerArm(d.dayType, n);
       return `<div class="pool-item">
         <span class="pool-btn" style="cursor:default;">${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</span>
-        <button class="x-btn" data-pool-perarm="${n}" title="${pa?'Pro Arm: an':'Pro Arm: aus'}" style="${pa?`color:${day.accent};border-color:${day.accent};`:''}">${ICON.dumbbell||'L/R'}</button>
+        <button class="x-btn" data-pool-perarm="${n}" title="${pa?'Pro Arm: an':'Pro Arm: aus'}" style="${pa?`color:${day.accent};border-color:${day.accent};`:''}">${ICON.dumbbell}</button>
         <button class="x-btn" data-pool-edit="${n}" title="Umbenennen">${ICON.edit}</button>
         <button class="x-btn" data-pool-delete="${n}" title="Löschen">${ICON.trash}</button>
       </div>`;
     }
     return `<button class="pool-btn" data-add-ex="${n}">${ICON.plus} ${n}${cnt?` <span class="mono" style="color:var(--text-faint);font-size:.7rem;">×${cnt}</span>`:''}</button>`;
   }).join('');
-
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
       <button class="back" data-discard="1">${ICON.chevronLeft} Abbrechen</button>
@@ -1008,7 +1232,9 @@ function renderSession(){
     <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
     <div class="h1 display" style="margin-bottom:.6rem;">${day.label}</div>
     <input class="set-input mono" type="date" value="${localDateInputValue(d.date)}" data-session-date="1" style="max-width:170px;margin-bottom:1.2rem;" />
-    ${toggles}
+    ${preToggle}
+    ${preSub}
+    ${energySub}
     ${moodRow}
     ${energyRow}
     ${foodRow}
@@ -1062,8 +1288,8 @@ function renderHistory(){
   const DAYS = getDayTypes();
   const rows = state.sessions.map(s=>historyRowHtml(s, DAYS)).join('');
   return `
-    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
-    <div class="h1 display">VERLAUF</div>
+    <div class="eyebrow mono">VERLAUF</div>
+    <div class="h1 display" style="margin-bottom:1rem;">SESSIONS</div>
     ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':rows}
   `;
 }
@@ -1076,12 +1302,10 @@ function renderDetail(){
   if(state.editSessionDraft && state.editSessionDraft.id===s.id) return renderSessionEdit(day);
   const mood = s.mood ? MOODS[s.mood] : null;
   const profile = loadProfile();
-
   const badges = `
     ${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">PRE-WORKOUT${s.preWorkoutCaffeine===false?' (OHNE KOFFEIN)':''}</span>`:''}
     ${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK${s.energyZucker===false?' (OHNE ZUCKER)':''}</span>`:''}
   `;
-
   const moodBlock = (mood || typeof s.energyLevel==='number') ? `
     <div class="frame" style="--accent:${mood?mood.color:'var(--border)'};margin-bottom:1rem;padding:.9rem 1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
@@ -1091,14 +1315,12 @@ function renderDetail(){
         ${typeof s.energyLevel==='number'?`<div style="margin-left:auto;text-align:right;"><div class="mono eyebrow">ENERGIE</div><div class="mono" style="font-size:1.1rem;color:${s.energyLevel>100?'var(--gold)':'var(--lime)'};">${s.energyLevel}%</div></div>`:''}
       </div>
     </div>` : '';
-
   const foodBlock = s.food ? `
     <div class="frame" style="margin-bottom:1rem;padding:.9rem 1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="mono eyebrow" style="margin-bottom:.4rem;">ERNÄHRUNG</div>
       <div style="font-size:.9rem;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(s.food)}</div>
     </div>` : '';
-
   const exList = s.exercises.map(ex=>{
     let vol = 0;
     ex.sets.forEach(st=>{
@@ -1116,22 +1338,18 @@ function renderDetail(){
       ${pct!=null?`
         <div style="margin-top:.7rem;">
           <div class="score-bar"><div class="score-fill" style="width:${Math.min(pct,100)}%;background:${tier.color}"></div></div>
-          <div class="mono" style="font-size:.65rem;color:${tier.color};text-align:right;margin-top:.3rem;">${pct}% vom Ø-Mensch* (${Math.round(vol).toLocaleString('de-DE')}kg)</div>
+          <div class="mono" style="font-size:.65rem;color:${tier.color};text-align:right;margin-top:.3rem;">${pct}% vom Ø-Mensch*</div>
         </div>`:''}
     </div>`;
   }).join('');
-
-  const hasHumanData = isProfileComplete(profile);
-
   return `
-    <button class="back" data-back="home">${ICON.chevronLeft} Zurück</button>
+    <button class="back" data-back="history">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono" style="color:${day.accent}">${fmtWd(s.date)} · ${fmtDate(s.date)}</div>
     <div class="h1 display">${day.label}</div>
     <div style="margin-bottom:1rem;">${badges}</div>
     ${moodBlock}
     ${foodBlock}
     ${scoreCardHtml(s, 'TAGES-SCORE')}
-    ${hasHumanData?'':'<div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:.75rem;text-align:center;">Profil einrichten für Ø-Mensch-Vergleich pro Übung.</div>'}
     ${exList}
     <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.5rem;text-align:center;line-height:1.5;">* SCHÄTZUNG · KEINE WISSENSCHAFTLICHE MESSUNG</div>
     <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.6rem;">
@@ -1149,10 +1367,13 @@ function renderDetail(){
 function renderSessionEdit(day){
   const d = state.editSessionDraft;
   const exCards = d.exercises.map((ex, exIdx) => `
-    <div class="ex-card frame" style="--accent:${day.accent}">
+    <div class="ex-card frame" style="--accent:${day.accent}" data-ex-card-edit="${exIdx}">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="ex-head">
-        <div class="ex-title">${ex.name}</div>
+        <div style="display:flex;align-items:center;gap:.6rem;min-width:0;">
+          <span class="drag-handle" data-drag-handle-edit="${exIdx}">${ICON.grip}</span>
+          <div class="ex-title">${ex.name}</div>
+        </div>
         <button class="x-btn" data-edit-remove-ex="${exIdx}">${ICON.trash}</button>
       </div>
       <div>
@@ -1178,61 +1399,112 @@ function renderSessionEdit(day){
     <button class="back" data-edit-cancel="1">${ICON.chevronLeft} Abbrechen</button>
     <div class="eyebrow mono" style="color:${day.accent}">${fmtWd(d.date)} · ${fmtDate(d.date)}</div>
     <div class="h1 display">${day.label} <span class="mono" style="font-size:.6rem;color:var(--text-mute);vertical-align:middle;">BEARBEITEN</span></div>
-    <div>${exCards}</div>
+    <div id="ex-list-edit-container">${exCards}</div>
     <button class="save-btn mono" data-edit-save="1" style="background:${day.accent};margin-top:1rem;">${ICON.check} ÄNDERUNGEN SPEICHERN</button>
   `;
 }
 
+// =================== Drag ===================
 function initExerciseDrag(){
   const container = app.querySelector('#ex-list-container');
-  if(!container) return;
-  container.querySelectorAll('[data-drag-handle]').forEach(handle=>{
-    handle.addEventListener('pointerdown', (e)=>{
-      const card = handle.closest('[data-ex-card]');
-      if(!card) return;
-      e.preventDefault();
-      const rect = card.getBoundingClientRect();
-      const startY = e.clientY, startTop = rect.top, startLeft = rect.left, width = rect.width, height = rect.height;
-      const placeholder = document.createElement('div');
-      placeholder.className = 'ex-placeholder';
-      placeholder.style.height = height + 'px';
-      card.parentNode.insertBefore(placeholder, card.nextSibling);
-      card.classList.add('dragging');
-      card.style.position = 'fixed'; card.style.top = startTop + 'px'; card.style.left = startLeft + 'px';
-      card.style.width = width + 'px'; card.style.zIndex = '200'; card.style.pointerEvents = 'none';
-      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
-      const onMove = (ev)=>{
-        const dy = ev.clientY - startY;
-        card.style.top = (startTop + dy) + 'px';
-        const dragMid = startTop + dy + height/2;
-        let prev = placeholder.previousElementSibling;
-        while(prev && prev.matches('[data-ex-card]') && prev !== card){
-          const pr = prev.getBoundingClientRect();
-          if(dragMid < pr.top + pr.height/2){ container.insertBefore(placeholder, prev); prev = placeholder.previousElementSibling; } else break;
-        }
-        let next = placeholder.nextElementSibling;
-        while(next && next.matches('[data-ex-card]') && next !== card){
-          const nr = next.getBoundingClientRect();
-          if(dragMid > nr.top + nr.height/2){ container.insertBefore(next, placeholder); next = placeholder.nextElementSibling; } else break;
-        }
-      };
-      const onUp = ()=>{
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        container.insertBefore(card, placeholder);
-        placeholder.remove();
-        card.classList.remove('dragging');
-        card.style.position = ''; card.style.top = ''; card.style.left = ''; card.style.width = ''; card.style.zIndex = ''; card.style.pointerEvents = '';
-        const newOrder = Array.from(container.querySelectorAll('[data-ex-card]')).map(c=>c.getAttribute('data-ex-card'));
-        const byName = {};
-        state.draft.exercises.forEach(ex=>{ byName[ex.name] = ex; });
-        state.draft.exercises = newOrder.map(n=>byName[n]).filter(Boolean);
-        persistDraft(); updateScorePreview();
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
+  if(container){
+    container.querySelectorAll('[data-drag-handle]').forEach(handle=>{
+      handle.addEventListener('pointerdown', (e)=>{
+        const card = handle.closest('[data-ex-card]');
+        if(!card) return;
+        e.preventDefault();
+        const rect = card.getBoundingClientRect();
+        const startY = e.clientY, startTop = rect.top, startLeft = rect.left, width = rect.width, height = rect.height;
+        const placeholder = document.createElement('div');
+        placeholder.className = 'ex-placeholder';
+        placeholder.style.height = height + 'px';
+        card.parentNode.insertBefore(placeholder, card.nextSibling);
+        card.classList.add('dragging');
+        card.style.position = 'fixed'; card.style.top = startTop + 'px'; card.style.left = startLeft + 'px';
+        card.style.width = width + 'px'; card.style.zIndex = '200'; card.style.pointerEvents = 'none';
+        try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+        const onMove = (ev)=>{
+          const dy = ev.clientY - startY;
+          card.style.top = (startTop + dy) + 'px';
+          const dragMid = startTop + dy + height/2;
+          let prev = placeholder.previousElementSibling;
+          while(prev && prev.matches('[data-ex-card]') && prev !== card){
+            const pr = prev.getBoundingClientRect();
+            if(dragMid < pr.top + pr.height/2){ container.insertBefore(placeholder, prev); prev = placeholder.previousElementSibling; } else break;
+          }
+          let next = placeholder.nextElementSibling;
+          while(next && next.matches('[data-ex-card]') && next !== card){
+            const nr = next.getBoundingClientRect();
+            if(dragMid > nr.top + nr.height/2){ container.insertBefore(next, placeholder); next = placeholder.nextElementSibling; } else break;
+          }
+        };
+        const onUp = ()=>{
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          container.insertBefore(card, placeholder);
+          placeholder.remove();
+          card.classList.remove('dragging');
+          card.style.position = ''; card.style.top = ''; card.style.left = ''; card.style.width = ''; card.style.zIndex = ''; card.style.pointerEvents = '';
+          const newOrder = Array.from(container.querySelectorAll('[data-ex-card]')).map(c=>c.getAttribute('data-ex-card'));
+          const byName = {};
+          state.draft.exercises.forEach(ex=>{ byName[ex.name] = ex; });
+          state.draft.exercises = newOrder.map(n=>byName[n]).filter(Boolean);
+          persistDraft(); updateScorePreview();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
     });
-  });
+  }
+  const cEdit = app.querySelector('#ex-list-edit-container');
+  if(cEdit){
+    cEdit.querySelectorAll('[data-drag-handle-edit]').forEach(handle=>{
+      handle.addEventListener('pointerdown', (e)=>{
+        const card = handle.closest('[data-ex-card-edit]');
+        if(!card) return;
+        e.preventDefault();
+        const rect = card.getBoundingClientRect();
+        const startY = e.clientY, startTop = rect.top, startLeft = rect.left, width = rect.width, height = rect.height;
+        const placeholder = document.createElement('div');
+        placeholder.className = 'ex-placeholder';
+        placeholder.style.height = height + 'px';
+        card.parentNode.insertBefore(placeholder, card.nextSibling);
+        card.classList.add('dragging');
+        card.style.position = 'fixed'; card.style.top = startTop + 'px'; card.style.left = startLeft + 'px';
+        card.style.width = width + 'px'; card.style.zIndex = '200'; card.style.pointerEvents = 'none';
+        try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+        const onMove = (ev)=>{
+          const dy = ev.clientY - startY;
+          card.style.top = (startTop + dy) + 'px';
+          const dragMid = startTop + dy + height/2;
+          let prev = placeholder.previousElementSibling;
+          while(prev && prev.matches('[data-ex-card-edit]') && prev !== card){
+            const pr = prev.getBoundingClientRect();
+            if(dragMid < pr.top + pr.height/2){ cEdit.insertBefore(placeholder, prev); prev = placeholder.previousElementSibling; } else break;
+          }
+          let next = placeholder.nextElementSibling;
+          while(next && next.matches('[data-ex-card-edit]') && next !== card){
+            const nr = next.getBoundingClientRect();
+            if(dragMid > nr.top + nr.height/2){ cEdit.insertBefore(next, placeholder); next = placeholder.nextElementSibling; } else break;
+          }
+        };
+        const onUp = ()=>{
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          cEdit.insertBefore(card, placeholder);
+          placeholder.remove();
+          card.classList.remove('dragging');
+          card.style.position = ''; card.style.top = ''; card.style.left = ''; card.style.width = ''; card.style.zIndex = ''; card.style.pointerEvents = '';
+          const newOrder = Array.from(cEdit.querySelectorAll('[data-ex-card-edit]')).map(c=>+c.getAttribute('data-ex-card-edit'));
+          const old = state.editSessionDraft.exercises;
+          state.editSessionDraft.exercises = newOrder.map(i=>old[i]).filter(Boolean);
+          render();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
+  }
 }
 
 function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel }){
@@ -1241,11 +1513,11 @@ function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfi
 }
 function showSessionPopup(sessionId){ state.modal = { type:'session-preview', sessionId }; render(); }
 function showDayPicker(){ state.modal = { type:'day-picker' }; render(); }
+function showPdfUpload(){ state.modal = { type:'pdf-upload' }; render(); }
 
 function renderModalOverlay(){
   const m = state.modal;
   if(!m) return '';
-
   if(m.type === 'session-preview'){
     const s = state.sessions.find(x=>x.id===m.sessionId);
     if(!s) return '';
@@ -1254,32 +1526,22 @@ function renderModalOverlay(){
     const sc = computeScore(s);
     const tier = sc.overall != null ? getTier(Math.min(sc.overall,100)) : null;
     return `
-    <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
+    <div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
       <div class="frame" style="--accent:${day.accent};max-width:340px;width:100%;padding:1.3rem;background:#0a0a0b;">
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
         <div class="eyebrow mono" style="color:${day.accent};margin-bottom:.3rem;">${day.short} · ${fmtWd(s.date)} ${fmtDate(s.date)}</div>
         <div class="display" style="font-size:1.2rem;margin-bottom:1rem;">${day.label}</div>
         <div style="display:flex;justify-content:space-between;gap:1rem;margin-bottom:.9rem;">
-          <div>
-            <div class="eyebrow mono" style="font-size:.55rem;">SCORE</div>
-            <div class="mono" style="font-size:1.3rem;color:${tier?tier.color:'var(--text)'};">${sc.overall!=null?sc.overall+'%':'–'}</div>
-          </div>
-          <div style="text-align:right;">
-            <div class="eyebrow mono" style="font-size:.55rem;">VOLUMEN</div>
-            <div class="mono" style="font-size:1.3rem;color:var(--text);">${Math.round(sc.vol).toLocaleString('de-DE')} kg</div>
-          </div>
-        </div>
-        <div class="mono" style="font-size:.72rem;color:var(--text-mute);margin-bottom:1rem;">
-          ${s.exercises.length} ÜBUNG${s.exercises.length===1?'':'EN'}${s.food?' · MIT ERNÄHRUNG':''}
+          <div><div class="eyebrow mono" style="font-size:.55rem;">SCORE</div><div class="mono" style="font-size:1.3rem;color:${tier?tier.color:'var(--text)'};">${sc.overall!=null?sc.overall+'%':'–'}</div></div>
+          <div style="text-align:right;"><div class="eyebrow mono" style="font-size:.55rem;">VOLUMEN</div><div class="mono" style="font-size:1.3rem;">${Math.round(sc.vol).toLocaleString('de-DE')} kg</div></div>
         </div>
         <div style="display:flex;gap:.6rem;">
           <button class="btn-outline mono" data-modal-cancel="1" style="flex:1;font-size:.7rem;">SCHLIESSEN</button>
-          <button class="save-btn mono" data-modal-open-session="1" style="flex:1;background:${day.accent};font-size:.8rem;">ZUR SESSION</button>
+          <button class="btn-primary" data-modal-open-session="1" style="flex:1;background:${day.accent};font-size:.75rem;">ZUR SESSION</button>
         </div>
       </div>
     </div>`;
   }
-
   if(m.type === 'day-picker'){
     const DAYS = getDayTypes();
     const list = Object.values(DAYS).map(day => `
@@ -1288,23 +1550,39 @@ function renderModalOverlay(){
           <span class="day-badge" style="--accent:${day.accent};color:${day.accent};width:2rem;height:2rem;min-width:2rem;font-size:.55rem;">${day.short}</span>
           <span style="font-size:.85rem;">${day.label}</span>
         </span>
-        <span style="color:${day.accent};">${ICON.edit}</span>
+        <span>${ICON.edit}</span>
       </button>
     `).join('');
     return `
-    <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
+    <div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
       <div class="frame" style="--accent:var(--lime);max-width:360px;width:100%;padding:1.3rem;background:#0a0a0b;">
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-        <div class="display" style="font-size:1.1rem;margin-bottom:.3rem;">TAG BEARBEITEN</div>
-        <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">WÄHLE EINEN TAG</div>
+        <div class="display" style="font-size:1.1rem;margin-bottom:1.2rem;">TAG BEARBEITEN</div>
         ${list}
         <button class="btn-outline mono" data-modal-cancel="1" style="margin-top:.6rem;">ABBRECHEN</button>
       </div>
     </div>`;
   }
-
+  if(m.type === 'pdf-upload'){
+    return `
+    <div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
+      <div class="frame" style="--accent:var(--sky);max-width:400px;width:100%;padding:1.3rem;background:#0a0a0b;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="eyebrow mono" style="margin-bottom:.3rem;">PDF-IMPORT</div>
+        <div class="display" style="font-size:1.1rem;margin-bottom:1rem;">VICOACH-PDF HOCHLADEN</div>
+        <div class="mono" style="font-size:.7rem;color:var(--text-dim);margin-bottom:1.2rem;line-height:1.6;">
+          Wähle deine vicoach-mescan-PDF. Die App liest die Werte raus und zeigt sie dir zur Bestätigung.
+        </div>
+        <label style="display:block;position:relative;border:1px dashed var(--sky);padding:2rem 1rem;text-align:center;cursor:pointer;margin-bottom:1rem;">
+          <div class="mono" style="font-size:.75rem;color:var(--sky);">PDF HIER AUSWÄHLEN</div>
+          <input type="file" accept=".pdf" data-pdf-input="1" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+        </label>
+        <button class="btn-outline mono" data-modal-cancel="1" style="font-size:.7rem;">ABBRECHEN</button>
+      </div>
+    </div>`;
+  }
   return `
-  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
+  <div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
     <div class="frame" style="--accent:${m.danger?'var(--red)':'var(--lime)'};max-width:340px;width:100%;padding:1.3rem;background:#0a0a0b;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <div class="display" style="font-size:1.05rem;margin-bottom:.6rem;">${m.title}</div>
@@ -1317,6 +1595,7 @@ function renderModalOverlay(){
   </div>`;
 }
 
+// =================== Events ===================
 function attachListeners(){
   initExerciseDrag();
   app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1332,8 +1611,7 @@ function attachListeners(){
     render();
   }));
   app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{
-    const m = state.modal;
-    state.modal = null;
+    const m = state.modal; state.modal = null;
     if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; }
     render();
   }));
@@ -1344,6 +1622,47 @@ function attachListeners(){
     if(!day) { render(); return; }
     state.editDay = { key, name: day.label, short: day.short, accent: day.accent };
     state.view = 'editday'; render();
+  }));
+
+  // Scan actions
+  app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{
+    const t = el.getAttribute('data-scan-action');
+    if(t==='manual'){ state.scanForm = {}; state.view = 'scan-form'; render(); }
+    else if(t==='pdf'){ showPdfUpload(); }
+    else if(t==='list'){ state.view = 'scan-list'; render(); }
+  }));
+  app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{
+    state.scanForm[el.getAttribute('data-scan-field')] = el.value;
+  }));
+  app.querySelectorAll('[data-save-scan]').forEach(el=>el.addEventListener('click', ()=>{
+    const f = state.scanForm;
+    if(!f.date) f.date = new Date().toISOString().slice(0,10);
+    // Konvertiere leere Strings zu undefined
+    const scan = { date: f.date };
+    ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{
+      const v = parseFloat(f[k]);
+      if(!isNaN(v)) scan[k] = v;
+    });
+    state.bodyScans.push(scan);
+    saveBodyScans(state.bodyScans);
+    state.scanForm = {};
+    state.view = 'scan';
+    render();
+  }));
+  app.querySelectorAll('[data-scan-delete]').forEach(el=>el.addEventListener('click', ()=>{
+    const idx = +el.getAttribute('data-scan-delete');
+    state.bodyScans.splice(idx, 1);
+    saveBodyScans(state.bodyScans);
+    render();
+  }));
+  app.querySelectorAll('[data-pdf-input]').forEach(el=>el.addEventListener('change', (e)=>{
+    if(!e.target.files.length) return;
+    // PDF-Import (Vorschau): Werte werden ins Formular geladen, User prüft und speichert
+    alert('PDF-Erkennung wird in dieser Version simuliert.\n\nIn der finalen Version liest die App die Werte automatisch aus deiner vcioach-PDF und zeigt sie dir zum Bestätigen.\n\nÖffne jetzt das manuelle Formular und trag die Werte ein – oder schick uns die PDF per E-Mail, wir rüsten das nach.');
+    state.modal = null;
+    state.scanForm = { date: new Date().toISOString().slice(0,10) };
+    state.view = 'scan-form';
+    render();
   }));
 
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
@@ -1362,18 +1681,15 @@ function attachListeners(){
     state.draft = newDraft(key);
     state.view='session'; render();
   }));
-
   app.querySelectorAll('[data-history]').forEach(el=>el.addEventListener('click', ()=>{ state.view='history'; render(); }));
   app.querySelectorAll('[data-open-streak]').forEach(el=>el.addEventListener('click', ()=>{ state.view='streak'; render(); }));
   app.querySelectorAll('[data-back]').forEach(el=>el.addEventListener('click', ()=>{ state.view=el.getAttribute('data-back'); state.confirmDelete=false; render(); }));
   app.querySelectorAll('[data-discard]').forEach(el=>el.addEventListener('click', ()=>{ state.draft=null; state.view='home'; render(); }));
-
   app.querySelectorAll('[data-session-date]').forEach(el=>el.addEventListener('change', ()=>{
     const [y,m,dd] = el.value.split('-').map(Number);
     if(!y||!m||!dd) return;
     state.draft.date = new Date(y, m-1, dd, 12, 0, 0).toISOString();
   }));
-
   app.querySelectorAll('[data-toggle]').forEach(el=>el.addEventListener('click', ()=>{
     const f = el.getAttribute('data-toggle');
     state.draft[f] = !state.draft[f];
@@ -1387,7 +1703,6 @@ function attachListeners(){
   app.querySelectorAll('[data-toggle-zucker]').forEach(el=>el.addEventListener('click', ()=>{
     state.draft.energyZucker = el.getAttribute('data-toggle-zucker') === '1'; render();
   }));
-
   app.querySelectorAll('[data-mood]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.mood = el.getAttribute('data-mood'); render(); }));
   app.querySelectorAll('[data-energy-slider]').forEach(el=>el.addEventListener('input', ()=>{
     state.draft.energyLevel = +el.value;
@@ -1397,7 +1712,6 @@ function attachListeners(){
   }));
   app.querySelectorAll('[data-perfect]').forEach(el=>el.addEventListener('click', ()=>{ state.draft.mood = 'sehr_gut'; state.draft.energyLevel = 110; render(); }));
   app.querySelectorAll('[data-food-input]').forEach(el=>el.addEventListener('input', ()=>{ state.draft.food = el.value; persistDraft(); }));
-
   app.querySelectorAll('[data-copy-last]').forEach(el=>el.addEventListener('click', ()=>{
     const last = state.sessions.find(s=>s.dayType===state.draft.dayType);
     if(last){
@@ -1411,7 +1725,6 @@ function attachListeners(){
     }
     render();
   }));
-
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-ex');
     state.draft.exercises.push({ name, sets:[blankSet(state.draft.dayType, name)] }); render();
@@ -1469,7 +1782,6 @@ function attachListeners(){
     ex.sets[idx][field] = el.value;
     persistDraft(); updateScorePreview();
   }));
-
   app.querySelectorAll('[data-finish]').forEach(el=>el.addEventListener('click', ()=>{
     if(state.draft && state.draft.exercises.length>0){
       state.sessions = [state.draft, ...state.sessions];
@@ -1477,7 +1789,6 @@ function attachListeners(){
     }
     state.draft=null; state.view='home'; render();
   }));
-
   app.querySelectorAll('[data-editday-name]').forEach(el=>el.addEventListener('input', ()=>{
     state.editDay.name = el.value;
     const btn = app.querySelector('[data-editday-save]');
@@ -1501,19 +1812,16 @@ function attachListeners(){
       onConfirm: ()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; },
     });
   }));
-
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{
     state.newDay = { name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0] }; state.view='newday'; render();
   }));
-  app.querySelectorAll('[data-editmode-open]').forEach(el=>el.addEventListener('click', ()=>{
-    showDayPicker();
-  }));
+  app.querySelectorAll('[data-editmode-open]').forEach(el=>el.addEventListener('click', ()=>{ showDayPicker(); }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{
     state.newDay.name = el.value;
     if(!state.newDay.shortTouched){
       state.newDay.short = autoShort(el.value);
-      const shortInput = app.querySelector('[data-newday-short]');
-      if(shortInput) shortInput.value = state.newDay.short;
+      const si = app.querySelector('[data-newday-short]');
+      if(si) si.value = state.newDay.short;
     }
     const btn = app.querySelector('[data-newday-create]');
     if(btn) btn.disabled = !el.value.trim();
@@ -1530,7 +1838,6 @@ function attachListeners(){
     saveCustomDays(days);
     state.view='home'; render();
   }));
-
   app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{
     state.authForm = { email:'', password:'', error:'' }; state.view='auth'; render();
   }));
@@ -1557,23 +1864,14 @@ function attachListeners(){
     detachCloudSync(); authUser = null;
     state.view = 'auth'; render();
   }));
-
-  app.querySelectorAll('[data-goto-profile]').forEach(el=>el.addEventListener('click', ()=>{
-    state.profile = loadProfile() || { height:'', weight:'', age:'', gender:'', experience:'' };
-    state.view='profile'; render();
-  }));
+  app.querySelectorAll('[data-goto-profile]').forEach(el=>el.addEventListener('click', ()=>{ state.view='profile'; render(); }));
   app.querySelectorAll('[data-profile-height]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.height = el.value; }));
   app.querySelectorAll('[data-profile-weight]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.weight = el.value; }));
   app.querySelectorAll('[data-profile-age]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.age = el.value; }));
   app.querySelectorAll('[data-profile-gender]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.gender = el.getAttribute('data-profile-gender'); render(); }));
   app.querySelectorAll('[data-profile-exp]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.experience = el.getAttribute('data-profile-exp'); render(); }));
-  app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); state.view='home'; render(); }));
-
-  app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    showSessionPopup(el.getAttribute('data-chart-point'));
-  }));
-
+  app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); render(); }));
+  app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showSessionPopup(el.getAttribute('data-chart-point')); }));
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{
     state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render();
   }));
