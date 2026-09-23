@@ -327,6 +327,55 @@ function weeksSince(sessions){
   return Math.max(1, Math.round(diffDays/7));
 }
 const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function exportBackup(){
+  const data = {
+    sessions: state.sessions,
+    bodyScans: state.bodyScans,
+    customDays: loadCustomDays(),
+    customPool: loadCustomPool(),
+    exOverrides: loadExOverrides(),
+    profile: loadProfile(),
+    exportedAt: new Date().toISOString(),
+    appVersion: 1,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'trainingslog-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackup(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!data || typeof data !== 'object') throw new Error('Ungültige Datei');
+      const msg = 'Achtung: Alle aktuellen Daten werden durch das Backup ersetzt.\n\n' +
+        'Backup vom: ' + (data.exportedAt ? new Date(data.exportedAt).toLocaleString('de-DE') : 'unbekannt') + '\n' +
+        'Sessions im Backup: ' + (Array.isArray(data.sessions) ? data.sessions.length : 0) + '\n' +
+        'Body-Scans im Backup: ' + (Array.isArray(data.bodyScans) ? data.bodyScans.length : 0) + '\n\n' +
+        'Fortfahren?';
+      if(!confirm(msg)) return;
+      if(Array.isArray(data.sessions)) state.sessions = data.sessions;
+      if(Array.isArray(data.bodyScans)) state.bodyScans = data.bodyScans;
+      if(Array.isArray(data.customDays)) saveCustomDays(data.customDays);
+      if(data.customPool && typeof data.customPool === 'object') saveCustomPool(data.customPool);
+      if(data.exOverrides && typeof data.exOverrides === 'object') saveExOverrides(data.exOverrides);
+      if(data.profile && typeof data.profile === 'object'){ saveProfile(data.profile); state.profile = data.profile; }
+      saveSessions(state.sessions);
+      saveBodyScans(state.bodyScans);
+      alert('Backup erfolgreich wiederhergestellt!\n\nSessions: ' + state.sessions.length + '\nBody-Scans: ' + state.bodyScans.length);
+      render();
+    }catch(err){
+      alert('Fehler beim Importieren: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
 
 const STORE_KEY = 'trainingslog_sessions';
 const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
@@ -363,13 +412,7 @@ function saveProfile(p, skipCloud){ try{ localStorage.setItem(PROFILE_KEY, JSON.
 function loadBodyScans(){ try{ const raw = localStorage.getItem(BODY_SCANS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }catch(e){ return []; } }
 function saveBodyScans(scans, skipCloud){ try{ localStorage.setItem(BODY_SCANS_KEY, JSON.stringify(scans)); }catch(e){} if(!skipCloud) pushToCloud(); }
 function seedInitialScansForOwner(){
-  if(authUser && authUser.email === OWNER_EMAIL){
-    if(!localStorage.getItem(SEED_FLAG_KEY)){
-      state.bodyScans = [...INITIAL_SCANS];
-      saveBodyScans(state.bodyScans);
-      localStorage.setItem(SEED_FLAG_KEY, '1');
-    }
-  }
+  // Entfernt – Daten kommen aus der Cloud, kein automatisches Seeding mehr
 }
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
@@ -470,7 +513,6 @@ function lastSessionSetsFor(dayType, exName){
   }
   return null;
 }
-// Variante A: alle Sätze ≥ 12 Wdh → mehr Gewicht
 function suggestNextWeight(lastSets){
   if(!lastSets || !lastSets.length) return null;
   const weights = lastSets.map(s=>s.weight);
@@ -550,6 +592,7 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null, fbDb = null, fbEnabled = false, authUser = null;
 let cloudUnsub = null, suppressNextSnapshot = false, authChecked = false;
+let cloudReady = false;
 try{
   if(window.firebase && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "DEIN_API_KEY"){
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -562,6 +605,7 @@ try{
 
 function pushToCloud(){
   if(!fbEnabled || !authUser) return;
+  if(!cloudReady) return;
   suppressNextSnapshot = true;
   fbDb.collection('users').doc(authUser.uid).set({
     sessions: state.sessions, customDays: loadCustomDays(), customPool: loadCustomPool(),
@@ -571,27 +615,29 @@ function pushToCloud(){
 }
 function attachCloudSync(uid){
   const ref = fbDb.collection('users').doc(uid);
-  ref.get().then(snap=>{
-    if(!snap.exists){
-      suppressNextSnapshot = true;
-      ref.set({ sessions: state.sessions, customDays: loadCustomDays(), customPool: loadCustomPool(), exOverrides: loadExOverrides(), profile: loadProfile(), bodyScans: loadBodyScans(), updatedAt: Date.now() });
-    }
-  });
+  let firstLoad = true;
+  cloudReady = false;
   cloudUnsub = ref.onSnapshot(snap=>{
     if(suppressNextSnapshot){ suppressNextSnapshot = false; return; }
-    const data = snap.data(); if(!data) return;
-    state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
-    saveSessions(state.sessions, true);
-    saveCustomDays(Array.isArray(data.customDays) ? data.customDays : [], true);
-    saveCustomPool((data.customPool && typeof data.customPool==='object') ? data.customPool : {}, true);
-    saveExOverrides((data.exOverrides && typeof data.exOverrides==='object') ? data.exOverrides : {}, true);
-    if(data.profile && typeof data.profile==='object'){ saveProfile(data.profile, true); state.profile = data.profile; }
-    state.bodyScans = Array.isArray(data.bodyScans) ? data.bodyScans : [];
-    saveBodyScans(state.bodyScans, true);
+    const data = snap.data();
+    if(data){
+      state.sessions = Array.isArray(data.sessions) ? data.sessions : [];
+      saveSessions(state.sessions, true);
+      saveCustomDays(Array.isArray(data.customDays) ? data.customDays : [], true);
+      saveCustomPool((data.customPool && typeof data.customPool==='object') ? data.customPool : {}, true);
+      saveExOverrides((data.exOverrides && typeof data.exOverrides==='object') ? data.exOverrides : {}, true);
+      if(data.profile && typeof data.profile==='object'){ saveProfile(data.profile, true); state.profile = data.profile; }
+      state.bodyScans = Array.isArray(data.bodyScans) ? data.bodyScans : [];
+      saveBodyScans(state.bodyScans, true);
+    }
+    if(firstLoad){
+      firstLoad = false;
+      cloudReady = true;
+    }
     render();
   });
 }
-function detachCloudSync(){ if(cloudUnsub){ cloudUnsub(); cloudUnsub = null; } }
+function detachCloudSync(){ if(cloudUnsub){ cloudUnsub(); cloudUnsub = null; } cloudReady = false; }
 function fbErrorMsg(err){
   const map = {
     'auth/wrong-password':'Falsches Passwort.','auth/user-not-found':'Kein Account mit dieser E-Mail gefunden.',
@@ -1013,7 +1059,7 @@ function renderScoreChart(){
       </div>
     </div>`;
 }
-function renderHumanCompareCard(){ return ''; }	
+function renderHumanCompareCard(){ return ''; }
 function renderHome(){
   const DAYS = getDayTypes();
   const now = new Date();
@@ -1103,6 +1149,16 @@ function renderProfile(){
       </div>
     </div>
     <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);">${ICON.check} PROFIL SPEICHERN</button>
+
+    <div class="eyebrow mono" style="margin:2rem 0 .6rem;">BACKUP</div>
+    <button class="btn-outline mono" data-export-backup="1" style="margin-bottom:.5rem;">${ICON.check} DATEN EXPORTIEREN</button>
+    <label class="btn-outline mono" style="position:relative;cursor:pointer;display:block;text-align:center;padding:.8rem;">
+      <span>${ICON.plus} DATEN IMPORTIEREN</span>
+      <input type="file" accept=".json,application/json" data-import-backup="1" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+    </label>
+    <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.6rem;text-align:center;line-height:1.5;">
+      Export erstellt eine JSON-Datei mit allen deinen Daten.<br>Import ersetzt alle aktuellen Daten durch das Backup.
+    </div>
   `;
 }
 function renderAuth(){
@@ -1228,7 +1284,8 @@ function renderSession(){
   const foodRow = `
     <div class="eyebrow mono" style="margin:0 0 .5rem;">ERNÄHRUNG (OPTIONAL)</div>
     <textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>
-  `;  const exCards = d.exercises.map((ex)=>{
+  `;
+  const exCards = d.exercises.map((ex)=>{
     const lastSets = lastSessionSetsFor(d.dayType, ex.name);
     const sug = suggestNextWeight(lastSets);
     let sugHtml = '';
@@ -1296,7 +1353,7 @@ function renderSession(){
   }).join('');
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;">
-           <button class="back" data-discard="1">${ICON.chevronLeft} Zurück</button>
+      <button class="back" data-discard="1">${ICON.chevronLeft} Zurück</button>
       <div class="mono" style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;letter-spacing:.2em;color:${day.accent}"><span class="pulse" style="color:${day.accent}"></span>AKTIV</div>
     </div>
     <div class="eyebrow mono" style="color:${day.accent}">TAG · ${day.short}</div>
@@ -1694,6 +1751,12 @@ function attachListeners(){
     state.confirmDelete = false;
     state.view = 'detail'; render();
   }));
+  app.querySelectorAll('[data-export-backup]').forEach(el=>el.addEventListener('click', ()=>{ exportBackup(); }));
+  app.querySelectorAll('[data-import-backup]').forEach(el=>el.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) importBackup(file);
+    e.target.value = '';
+  }));
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
     if(state.draft && state.draft.exercises.length>0){
@@ -1711,7 +1774,7 @@ function attachListeners(){
   app.querySelectorAll('[data-history]').forEach(el=>el.addEventListener('click', ()=>{ state.view='history'; render(); }));
   app.querySelectorAll('[data-open-streak]').forEach(el=>el.addEventListener('click', ()=>{ state.view='streak'; render(); }));
   app.querySelectorAll('[data-back]').forEach(el=>el.addEventListener('click', ()=>{ state.view=el.getAttribute('data-back'); state.confirmDelete=false; render(); }));
-   app.querySelectorAll('[data-discard]').forEach(el=>el.addEventListener('click', ()=>{ state.view='home'; render(); }));
+  app.querySelectorAll('[data-discard]').forEach(el=>el.addEventListener('click', ()=>{ state.view='home'; render(); }));
   app.querySelectorAll('[data-session-date]').forEach(el=>el.addEventListener('change', ()=>{
     const [y,m,dd] = el.value.split('-').map(Number);
     if(!y||!m||!dd) return;
@@ -1933,12 +1996,10 @@ if(fbEnabled){
     authUser = user ? {uid:user.uid, email:user.email} : null;
     detachCloudSync();
     if(user) attachCloudSync(user.uid);
-    seedInitialScansForOwner();
     render();
   });
 } else {
   authChecked = true;
-  seedInitialScansForOwner();
 }
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
