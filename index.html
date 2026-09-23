@@ -801,12 +801,13 @@ function renderScan(){
       </div>
     ` : (()=>{
       const first = scans[0], last = scans[scans.length-1];
+      const prev = scans.length > 1 ? scans[scans.length-2] : first;
       const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
       const rows = [
-        {label:'MUSKELMASSE', first:first.muscle, last:last.muscle, unit:'kg', goodUp:true},
-        {label:'FETTMASSE', first:first.fat, last:last.fat, unit:'kg', goodUp:false},
-        {label:'GEWICHT', first:first.weight, last:last.weight, unit:'kg', goodUp:false},
+        {label:'MUSKELMASSE', first:first.muscle, prev:prev.muscle, last:last.muscle, unit:'kg', goodUp:true},
+        {label:'FETTMASSE', first:first.fat, prev:prev.fat, last:last.fat, unit:'kg', goodUp:false},
+        {label:'GEWICHT', first:first.weight, prev:prev.weight, last:last.weight, unit:'kg', goodUp:false},
       ];
       return `
         <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
@@ -814,21 +815,37 @@ function renderScan(){
           <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
           ${rows.map(r=>{
             if(r.first===undefined || r.last===undefined) return '';
-            const diff = r.last - r.first;
-            const sign = diff > 0 ? '+' : '';
-            const absDiff = Math.abs(diff).toFixed(1);
-            const isGood = r.goodUp ? diff > 0 : diff < 0;
-            const isNeutral = Math.abs(diff) < 0.05;
-            const diffColor = isNeutral ? 'var(--text-mute)' : (isGood ? 'var(--green)' : 'var(--red)');
-            const symbol = isNeutral ? '—' : (isGood ? '↑' : '↓');
+            // Gesamt-Differenz (Erster -> Letzter)
+            const diffTotal = r.last - r.first;
+            const signTotal = diffTotal > 0 ? '+' : '';
+            const absTotal = Math.abs(diffTotal).toFixed(1);
+            const isGoodTotal = r.goodUp ? diffTotal > 0 : diffTotal < 0;
+            const isNeutralTotal = Math.abs(diffTotal) < 0.05;
+            const colorTotal = isNeutralTotal ? 'var(--text-mute)' : (isGoodTotal ? 'var(--green)' : 'var(--red)');
+            const symTotal = isNeutralTotal ? '—' : (isGoodTotal ? '↑' : '↓');
+            // Letzte Differenz (Vorheriger -> Letzter)
+            const hasPrev = r.prev !== undefined && r.prev !== null;
+            const diffLast = hasPrev ? r.last - r.prev : 0;
+            const signLast = diffLast > 0 ? '+' : '';
+            const absLast = Math.abs(diffLast).toFixed(1);
+            const isGoodLast = r.goodUp ? diffLast > 0 : diffLast < 0;
+            const isNeutralLast = Math.abs(diffLast) < 0.05;
+            const colorLast = isNeutralLast ? 'var(--text-mute)' : (isGoodLast ? 'var(--green)' : 'var(--red)');
+            const symLast = isNeutralLast ? '—' : (isGoodLast ? '↑' : '↓');
+            let kette = `${r.first} `;
+            if(hasPrev) kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text-dim);">${r.prev}</span> `;
+            kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${r.last}</span> ${r.unit}`;
             return `
               <div style="margin-bottom:1rem;">
-                <div class="eyebrow mono" style="font-size:.6rem;color:${diffColor};margin-bottom:.35rem;">${r.label}</div>
+                <div class="eyebrow mono" style="font-size:.6rem;color:${colorTotal};margin-bottom:.35rem;">${r.label}</div>
                 <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;">
                   <div class="mono" style="font-size:.95rem;color:var(--text-dim);">
-                    ${r.first} <span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${r.last}</span> ${r.unit}
+                    ${kette}
                   </div>
-                  <div class="mono" style="font-size:1rem;color:${diffColor};">${sign}${absDiff} ${r.unit} ${symbol}</div>
+                  <div style="text-align:right;">
+                    <div class="mono" style="font-size:1rem;color:${colorTotal};">${signTotal}${absTotal} ${r.unit} ${symTotal}</div>
+                    ${hasPrev ? `<div class="mono" style="font-size:.65rem;color:${colorLast};margin-top:.2rem;">${signLast}${absLast} ${r.unit} ${symLast} <span style="color:var(--text-faint);">seit letztem</span></div>` : ''}
+                  </div>
                 </div>
               </div>`;
           }).join('')}
