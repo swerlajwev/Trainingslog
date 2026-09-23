@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rettung – Lokale Daten pruefen</title>
+<style>
+  body{background:#000;color:#eee;font-family:monospace;padding:1rem;line-height:1.5;}
+  h1{font-size:1.2rem;color:#a3e635;}
+  .box{border:1px solid #333;padding:1rem;margin-bottom:1rem;background:#111;white-space:pre-wrap;word-break:break-all;max-height:40vh;overflow:auto;font-size:.75rem;}
+  .count{font-size:1.5rem;color:#a3e635;font-weight:bold;}
+  button{background:#a3e635;color:#000;border:none;padding:.8rem 1rem;font-weight:bold;margin-bottom:1rem;width:100%;font-size:1rem;}
+  .warn{color:#ec4899;}
+  .ok{color:#a3e635;}
+  .key{color:#38bdf8;margin-top:1rem;}
+</style>
+</head>
+<body>
+<h1>WICHTIG: Diese Seite macht NICHTS mit dem Internet. Sie liest nur, was im Speicher DIESES Browsers auf DIESEM Gerät steckt. Kein Firebase, kein Sync, kein Risiko.</h1>
+
+<div id="out"></div>
+
+<script>
+  const keys = [
+    'trainingslog_sessions',
+    'trainingslog_custom_days',
+    'trainingslog_custom_pool',
+    'trainingslog_ex_overrides',
+    'trainingslog_profile',
+    'trainingslog_body_scans',
+  ];
+  const out = document.getElementById('out');
+
+  keys.forEach(k => {
+    let raw = null;
+    try { raw = localStorage.getItem(k); } catch(e) {}
+    const div = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'key';
+    title.textContent = k;
+    div.appendChild(title);
+
+    if (!raw) {
+      const p = document.createElement('div');
+      p.className = 'warn';
+      p.textContent = '(leer / nicht vorhanden)';
+      div.appendChild(p);
+      out.appendChild(div);
+      return;
+    }
+
+    if (k === 'trainingslog_sessions') {
+      try {
+        const arr = JSON.parse(raw);
+        const count = Array.isArray(arr) ? arr.length : 0;
+        const c = document.createElement('div');
+        c.className = count > 0 ? 'count ok' : 'count warn';
+        c.textContent = count + ' Sessions gefunden';
+        div.appendChild(c);
+        if (count > 0) {
+          const btn = document.createElement('button');
+          btn.textContent = 'SESSIONS-DATEN KOPIEREN';
+          btn.onclick = () => {
+            navigator.clipboard.writeText(raw).then(() => {
+              btn.textContent = 'KOPIERT ✓';
+            }).catch(() => {
+              btn.textContent = 'Kopieren fehlgeschlagen – Text unten manuell markieren';
+            });
+          };
+          div.appendChild(btn);
+        }
+      } catch(e) {
+        const p = document.createElement('div');
+        p.className = 'warn';
+        p.textContent = 'Konnte nicht als Liste gelesen werden: ' + e.message;
+        div.appendChild(p);
+      }
+    }
+
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.textContent = raw;
+    div.appendChild(box);
+    out.appendChild(div);
+  });
+</script>
+</body>
+</html>
