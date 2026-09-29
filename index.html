@@ -130,7 +130,8 @@
   #bottomNav .nav-btn.active::before{content:'';position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--lime);box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);}
   .weight-suggest{font-family:var(--font-mono);font-size:.55rem;color:var(--lime);margin-left:.3rem;opacity:.75;}
 </style>
-</head><body>
+</head>
+<body>
 <div id="app"></div>
 <div id="bottomNav"></div>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -184,8 +185,7 @@ const BUILTIN_DAY_TYPES = {
 
 // =====================================================================
 // INCREMENTS PRO ÜBUNG
-// Hantelübungen (Schulterpresse, Bizepscurls) = 2 kg
-// Alles andere = 5 kg
+// Schulterpresse & Bizepscurls = 2 kg, alles andere = 5 kg
 // =====================================================================
 const EXERCISE_INCREMENTS = {
   'Schulterpresse': 2,
@@ -424,9 +424,7 @@ function loadProfile(){ try{ const raw = localStorage.getItem(PROFILE_KEY); cons
 function saveProfile(p, skipCloud){ try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); }catch(e){} if(!skipCloud) pushToCloud(); }
 function loadBodyScans(){ try{ const raw = localStorage.getItem(BODY_SCANS_KEY); const p = raw ? JSON.parse(raw) : []; return Array.isArray(p)?p:[]; }catch(e){ return []; } }
 function saveBodyScans(scans, skipCloud){ try{ localStorage.setItem(BODY_SCANS_KEY, JSON.stringify(scans)); }catch(e){} if(!skipCloud) pushToCloud(); }
-function seedInitialScansForOwner(){
-  // Entfernt – Daten kommen aus der Cloud, kein automatisches Seeding mehr
-}
+function seedInitialScansForOwner(){ /* Entfernt */ }
 function getPool(key){
   const builtin = BUILTIN_DAY_TYPES[key] ? BUILTIN_DAY_TYPES[key].pool : [];
   const custom = loadCustomPool()[key] || [];
@@ -511,16 +509,26 @@ function kraftwerteByGroup(){
 
 // =====================================================================
 // lastSessionSetsFor: alle Sätze der letzten Session einer Übung
+// Bei pro-Arm-Übungen: Minimum der beiden Seiten
 // =====================================================================
 function lastSessionSetsFor(dayType, exName){
   const sessions = state.sessions.filter(s=>s.dayType===dayType).sort((a,b)=> new Date(b.date) - new Date(a.date));
+  const perArm = isPerArm(dayType, exName);
   for(const s of sessions){
     const ex = s.exercises.find(e=>e.name===exName);
     if(ex && ex.sets.length){
       const sets = [];
       ex.sets.forEach(st=>{
         const w = parseFloat(st.weight);
-        const r = effectiveReps(st);
+        let r;
+        if(perArm){
+          const l = parseFloat(st.repsLeft);
+          const rr = parseFloat(st.repsRight);
+          if(isNaN(l) || isNaN(rr)) return;
+          r = Math.min(l, rr);
+        } else {
+          r = parseFloat(st.reps);
+        }
         if(!isNaN(w) && !isNaN(r) && w > 0 && r > 0){
           sets.push({ weight: w, reps: r });
         }
@@ -532,68 +540,45 @@ function lastSessionSetsFor(dayType, exName){
 }
 
 // =====================================================================
-// VORSCHLAG (VARIANTE A)
-// - schwerster Satz entscheidet
-// - ALLE Sätze mit dem schwersten Gewicht müssen ≥ 12 Wdh haben → hoch
-// - mind. 1 Satz < 8 Wdh → runter
-// - sonst halten
-// - Increment: pro Übung (siehe EXERCISE_INCREMENTS)
+// Vorschlag mit Median-Gewicht
+// - Median aus allen Satz-Gewichten
+// - Sätze mit Median-Gewicht alle ≥ 12 → hoch
+// - Mind. 1 Satz < 8 → runter
+// - Sonst halten
 // =====================================================================
-function suggestNextWeight(lastSets){
-  if(!lastSets || !lastSets.length) return null;
-
-  // Schwerstes Gewicht finden
-  const maxWeight = Math.max(...lastSets.map(s=>s.weight));
-
-  // Alle Sätze mit dem schwersten Gewicht
-  const heaviest = lastSets.filter(s=> s.weight === maxWeight);
-  const minRepsHeaviest = Math.min(...heaviest.map(s=>s.reps));
-  const maxRepsHeaviest = Math.max(...heaviest.map(s=>s.reps));
-
-  // Alle Sätze (für "zu schwer"-Check)
-  const minRepsAll = Math.min(...lastSets.map(s=>s.reps));
-
-  // Increment bestimmen (pro Übung)
-  // Wir müssen den Übungsnamen kennen – er kommt von außen. Wir raten hier
-  // über einen Trick: maxWeight ist zwar das Gewicht, aber die Übung
-  // wird beim Aufruf gesetzt. Deshalb nehmen wir hier den globalen Wert 5,
-  // und die eigentliche Increment-Bestimmung erfolgt im Aufruf (renderSession).
-  // --> Siehe suggestNextWeightWithInc weiter unten
-
-  return { maxWeight, minRepsHeaviest, maxRepsHeaviest, minRepsAll, heaviestCount: heaviest.length };
-}
-
-// Variante mit Increment pro Übung
 function suggestNextWeightFor(exName, lastSets){
   if(!lastSets || !lastSets.length) return null;
   const inc = getIncrement(exName);
-  const maxWeight = Math.max(...lastSets.map(s=>s.weight));
-  const heaviest = lastSets.filter(s=> s.weight === maxWeight);
-  const minRepsHeaviest = Math.min(...heaviest.map(s=>s.reps));
-  const maxRepsHeaviest = Math.max(...heaviest.map(s=>s.reps));
+
+  const weightsSorted = lastSets.map(s=>s.weight).sort((a,b)=>a-b);
+  const mid = Math.floor(weightsSorted.length / 2);
+  const medianWeight = weightsSorted.length % 2 === 0
+    ? (weightsSorted[mid-1] + weightsSorted[mid]) / 2
+    : weightsSorted[mid];
+
+  const atMedian = lastSets.filter(s=> s.weight === medianWeight);
+  const minRepsAtMedian = Math.min(...atMedian.map(s=>s.reps));
+  const maxRepsAtMedian = Math.max(...atMedian.map(s=>s.reps));
   const minRepsAll = Math.min(...lastSets.map(s=>s.reps));
 
-  // Alle Sätze auf schwerstem Gewicht ≥ 12 → hoch
-  if(minRepsHeaviest >= 12){
+  if(minRepsAtMedian >= 12){
     return {
-      weight: maxWeight + inc,
+      weight: medianWeight + inc,
       action: 'too_low',
-      reason: `Alle ${heaviest.length} Sätze bei ${maxWeight} kg ≥ 12 Wdh – +${inc} kg drauf`
+      reason: `Median ${medianWeight} kg · alle Sätze ≥ 12 Wdh – +${inc} kg drauf`
     };
   }
-  // Irgendein Satz < 8 → runter
   if(minRepsAll < 8){
     return {
-      weight: Math.max(0, maxWeight - inc),
+      weight: Math.max(0, medianWeight - inc),
       action: 'too_high',
       reason: `Mind. 1 Satz unter 8 Wdh (${minRepsAll}) – ${inc} kg runter`
     };
   }
-  // Sonst halten
   return {
-    weight: maxWeight,
+    weight: medianWeight,
     action: 'fit',
-    reason: `Schwerster Satz ${maxWeight} kg · ${minRepsHeaviest}–${maxRepsHeaviest} Wdh – halten`
+    reason: `Median ${medianWeight} kg · ${minRepsAtMedian}–${maxRepsAtMedian} Wdh – halten`
   };
 }
 
@@ -816,17 +801,12 @@ function scanMiniChart(scans, key, color){
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
 }
 
-// =====================================================================
-// Scan-Wert-Karte MIT Durchschnitt + Delta
-// =====================================================================
 function scanValueCard(scans, label, key, unit, color, hint, invertGood){
   if(!scans.length) return '';
   const latest = scans[scans.length-1];
   const value = latest[key];
   if(value===undefined || value==='' || value===null) return '';
   const num = parseFloat(value);
-
-  // Werte für den Durchschnitt sammeln
   const allVals = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
   if(!allVals.length) return '';
   const avg = allVals.reduce((a,b)=>a+b,0) / allVals.length;
