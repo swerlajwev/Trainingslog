@@ -130,8 +130,7 @@
   #bottomNav .nav-btn.active::before{content:'';position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--lime);box-shadow:0 0 8px color-mix(in srgb,var(--lime) 60%,transparent);}
   .weight-suggest{font-family:var(--font-mono);font-size:.55rem;color:var(--lime);margin-left:.3rem;opacity:.75;}
 </style>
-</head>
-<body>
+</head><body>
 <div id="app"></div>
 <div id="bottomNav"></div>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -182,6 +181,20 @@ const BUILTIN_DAY_TYPES = {
   AS:{ key:'AS', label:'ARME / SCHULTERN', short:'A/S', accent:'var(--sky)',
     pool:['Schulterpresse','Seitheben','Bizepscurls','Trizeps Push-Down','Hammercurls (einarmig)','Trizeps überkopf','Unterarme','Hintere Schultern'] },
 };
+
+// =====================================================================
+// INCREMENTS PRO ÜBUNG
+// Hantelübungen (Schulterpresse, Bizepscurls) = 2 kg
+// Alles andere = 5 kg
+// =====================================================================
+const EXERCISE_INCREMENTS = {
+  'Schulterpresse': 2,
+  'Bizepscurls': 2,
+};
+function getIncrement(exName){
+  return EXERCISE_INCREMENTS[exName] || 5;
+}
+
 const MOODS = {
   sehr_gut:{label:'SEHR GUT',color:'var(--lime)',score:100},gut:{label:'GUT',color:'var(--green)',score:80},
   normal:{label:'NORMAL',color:'var(--text)',score:55},nachdenklich:{label:'NACHDENKLICH',color:'var(--yellow)',score:50},
@@ -495,6 +508,10 @@ function kraftwerteByGroup(){
   });
   return result;
 }
+
+// =====================================================================
+// lastSessionSetsFor: alle Sätze der letzten Session einer Übung
+// =====================================================================
 function lastSessionSetsFor(dayType, exName){
   const sessions = state.sessions.filter(s=>s.dayType===dayType).sort((a,b)=> new Date(b.date) - new Date(a.date));
   for(const s of sessions){
@@ -513,22 +530,73 @@ function lastSessionSetsFor(dayType, exName){
   }
   return null;
 }
+
+// =====================================================================
+// VORSCHLAG (VARIANTE A)
+// - schwerster Satz entscheidet
+// - ALLE Sätze mit dem schwersten Gewicht müssen ≥ 12 Wdh haben → hoch
+// - mind. 1 Satz < 8 Wdh → runter
+// - sonst halten
+// - Increment: pro Übung (siehe EXERCISE_INCREMENTS)
+// =====================================================================
 function suggestNextWeight(lastSets){
   if(!lastSets || !lastSets.length) return null;
-  const weights = lastSets.map(s=>s.weight);
-  const avgWeight = Math.round(weights.reduce((a,b)=>a+b,0) / weights.length * 2) / 2;
-  const increment = avgWeight < 15 ? 1 : avgWeight < 30 ? 1.25 : 2.5;
-  const reps = lastSets.map(s=>s.reps);
-  const minReps = Math.min(...reps);
-  const maxReps = Math.max(...reps);
-  if(minReps >= 12){
-    return { weight: avgWeight + increment, action: 'too_low', reason: 'Alle Sätze ≥ 12 Wdh – mehr Gewicht' };
-  }
-  if(minReps < 8){
-    return { weight: Math.max(0, avgWeight - increment), action: 'too_high', reason: 'Mind. 1 Satz unter 8 Wdh – Gewicht runter' };
-  }
-  return { weight: avgWeight, action: 'fit', reason: 'Alle Sätze im Zielbereich (' + minReps + '–' + maxReps + ' Wdh) – passt' };
+
+  // Schwerstes Gewicht finden
+  const maxWeight = Math.max(...lastSets.map(s=>s.weight));
+
+  // Alle Sätze mit dem schwersten Gewicht
+  const heaviest = lastSets.filter(s=> s.weight === maxWeight);
+  const minRepsHeaviest = Math.min(...heaviest.map(s=>s.reps));
+  const maxRepsHeaviest = Math.max(...heaviest.map(s=>s.reps));
+
+  // Alle Sätze (für "zu schwer"-Check)
+  const minRepsAll = Math.min(...lastSets.map(s=>s.reps));
+
+  // Increment bestimmen (pro Übung)
+  // Wir müssen den Übungsnamen kennen – er kommt von außen. Wir raten hier
+  // über einen Trick: maxWeight ist zwar das Gewicht, aber die Übung
+  // wird beim Aufruf gesetzt. Deshalb nehmen wir hier den globalen Wert 5,
+  // und die eigentliche Increment-Bestimmung erfolgt im Aufruf (renderSession).
+  // --> Siehe suggestNextWeightWithInc weiter unten
+
+  return { maxWeight, minRepsHeaviest, maxRepsHeaviest, minRepsAll, heaviestCount: heaviest.length };
 }
+
+// Variante mit Increment pro Übung
+function suggestNextWeightFor(exName, lastSets){
+  if(!lastSets || !lastSets.length) return null;
+  const inc = getIncrement(exName);
+  const maxWeight = Math.max(...lastSets.map(s=>s.weight));
+  const heaviest = lastSets.filter(s=> s.weight === maxWeight);
+  const minRepsHeaviest = Math.min(...heaviest.map(s=>s.reps));
+  const maxRepsHeaviest = Math.max(...heaviest.map(s=>s.reps));
+  const minRepsAll = Math.min(...lastSets.map(s=>s.reps));
+
+  // Alle Sätze auf schwerstem Gewicht ≥ 12 → hoch
+  if(minRepsHeaviest >= 12){
+    return {
+      weight: maxWeight + inc,
+      action: 'too_low',
+      reason: `Alle ${heaviest.length} Sätze bei ${maxWeight} kg ≥ 12 Wdh – +${inc} kg drauf`
+    };
+  }
+  // Irgendein Satz < 8 → runter
+  if(minRepsAll < 8){
+    return {
+      weight: Math.max(0, maxWeight - inc),
+      action: 'too_high',
+      reason: `Mind. 1 Satz unter 8 Wdh (${minRepsAll}) – ${inc} kg runter`
+    };
+  }
+  // Sonst halten
+  return {
+    weight: maxWeight,
+    action: 'fit',
+    reason: `Schwerster Satz ${maxWeight} kg · ${minRepsHeaviest}–${maxRepsHeaviest} Wdh – halten`
+  };
+}
+
 function exerciseProgress(exName){
   const arr = [];
   state.sessions.forEach(s=>{
@@ -747,20 +815,28 @@ function scanMiniChart(scans, key, color){
   const dots = pts.map((v, i) => { const isLast = i === pts.length - 1; return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`; }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
 }
+
+// =====================================================================
+// Scan-Wert-Karte MIT Durchschnitt + Delta
+// =====================================================================
 function scanValueCard(scans, label, key, unit, color, hint, invertGood){
   if(!scans.length) return '';
   const latest = scans[scans.length-1];
   const value = latest[key];
   if(value===undefined || value==='' || value===null) return '';
   const num = parseFloat(value);
-  const first = parseFloat(scans[0][key]);
-  let delta = '';
-  if(!isNaN(num) && !isNaN(first) && Math.abs(num-first) > 0.05){
-    const diff = num - first;
-    const sign = diff > 0 ? '+' : '';
-    const dcolor = invertGood ? (diff < 0 ? 'var(--green)' : 'var(--red)') : (diff > 0 ? 'var(--green)' : 'var(--red)');
-    delta = `<span class="mono" style="color:${dcolor};font-size:.6rem;margin-left:.4rem;">${sign}${diff.toFixed(1)}</span>`;
-  }
+
+  // Werte für den Durchschnitt sammeln
+  const allVals = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
+  if(!allVals.length) return '';
+  const avg = allVals.reduce((a,b)=>a+b,0) / allVals.length;
+  const avgDiff = num - avg;
+  const avgSign = avgDiff > 0 ? '+' : '';
+  const avgAbs = Math.abs(avgDiff).toFixed(1);
+  const avgGood = invertGood ? (avgDiff < 0) : (avgDiff > 0);
+  const avgNeutral = Math.abs(avgDiff) < 0.05;
+  const avgColor = avgNeutral ? 'var(--text-mute)' : (avgGood ? 'var(--green)' : 'var(--red)');
+
   const chart = scanMiniChart(scans, key, color);
   return `
     <div class="frame" style="--accent:${color};padding:.8rem 1rem;margin-bottom:.6rem;">
@@ -769,7 +845,11 @@ function scanValueCard(scans, label, key, unit, color, hint, invertGood){
         <div style="flex:1;min-width:0;">
           <div class="eyebrow mono" style="font-size:.6rem;margin-bottom:.3rem;">${label}</div>
           <div class="mono" style="font-size:1.3rem;color:${color};line-height:1;">
-            ${value}<span style="font-size:.7rem;color:var(--text-mute);margin-left:.3rem;">${unit}</span>${delta}
+            ${value}<span style="font-size:.7rem;color:var(--text-mute);margin-left:.3rem;">${unit}</span>
+          </div>
+          <div class="mono" style="font-size:.7rem;color:var(--text-dim);margin-top:.4rem;">
+            Ø ${avg.toFixed(1)} ${unit}
+            <span style="color:${avgColor};font-size:.65rem;margin-left:.3rem;">${avgSign}${avgAbs} ${avgDiff>=0?'über':'unter'} Ø</span>
           </div>
           ${hint?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.35rem;">${hint}</div>`:''}
         </div>
@@ -777,6 +857,7 @@ function scanValueCard(scans, label, key, unit, color, hint, invertGood){
       </div>
     </div>`;
 }
+
 function renderScan(){
   const scans = state.bodyScans;
   const kraft = kraftwerteByGroup();
@@ -815,7 +896,6 @@ function renderScan(){
           <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
           ${rows.map(r=>{
             if(r.first===undefined || r.last===undefined) return '';
-            // Gesamt-Differenz (Erster -> Letzter)
             const diffTotal = r.last - r.first;
             const signTotal = diffTotal > 0 ? '+' : '';
             const absTotal = Math.abs(diffTotal).toFixed(1);
@@ -823,7 +903,6 @@ function renderScan(){
             const isNeutralTotal = Math.abs(diffTotal) < 0.05;
             const colorTotal = isNeutralTotal ? 'var(--text-mute)' : (isGoodTotal ? 'var(--green)' : 'var(--red)');
             const symTotal = isNeutralTotal ? '—' : (isGoodTotal ? '↑' : '↓');
-            // Letzte Differenz (Vorheriger -> Letzter)
             const hasPrev = r.prev !== undefined && r.prev !== null;
             const diffLast = hasPrev ? r.last - r.prev : 0;
             const signLast = diffLast > 0 ? '+' : '';
@@ -1304,7 +1383,7 @@ function renderSession(){
   `;
   const exCards = d.exercises.map((ex)=>{
     const lastSets = lastSessionSetsFor(d.dayType, ex.name);
-    const sug = suggestNextWeight(lastSets);
+    const sug = suggestNextWeightFor(ex.name, lastSets);
     let sugHtml = '';
     if(sug){
       const arrow = sug.action==='too_low' ? '↑' : sug.action==='too_high' ? '↓' : '=';
