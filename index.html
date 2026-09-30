@@ -127,7 +127,8 @@
   .set-grid-pro{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .set-grid-norm{display:grid;grid-template-columns:1.5rem 1fr auto 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:var(--lime);color:#000;padding:.7rem 1.4rem;font-family:var(--font-mono);font-size:.8rem;letter-spacing:.1em;z-index:999;box-shadow:0 4px 20px rgba(163,230,53,.4);transition:opacity .3s;font-weight:600;}
-  /* SCAN-Tab Styles */
+
+  /* === SCAN-TAB STYLES === */
   .info-btn{position:absolute;top:.7rem;right:.7rem;width:22px;height:22px;border-radius:50%;
     border:1px solid var(--border-hover);background:#09090b;color:var(--text-dim);
     display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);
@@ -156,6 +157,8 @@
   .single-value .unit{font-family:var(--font-mono);font-size:.8rem;color:var(--text-mute);}
   .icon-med{width:56px;height:56px;flex-shrink:0;}
   .term-help{font-size:.6rem;color:var(--text-faint);font-weight:400;margin-left:.4rem;cursor:help;border-bottom:1px dotted var(--text-faint);}
+  .scan-actions{display:flex;gap:.5rem;margin-top:1rem;}
+  .scan-actions .btn-outline, .scan-actions .save-btn{width:auto;flex:1;font-size:.7rem;padding:.7rem;}
 </style>
 </head><body>
 <div id="app"></div>
@@ -374,7 +377,7 @@ function exportBackup(){
   const data = { sessions: state.sessions, bodyScans: state.bodyScans,
     customDays: loadCustomDays(), customPool: loadCustomPool(),
     exOverrides: loadExOverrides(), profile: loadProfile(),
-    exportedAt: new Date().toISOString(), appVersion: 1 };
+    exportedAt: new Date().toISOString(), appVersion: 2 };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -595,113 +598,73 @@ async function extractPdf(file){
   console.log('=== PDF TEXT ===\n', text);
   return parseVicoachText(text);
 }
-
 // =====================================================================
-// VERBESSERTER PDF-PARSER
-// Sucht Zahlen VOR und NACH dem Schlüsselwort
-// Erkennt Formate: "86,3 kg", "86.3", "86"
+// VERBESSERTER PDF-PARSER (vicoach)
+// Sucht Zahlen VOR und NACH dem Schlüsselwort, mit Plausibilitäts-Check
 // =====================================================================
 function parseVicoachText(raw){
   const t = raw.replace(/\s+/g,' ');
   const result = {date: new Date().toISOString().slice(0,10)};
-
-  // Zahl mit Komma oder Punkt
-  const numOf = (str) => {
-    if(!str) return null;
-    const n = parseFloat(String(str).replace(',','.'));
-    return isNaN(n) ? null : n;
-  };
-
-  // Datum finden
+  const numOf = (str) => { if(!str) return null; const n = parseFloat(String(str).replace(',','.')); return isNaN(n) ? null : n; };
   let m = t.match(/(\d{2})\.(\d{2})\.(\d{4})/);
   if(m){ result.date = `${m[3]}-${m[2]}-${m[1]}`; }
   else { m = t.match(/(\d{4})\/(\d{2})\/(\d{2})/); if(m) result.date = `${m[1]}-${m[2]}-${m[3]}`; }
 
-  // Sucht Zahl in einem Fenster von ±80 Zeichen um das Schlüsselwort
-  // probiert erst NACH, dann VOR dem Keyword
   function findNear(keyword, opts){
     opts = opts || {};
     const lower = t.toLowerCase();
     const kw = keyword.toLowerCase();
     const idx = lower.indexOf(kw);
     if(idx < 0) return null;
-
-    // 1) NACH dem Keyword suchen (nächste 3 Zahlen)
     const after = t.substring(idx + kw.length, idx + kw.length + 200);
     const afterNums = after.match(/(\d+[.,]\d+|\d+)/g) || [];
-
-    // 2) VOR dem Keyword suchen (letzte 3 Zahlen)
     const before = t.substring(Math.max(0, idx - 200), idx);
     const beforeNums = (before.match(/(\d+[.,]\d+|\d+)/g) || []).slice(-3);
-
-    // Priorisiere: erst nach, dann vor
     const candidates = [...afterNums.slice(0,3), ...beforeNums];
-
     for(const c of candidates){
       const n = numOf(c);
       if(n == null) continue;
-      // Plausibilität prüfen, falls opts.min/max gesetzt
       if(opts.min != null && n < opts.min) continue;
       if(opts.max != null && n > opts.max) continue;
-      // Jahrgang (2024-2030) ausschließen
       if(n > 1900 && n < 2100) continue;
-      // Reine Zahlen wie 1 (Satz-Nummer) sind meist zu klein
       if(opts.min == null && n < 0.1) continue;
       return n;
     }
     return null;
   }
 
-  // GEWICHT: meist im Bereich 50-150
+  // Basis-Werte
   const g = findNear('Gewicht', {min: 30, max: 200}); if(g!=null) result.weight = g;
-
-  // MUSKELMASSE: 20-80 kg
   const mm = findNear('Muskelmasse', {min: 10, max: 100}); if(mm!=null) result.muscle = mm;
-  // Muskelprotein separat
   const mp = findNear('Muskelprotein', {min: 5, max: 30}); if(mp!=null) result.muscleProtein = mp;
-
-  // FETTMASSE: 2-50 kg
+  const mw = findNear('Wasser im Muskel', {min: 5, max: 40}); if(mw!=null) result.muscleWater = mw;
   const f = findNear('Fettmasse', {min: 1, max: 80}); if(f!=null) result.fat = f;
   const fe = findNear('Essentielles Fett', {min: 1, max: 20}); if(fe!=null) result.fatEssential = fe;
   const fr = findNear('Fettreserve', {min: 0, max: 40}); if(fr!=null) result.fatReserve = fr;
-
-  // VISZERALES FETT: 0-10 kg
   const vz = findNear('Viszerales Fett', {min: 0, max: 10}); if(vz!=null) result.visceral = vz;
-
-  // ZELLFITNESS (Phasenwinkel): 3-10
   const cf = findNear('Zellfitnesswert', {min: 2, max: 12});
   if(cf!=null) result.cellFit = cf;
-  else {
-    const cf2 = findNear('Phasenwinkel', {min: 2, max: 12});
-    if(cf2!=null) result.cellFit = cf2;
-  }
-
-  // HRV: 10-200 ms
+  else { const c2 = findNear('Phasenwinkel', {min: 2, max: 12}); if(c2!=null) result.cellFit = c2; }
   const hrv = findNear('HRV-Trainingsbereitschaft', {min: 5, max: 250});
   if(hrv!=null) result.hrv = hrv;
-  else {
-    const hrv2 = findNear('HRV', {min: 5, max: 250});
-    if(hrv2!=null) result.hrv = hrv2;
-  }
-
-  // SpO2: 80-100 %
+  else { const h2 = findNear('HRV', {min: 5, max: 250}); if(h2!=null) result.hrv = h2; }
   const oxy = findNear('Sauerstoffsättigung', {min: 70, max: 100});
   if(oxy!=null) result.oxygen = oxy;
-  else {
-    const oxy2 = findNear('SpO2', {min: 70, max: 100});
-    if(oxy2!=null) result.oxygen = oxy2;
-  }
-
-  // Herzfrequenz: 30-150 bpm
+  else { const o2 = findNear('SpO2', {min: 70, max: 100}); if(o2!=null) result.oxygen = o2; }
   const hr = findNear('Herzfrequenz', {min: 30, max: 150}); if(hr!=null) result.hr = hr;
-
-  // Bioage: 5-90 Jahre
   const ba = findNear('Bioage', {min: 5, max: 90}); if(ba!=null) result.bioage = ba;
 
-  // WASSER (zusätzlich für neue Anzeige)
-  const wt = findNear('Körperwasser', {min: 20, max: 80}); if(wt!=null) result.water = wt;
+  // Erweiterte Werte
   const wi = findNear('Intrazelluläres Wasser', {min: 10, max: 60}); if(wi!=null) result.waterIntra = wi;
   const we = findNear('Extrazelluläres Wasser', {min: 5, max: 40}); if(we!=null) result.waterExtra = we;
+  if(result.waterIntra != null && result.waterExtra != null) result.water = Math.round((result.waterIntra + result.waterExtra)*10)/10;
+
+  // Muskelverteilung
+  const t1 = findNear('Torso', {min: 5, max: 40}); if(t1!=null) result.muscleTorso = t1;
+  const aR = findNear('Arm R', {min: 1, max: 15}); if(aR!=null) result.muscleArmR = aR;
+  const aL = findNear('Arm L', {min: 1, max: 15}); if(aL!=null) result.muscleArmL = aL;
+  const lR = findNear('Bein R', {min: 3, max: 25}); if(lR!=null) result.muscleLegR = lR;
+  const lL = findNear('Bein L', {min: 3, max: 25}); if(lL!=null) result.muscleLegL = lL;
 
   console.log('=== PDF PARSED ===', result);
   return result;
@@ -787,7 +750,7 @@ let state = {
   editDay:null, editPoolName:null, editPoolValue:'', poolEditMode:false,
   authForm:{email:'',password:'',error:''}, modal:null, editSessionDraft:null,
   profile: loadProfile() || {height:'',weight:'',birthDate:'',gender:'',experience:''},
-  bodyScans: loadBodyScans(), scanForm:{},
+  bodyScans: loadBodyScans(), scanForm:{}, scanEditIndex:null,
   exerciseName:null, pdfParsing:false, pdfError:null,
   infoModal:null,
 };
@@ -809,6 +772,211 @@ function updateScorePreview(){ const el = document.getElementById('scorePreview'
 function persistDraft(){ try{ if(state.draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(state.draft)); else localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){ try{ const raw = localStorage.getItem(DRAFT_KEY); if(raw){ state.draft = JSON.parse(raw); if(state.draft.energyZucker === undefined) state.draft.energyZucker = true; } }catch(e){} }
 function newDraft(key){ return {id:uid(),date:toNoonIso(new Date()),dayType:key,preWorkout:false,preWorkoutCaffeine:true,energy:false,energyZucker:true,mood:null,energyLevel:50,food:'',exercises:[]}; }
+
+// =====================================================================
+// SCAN-TAB HELPER
+// =====================================================================
+const SCALE_GRADIENT = [
+  '#7f1d1d','#991b1b','#b91c1c','#dc2626','#e11d48',
+  '#ea580c','#f97316','#fb923c',
+  '#fbbf24','#facc15','#fde047',
+  '#bef264','#a3e635','#84cc16','#65a30d',
+  '#a3e635','#bef264','#d9f99d'
+];
+function scaleBar(positionPct){
+  const segsHtml = SCALE_GRADIENT.map(c=>`<div class="scale-seg" style="background:${c};"></div>`).join('');
+  const markerLeft = Math.max(0, Math.min(100, positionPct));
+  return `<div class="scale-bar">${segsHtml}<div class="scale-marker" style="left:${markerLeft}%"></div></div>`;
+}
+function donut(segments, centerValue, centerUnit, colors){
+  const size = 120, r = 46, cx = size/2, cy = size/2;
+  const circumference = 2 * Math.PI * r;
+  const total = segments.reduce((a,b)=>a+b.value, 0) || 1;
+  let offset = 0;
+  const arcs = segments.map((seg, i)=>{
+    const len = (seg.value / total) * circumference;
+    const arc = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colors[i]}" stroke-width="18"
+      stroke-dasharray="${len} ${circumference - len}" stroke-dashoffset="${-offset}"
+      transform="rotate(-90 ${cx} ${cy})" stroke-linecap="butt"/>`;
+    offset += len;
+    return arc;
+  }).join('');
+  return `<svg class="ring-svg" viewBox="0 0 ${size} ${size}">
+    ${arcs}
+    <circle cx="${cx}" cy="${cy}" r="${r-9}" fill="#000"/>
+    <text x="${cx}" y="${cy-2}" text-anchor="middle" fill="#f4f4f5" font-size="20" font-family="Oswald, sans-serif" font-weight="600">${centerValue}</text>
+    <text x="${cx}" y="${cy+14}" text-anchor="middle" fill="#71717a" font-size="10" font-family="JetBrains Mono, monospace">${centerUnit}</text>
+  </svg>`;
+}
+function bodySilhouette(dist){
+  const maxV = dist && dist.torso ? dist.torso : 16.1;
+  function col(v){
+    const p = v / maxV;
+    if(p > 0.7)  return '#ef4444';
+    if(p > 0.4)  return '#f97316';
+    if(p > 0.2)  return '#84cc16';
+    return '#22c55e';
+  }
+  const cT = col(dist.torso || 16);
+  const cA = col(dist.armR || 2.5);
+  const cL = col(dist.legR || 7.5);
+  // Vereinfachte Silhouette: Kopf, Torso, Arme, Beine
+  return `<svg class="body-svg" viewBox="0 0 120 260">
+    <ellipse cx="60" cy="22" rx="15" ry="18" fill="#9ca3af"/>
+    <rect x="54" y="38" width="12" height="10" fill="#9ca3af"/>
+    <path d="M42 48 Q28 55 26 75 L24 130 L34 130 L38 90 L40 60 Z" fill="${cA}"/>
+    <path d="M78 48 Q92 55 94 75 L96 130 L86 130 L82 90 L80 60 Z" fill="${cA}"/>
+    <ellipse cx="30" cy="140" rx="6" ry="8" fill="${cA}"/>
+    <ellipse cx="90" cy="140" rx="6" ry="8" fill="${cA}"/>
+    <path d="M42 48 Q60 42 78 48 L82 130 Q80 142 60 142 Q40 142 38 130 Z" fill="${cT}"/>
+    <path d="M42 140 L78 140 L82 160 L38 160 Z" fill="${cL}"/>
+    <path d="M42 158 L56 158 L54 210 L48 240 L40 240 L40 210 Z" fill="${cL}"/>
+    <path d="M64 158 L78 158 L80 210 L80 240 L72 240 L70 210 Z" fill="${cL}"/>
+    <ellipse cx="47" cy="246" rx="9" ry="6" fill="${cL}"/>
+    <ellipse cx="73" cy="246" rx="9" ry="6" fill="${cL}"/>
+  </svg>`;
+}
+function visceralProfile(value){
+  let blobColor = '#a3e635';
+  if(value > 3) blobColor = '#ef4444';
+  else if(value > 2) blobColor = '#facc15';
+  return `<svg viewBox="0 0 80 200" style="width:80px;height:auto;flex-shrink:0;">
+    <ellipse cx="48" cy="18" rx="12" ry="14" fill="#9ca3af"/>
+    <rect x="44" y="30" width="10" height="8" fill="#9ca3af"/>
+    <path d="M40 38 Q50 34 58 38 L62 60 Q66 90 62 120 L58 160 L56 185 L46 185 L48 160 L44 130 L40 160 L38 185 L28 185 L32 160 L34 130 L32 90 L34 60 Z"
+      fill="#9ca3af" stroke="#0a0a0b" stroke-width="1"/>
+    <path d="M42 50 Q35 60 33 90 L33 120 L38 120 L38 90 Q40 65 44 55 Z" fill="#9ca3af" stroke="#0a0a0b" stroke-width="0.8" opacity="0.9"/>
+    <ellipse cx="46" cy="118" rx="10" ry="16" fill="${blobColor}" opacity="0.95"/>
+    <ellipse cx="46" cy="118" rx="10" ry="16" fill="none" stroke="#0a0a0b" stroke-width="0.5" opacity="0.4"/>
+  </svg>`;
+}
+function o2Icon(color){
+  return `<svg class="icon-med" viewBox="0 0 60 60" fill="none">
+    <circle cx="30" cy="30" r="22" stroke="${color}" stroke-width="3" fill="none"/>
+    <path d="M18 20 Q22 15 28 16" stroke="${color}" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <text x="30" y="37" text-anchor="middle" fill="${color}" font-family="Oswald, sans-serif" font-size="18" font-weight="600">O₂</text>
+    <circle cx="48" cy="46" r="5" stroke="${color}" stroke-width="2" fill="none" opacity="0.7"/>
+  </svg>`;
+}
+function heartEkg(color){
+  return `<svg class="icon-med" viewBox="0 0 60 60" fill="none">
+    <path d="M30 52 C 10 38, 5 22, 14 14 C 22 7, 30 14, 30 20 C 30 14, 38 7, 46 14 C 55 22, 50 38, 30 52 Z"
+      stroke="${color}" stroke-width="3" fill="none"/>
+    <polyline points="10,30 20,30 24,22 28,38 32,26 36,32 44,32 50,30"
+      stroke="${color}" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+  </svg>`;
+}
+function stickFigure(iconType, color){
+  if(iconType === 'muscle'){
+    return `<svg class="icon-med" viewBox="0 0 60 60" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="30" cy="11" r="6" fill="${color}" stroke="none"/>
+      <line x1="30" y1="19" x2="30" y2="40"/>
+      <line x1="25" y1="25" x2="35" y2="25" stroke-width="1.5"/>
+      <line x1="25" y1="30" x2="35" y2="30" stroke-width="1.5"/>
+      <line x1="25" y1="35" x2="35" y2="35" stroke-width="1.5"/>
+      <path d="M30 22 L16 30 L11 22"/>
+      <path d="M30 22 L44 30 L49 22"/>
+      <path d="M30 40 L23 55"/>
+      <path d="M30 40 L37 55"/>
+    </svg>`;
+  }
+  if(iconType === 'grandpa'){
+    return `<svg class="icon-med" viewBox="0 0 60 60" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="24" cy="12" r="6" fill="${color}" stroke="none"/>
+      <path d="M25 20 Q30 25 32 33 L35 41"/>
+      <path d="M28 25 L38 32"/>
+      <line x1="38" y1="32" x2="42" y2="55"/>
+      <path d="M38 32 Q42 29 45 33"/>
+      <path d="M33 40 L28 55"/>
+      <path d="M35 42 L43 54"/>
+    </svg>`;
+  }
+  return `<svg class="icon-med" viewBox="0 0 60 60" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="34" cy="11" r="6" fill="${color}" stroke="none"/>
+    <path d="M33 20 Q35 27 37 33"/>
+    <path d="M34 24 L44 22"/>
+    <path d="M33 27 L23 30"/>
+    <path d="M36 32 L28 42 L22 50"/>
+    <path d="M36 32 L44 42 L50 46"/>
+  </svg>`;
+}
+function bioageIcon(iconType, color){
+  return stickFigure(iconType, color);
+}
+function calcBioageAssessment(bioage, calendarAge){
+  const diffPct = ((bioage - calendarAge) / calendarAge) * 100;
+  let verdict, iconType, color;
+  if(diffPct <= -15){ verdict = 'DEUTLICH JÜNGER'; iconType = 'muscle'; color = 'var(--lime)'; }
+  else if(diffPct <= -5){ verdict = 'JÜNGER'; iconType = 'runner'; color = 'var(--green)'; }
+  else if(diffPct <= 5){ verdict = 'NORMAL'; iconType = 'runner'; color = 'var(--green)'; }
+  else if(diffPct <= 15){ verdict = 'ÄLTER'; iconType = 'grandpa'; color = 'var(--orange)'; }
+  else { verdict = 'DEUTLICH ÄLTER'; iconType = 'grandpa'; color = 'var(--red)'; }
+  const pos = Math.max(0, Math.min(100, 50 - (diffPct / 15) * 50));
+  return { diffPct, verdict, iconType, color, scalePos: pos };
+}
+const SCAN_INFOS = {
+  composition: { title: 'KÖRPERZUSAMMENSETZUNG', text: 'Teilt dein Gewicht in fettfreie Masse (Wasser, Muskelprotein, passives Gewebe) und Fettmasse (essentiell, Reserve, überschüssig).' },
+  muscleDist: { title: 'MUSKELVERTEILUNG', text: 'Zeigt deine Muskeln auf Torso, Arme und Beine. R/L-Vergleich deckt Dysbalancen auf.' },
+  water: { title: 'KÖRPERWASSER', text: 'Intrazellulär = IN den Zellen. Extrazellulär = ZWISCHEN den Zellen. Zu viel extrazellulär = Wassereinlagerungen möglich.' },
+  muscle: { title: 'MUSKELMASSE', text: 'Muskelprotein (fest, sollte über 33 % sein) + Wasser in den Muskelzellen. Mehr Muskelmasse = höherer Grundumsatz.' },
+  fat: { title: 'FETTMASSE', text: 'Essentielles Fett (überlebenswichtig) + Reserve (gesund, reduzierbar) + überschüssiges Fett (schädlich, sollte 0 sein).' },
+  visceral: { title: 'VISZERALES FETT', text: 'Fett um innere Organe. Unter 2 kg ist gut. Kraft- und Ausdauertraining reduziert es.' },
+  cellFit: { title: 'ZELLFITNESS (PHASENWINKEL)', text: 'Zeigt, wie gut die Zellen mit Wasser, Nährstoffen und Sauerstoff versorgt sind. Höhere Werte = besserer Stoffwechsel.' },
+  spo2: { title: 'SAUERSTOFFSÄTTIGUNG', text: 'Wie viel Sauerstoff dein Blut transportiert. 95–100 % ist normal.' },
+  hr: { title: 'RUHE-HERZFREQUENZ', text: 'Puls in Ruhe. Niedriger = besser.' },
+  hrv: { title: 'HRV', text: 'Erholung. Niedrig = Regeneration nötig.' },
+  bioage: { title: 'BIOLOGISCHES ALTER', text: 'Relativ zu deinem kalendarischen Alter:\n≤ −15 % = deutlich jünger\n5–15 % jünger = jünger\n±5 % = normal\n5–15 % älter = älter\n≥ +15 % = deutlich älter' },
+};
+let currentInfo = null;
+function infoBtn(key){ return `<button class="info-btn" data-info="${key}">i</button>`; }
+function renderInfoOverlay(){
+  if(!currentInfo) return '';
+  const info = SCAN_INFOS[currentInfo];
+  if(!info) return '';
+  const textHtml = (info.text||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>`<p>${l}</p>`).join('');
+  return `<div class="info-overlay" data-close-info="1">
+    <div class="info-box">
+      <span class="ic tl"></span><span class="ic tr"></span><span class="ic bl"></span><span class="ic br"></span>
+      <div class="eyebrow mono" style="margin-bottom:.6rem;color:var(--lime);">INFO</div>
+      <h3>${info.title}</h3>
+      ${textHtml}
+      <button class="close-btn" data-close-info="1">VERSTANDEN</button>
+    </div>
+  </div>`;
+}
+function scanLineChart(scans, key, color){
+  const pts = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
+  if(pts.length < 2) return '';
+  const w = 240, h = 55, padL = 8, padR = 8, padT = 8, padB = 8;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = Math.max(max - min, 1);
+  const stepX = (w - padL - padR) / (pts.length - 1);
+  const sY = v => h - padB - ((v - min) / range) * (h - padT - padB);
+  const path = pts.map((v, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(v).toFixed(1)}`).join(' ');
+  const dots = pts.map((v, i) => {
+    const isLast = i === pts.length - 1;
+    return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?5:2.5}" fill="${isLast?color:'#52525b'}" stroke="#000" stroke-width="1"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;margin-top:.6rem;">
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="1.5"/>${dots}
+  </svg>`;
+}
+function avgOf(scans, key){
+  const vals = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
+  if(!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0) / vals.length;
+}
+function lastVal(scans, key){
+  const last = scans[scans.length-1];
+  if(!last) return null;
+  return last[key] != null ? last[key] : null;
+}
+function firstVal(scans, key){
+  const first = scans[0];
+  if(!first) return null;
+  return first[key] != null ? first[key] : null;
+}
+</script><script>
 const MAIN_TABS = ['home','history','scan','profile'];
 function renderBottomNav(){
   const el = document.getElementById('bottomNav');
@@ -841,136 +1009,372 @@ function render(){
   else if(state.view==='scan-list') app.innerHTML = renderScanList();
   else if(state.view==='exercise') app.innerHTML = renderExerciseDetail();
   app.innerHTML += renderModalOverlay();
+  app.innerHTML += renderInfoOverlay();
   attachListeners();
   renderBottomNav();
 }
-function scanMiniChart(scans, key, color){
-  if(scans.length < 2) return '';
-  const pts = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
-  if(pts.length < 2) return '';
-  const min = Math.min(...pts), max = Math.max(...pts);
-  const span = Math.max((max-min)*1.6, 0.5);
-  const rMin = min - span*0.25, rMax = max + span*0.25;
-  const w = 280, h = 60, padL = 6, padR = 6, padT = 6, padB = 6;
-  const stepX = (w - padL - padR) / (pts.length - 1);
-  const sY = v => h - padB - ((v - rMin) / (rMax - rMin)) * (h - padT - padB);
-  const path = pts.map((v, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(v).toFixed(1)}`).join(' ');
-  const dots = pts.map((v, i) => { const isLast = i === pts.length - 1; return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?4:2.2}" fill="${isLast?color:'var(--text-faint)'}"/>`; }).join('');
-  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.8"/>${dots}</svg>`;
-}
-function scanValueCard(scans, label, key, unit, color, hint, invertGood){
-  if(!scans.length) return '';
-  const latest = scans[scans.length-1];
-  const value = latest[key];
-  if(value===undefined || value==='' || value===null) return '';
-  const num = parseFloat(value);
-  const allVals = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
-  if(!allVals.length) return '';
-  const avg = allVals.reduce((a,b)=>a+b,0) / allVals.length;
-  const avgDiff = num - avg;
-  const avgSign = avgDiff > 0 ? '+' : '';
-  const avgAbs = Math.abs(avgDiff).toFixed(1);
-  const avgGood = invertGood ? (avgDiff < 0) : (avgDiff > 0);
-  const avgNeutral = Math.abs(avgDiff) < 0.05;
-  const avgColor = avgNeutral ? 'var(--text-mute)' : (avgGood ? 'var(--green)' : 'var(--red)');
-  const chart = scanMiniChart(scans, key, color);
-  return `
-    <div class="frame" style="--accent:${color};padding:.8rem 1rem;margin-bottom:.6rem;">
-      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem;">
-        <div style="flex:1;min-width:0;">
-          <div class="eyebrow mono" style="font-size:.6rem;margin-bottom:.3rem;">${label}</div>
-          <div class="mono" style="font-size:1.3rem;color:${color};line-height:1;">${value}<span style="font-size:.7rem;color:var(--text-mute);margin-left:.3rem;">${unit}</span></div>
-          <div class="mono" style="font-size:.7rem;color:var(--text-dim);margin-top:.4rem;">Ø ${avg.toFixed(1)} ${unit} <span style="color:${avgColor};font-size:.65rem;margin-left:.3rem;">${avgSign}${avgAbs} ${avgDiff>=0?'über':'unter'} Ø</span></div>
-          ${hint?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.35rem;">${hint}</div>`:''}
-        </div>
-        ${chart?`<div style="flex:1.4;min-width:0;">${chart}</div>`:''}
-      </div>
-    </div>`;
-}
+
+// =====================================================================
+// SCAN-TAB RENDER (NEU)
+// =====================================================================
 function renderScan(){
   const scans = state.bodyScans;
   const kraft = kraftwerteByGroup();
+  if(scans.length === 0){
+    return `
+      <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
+      <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
+      <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">NOCH KEINE MESSUNG</div>
+      <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;">
+        <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
+        <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
+      </div>
+      ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:1rem;">${state.pdfError}</div>`:''}
+      <div class="frame" style="--accent:var(--sky);padding:1.5rem 1rem;text-align:center;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="mono" style="font-size:.8rem;color:var(--text-dim);line-height:1.6;">
+          Noch keine Körperanalyse.<br>Lade eine vicoach-PDF hoch oder trag die Werte manuell ein.
+        </div>
+      </div>
+    `;
+  }
+  const last = scans[scans.length-1];
+  const first = scans[0];
+  const prev = scans.length > 1 ? scans[scans.length-2] : first;
+  const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Verteilungswerte
+  const dist = {
+    torso: last.muscleTorso != null ? last.muscleTorso : 16.1,
+    armR: last.muscleArmR != null ? last.muscleArmR : 2.6,
+    armL: last.muscleArmL != null ? last.muscleArmL : 2.6,
+    legR: last.muscleLegR != null ? last.muscleLegR : 7.7,
+    legL: last.muscleLegL != null ? last.muscleLegL : 7.7,
+  };
+
+  // Wasser
+  const waterTotal = last.water != null ? last.water : (last.waterIntra != null && last.waterExtra != null ? last.waterIntra + last.waterExtra : null);
+  const waterIntra = last.waterIntra != null ? last.waterIntra : (waterTotal ? waterTotal * 0.62 : null);
+  const waterExtra = last.waterExtra != null ? last.waterExtra : (waterTotal ? waterTotal * 0.38 : null);
+
+  // Fett-Aufteilung
+  const fatEss = last.fatEssential != null ? last.fatEssential : (last.fat != null ? last.fat * 0.35 : null);
+  const fatRes = last.fatReserve != null ? last.fatReserve : (last.fat != null ? last.fat * 0.65 : null);
+
+  // Muskel-Protein/Wasser
+  const musProtein = last.muscleProtein != null ? last.muscleProtein : (last.muscle != null ? last.muscle * 0.31 : null);
+  const musWater = last.muscleWater != null ? last.muscleWater : (last.muscle != null ? last.muscle * 0.69 : null);
+
+  // Bioage
+  const calAge = getProfileAge(state.profile) || 17;
+  const bioageVal = last.bioage != null ? last.bioage : calAge;
+  const bio = calcBioageAssessment(bioageVal, calAge);
+
+  // Gewichtsveränderung
+  const changeRows = [
+    {label:'MUSKELMASSE', key:'muscle', goodUp:true, unit:'kg'},
+    {label:'FETTMASSE', key:'fat', goodUp:false, unit:'kg'},
+    {label:'GEWICHT', key:'weight', goodUp:false, unit:'kg'},
+  ];
+
+  const changeBlock = `
+    <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
+      ${changeRows.map(r=>{
+        const f = first[r.key], p = prev[r.key], l = last[r.key];
+        if(f==null || l==null) return '';
+        const dT = l - f, sT = dT > 0 ? '+' : '', aT = Math.abs(dT).toFixed(1);
+        const gT = r.goodUp ? dT > 0 : dT < 0;
+        const cT = Math.abs(dT) < 0.05 ? 'var(--text-mute)' : (gT ? 'var(--green)' : 'var(--red)');
+        const symT = Math.abs(dT) < 0.05 ? '—' : (gT ? '↑' : '↓');
+        const dL = (p != null && l != null) ? l - p : 0;
+        const sL = dL > 0 ? '+' : '', aL = Math.abs(dL).toFixed(1);
+        const gL = r.goodUp ? dL > 0 : dL < 0;
+        const cL = Math.abs(dL) < 0.05 ? 'var(--text-mute)' : (gL ? 'var(--green)' : 'var(--red)');
+        const symL = Math.abs(dL) < 0.05 ? '—' : (gL ? '↑' : '↓');
+        let kette = `${f} `;
+        if(p != null) kette += `<span style="color:var(--text-faint);">→</span> ${p} `;
+        kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${l}</span> ${r.unit}`;
+        return `<div style="margin-bottom:1rem;">
+          <div class="eyebrow mono" style="font-size:.6rem;color:${cT};margin-bottom:.35rem;">${r.label}</div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;">
+            <div class="mono" style="font-size:.95rem;color:var(--text-dim);">${kette}</div>
+            <div style="text-align:right;">
+              <div class="mono" style="font-size:1rem;color:${cT};">${sT}${aT} ${r.unit} ${symT}</div>
+              <div class="mono" style="font-size:.65rem;color:${cL};margin-top:.2rem;">${sL}${aL} ${r.unit} ${symL} <span style="color:var(--text-faint);">letzter</span></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.3rem;text-align:right;">LETZTE MESSUNG: ${lastDateStr}</div>
+    </div>`;
+
+  const fatFree = last.fat != null && last.weight != null ? ((1 - last.fat / last.weight) * 100) : null;
+  const waterPct = last.water != null && last.weight != null ? (last.water / last.weight * 100) : null;
+  const bmi = last.weight != null && state.profile.height ? (last.weight / Math.pow(state.profile.height/100, 2)) : null;
+
   return `
     <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
     <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
-    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">${scans.length ? `${scans.length} MESSUNG${scans.length===1?'':'EN'}` : 'NOCH KEINE MESSUNG'}</div>
+    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">${scans.length} MESSUNG${scans.length===1?'':'EN'}</div>
     <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;">
       <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
       <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
     </div>
     ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:1rem;">${state.pdfError}</div>`:''}
-    ${scans.length === 0 ? `<div class="frame" style="--accent:var(--sky);padding:1.5rem 1rem;text-align:center;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="mono" style="font-size:.8rem;color:var(--text-dim);line-height:1.6;">Noch keine Körperanalyse.<br>Lade eine vicoach-PDF hoch oder trag die Werte manuell ein.</div></div>` : (()=>{
-      const first = scans[0], last = scans[scans.length-1];
-      const prev = scans.length > 1 ? scans[scans.length-2] : first;
-      const firstDateStr = new Date(first.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-      const lastDateStr = new Date(last.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
-      const rows = [
-        {label:'MUSKELMASSE', first:first.muscle, prev:prev.muscle, last:last.muscle, unit:'kg', goodUp:true},
-        {label:'FETTMASSE', first:first.fat, prev:prev.fat, last:last.fat, unit:'kg', goodUp:false},
-        {label:'GEWICHT', first:first.weight, prev:prev.weight, last:last.weight, unit:'kg', goodUp:false},
-      ];
-      return `
-        <div class="frame" style="--accent:var(--lime);padding:1.1rem;margin-bottom:1rem;">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
-          ${rows.map(r=>{
-            if(r.first===undefined || r.last===undefined) return '';
-            const diffTotal = r.last - r.first; const signTotal = diffTotal > 0 ? '+' : '';
-            const absTotal = Math.abs(diffTotal).toFixed(1);
-            const isGoodTotal = r.goodUp ? diffTotal > 0 : diffTotal < 0;
-            const isNeutralTotal = Math.abs(diffTotal) < 0.05;
-            const colorTotal = isNeutralTotal ? 'var(--text-mute)' : (isGoodTotal ? 'var(--green)' : 'var(--red)');
-            const symTotal = isNeutralTotal ? '—' : (isGoodTotal ? '↑' : '↓');
-            const hasPrev = r.prev !== undefined && r.prev !== null;
-            const diffLast = hasPrev ? r.last - r.prev : 0;
-            const signLast = diffLast > 0 ? '+' : '';
-            const absLast = Math.abs(diffLast).toFixed(1);
-            const isGoodLast = r.goodUp ? diffLast > 0 : diffLast < 0;
-            const isNeutralLast = Math.abs(diffLast) < 0.05;
-            const colorLast = isNeutralLast ? 'var(--text-mute)' : (isGoodLast ? 'var(--green)' : 'var(--red)');
-            const symLast = isNeutralLast ? '—' : (isGoodLast ? '↑' : '↓');
-            let kette = `${r.first} `;
-            if(hasPrev) kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text-dim);">${r.prev}</span> `;
-            kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${r.last}</span> ${r.unit}`;
-            return `<div style="margin-bottom:1rem;"><div class="eyebrow mono" style="font-size:.6rem;color:${colorTotal};margin-bottom:.35rem;">${r.label}</div><div style="display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;"><div class="mono" style="font-size:.95rem;color:var(--text-dim);">${kette}</div><div style="text-align:right;"><div class="mono" style="font-size:1rem;color:${colorTotal};">${signTotal}${absTotal} ${r.unit} ${symTotal}</div>${hasPrev ? `<div class="mono" style="font-size:.65rem;color:${colorLast};margin-top:.2rem;">${signLast}${absLast} ${r.unit} ${symLast} <span style="color:var(--text-faint);">seit letztem</span></div>` : ''}</div></div></div>`;
-          }).join('')}
-          <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.3rem;text-align:right;">LETZTE MESSUNG: ${lastDateStr}</div>
+
+    ${changeBlock}
+
+    <!-- KÖRPERZUSAMMENSETZUNG -->
+    <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('composition')}
+      <div class="eyebrow mono" style="color:var(--lime);margin-bottom:.7rem;padding-right:1.6rem;">KÖRPERZUSAMMENSETZUNG</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+        ${[
+          {l:'BMI', v:bmi != null ? bmi.toFixed(1).replace('.',',') : '—', c:'var(--yellow)'},
+          {l:'Fettfreie Masse', v:fatFree != null ? fatFree.toFixed(1).replace('.',',') + ' %' : '—', c:'var(--green)'},
+          {l:'Wasser', v:waterPct != null ? waterPct.toFixed(1).replace('.',',') + ' %' : '—', c:'#38bdf8'},
+          {l:'Muskelprotein', v:musProtein != null && last.muscle != null ? (musProtein/last.muscle*100).toFixed(1).replace('.',',') + ' %' : '—', c:'var(--lime)'},
+          {l:'Fettmasse', v:last.fat != null && last.weight != null ? (last.fat/last.weight*100).toFixed(1).replace('.',',') + ' %' : '—', c:'#FFD700'},
+          {l:'Überschüssig', v:'0,0 %', c:'var(--green)'},
+        ].map(x=>`
+          <div style="border-left:2px solid ${x.c};padding-left:.5rem;">
+            <div class="eyebrow mono" style="font-size:.5rem;">${x.l.toUpperCase()}</div>
+            <div class="mono" style="font-size:1rem;color:${x.c};">${x.v}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- MUSKELVERTEILUNG -->
+    <div class="frame" style="--accent:#a78bfa;padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('muscleDist')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
+        <div class="eyebrow mono" style="color:#a78bfa;">MUSKELVERTEILUNG</div>
+        <div class="mono" style="font-size:.6rem;color:var(--green);">✓ AUSGEGLICHEN</div>
+      </div>
+      <div style="display:flex;gap:1rem;align-items:center;">
+        ${bodySilhouette(dist)}
+        <div style="flex:1;min-width:0;">
+          ${[
+            {label:'Torso', val:dist.torso, color:'#ef4444'},
+            {label:'Arm R', val:dist.armR, color:'#84cc16'},
+            {label:'Arm L', val:dist.armL, color:'#84cc16'},
+            {label:'Bein R', val:dist.legR, color:'#84cc16'},
+            {label:'Bein L', val:dist.legL, color:'#84cc16'},
+          ].map(r=>`
+            <div style="margin-bottom:.4rem;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:.15rem;">
+                <span class="mono" style="font-size:.65rem;color:var(--text-dim);">${r.label}</span>
+                <span class="mono" style="font-size:.7rem;color:${r.color};">${r.val.toFixed(1).replace('.',',')} kg</span>
+              </div>
+              <div style="height:4px;background:var(--border);border-radius:999px;overflow:hidden;">
+                <div style="height:100%;width:${(r.val/16.1)*100}%;background:${r.color};"></div>
+              </div>
+            </div>
+          `).join('')}
         </div>
-        <div class="eyebrow mono" style="margin:1.2rem 0 .6rem;">KÖRPERWERTE (VERLAUF)</div>
-        ${scanValueCard(scans,'GEWICHT','weight','kg','var(--text)','',true)}
-        ${scanValueCard(scans,'MUSKELMASSE','muscle','kg','var(--lime)','',false)}
-        ${scanValueCard(scans,'FETTMASSE','fat','kg','var(--orange)','',true)}
-        ${scanValueCard(scans,'VISZERALES FETT','visceral','kg','var(--red)','Fett um innere Organe',true)}
-        ${scanValueCard(scans,'ZELLFITNESS','cellFit','','var(--lime)','Zellversorgung / Phasenwinkel',false)}
-        ${scanValueCard(scans,'HERZFREQUENZVARIABILITÄT','hrv','ms','var(--pink)','Erholung / Trainingsbereitschaft',false)}
-        ${scanValueCard(scans,'SAUERSTOFFSÄTTIGUNG','oxygen','%','var(--sky)','O2-Gehalt im Blut',false)}
-        ${scanValueCard(scans,'RUHE-HERZFREQUENZ','hr','bpm','var(--text-dim)','Herzfrequenz in Ruhe',true)}
-        ${scanValueCard(scans,'BIOLOGISCHES ALTER','bioage','Jahre','var(--purple)','',true)}
-        ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1.5rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}`;
-    })()}
-    ${kraft.length ? `<div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">KRAFTWERTE AUS DEINEN SESSIONS</div><div class="mono" style="font-size:.65rem;color:var(--text-faint);margin-bottom:.8rem;line-height:1.5;">Automatisch aus deinen Trainings gezogen – der schwerste Satz pro Übung. Klick auf eine Übung für den Verlauf.</div>${kraft.map(g=>`<div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>${g.items.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;cursor:pointer;" data-exercise-open="${escapeHtml(u.name)}"><div class="mono" style="font-size:.8rem;color:var(--text-dim);text-decoration:underline;text-decoration-color:var(--text-faint);text-underline-offset:3px;">${u.name}</div><div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg ›</div></div>`).join('')}</div>`).join('')}` : ''}
+      </div>
+    </div>
+
+    ${waterTotal != null ? `
+    <!-- WASSER -->
+    <div class="frame" style="--accent:var(--sky);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('water')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
+        <div class="eyebrow mono" style="color:var(--sky);">KÖRPERWASSER</div>
+        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${waterPct?waterPct.toFixed(1).replace('.',',')+' % vom Gewicht':''}</div>
+      </div>
+      ${scaleBar(72)}
+      <div class="ring-wrap">
+        ${donut([{value:waterIntra},{value:waterExtra}], waterTotal.toFixed(1).replace('.',','), 'kg', ['#0c4a6e','#38bdf8'])}
+        <div style="flex:1;">
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Intrazellulär</span><span class="mono" style="font-size:.8rem;color:#38bdf8;">${waterIntra.toFixed(1).replace('.',',')} kg</span></div>
+          <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin:.1rem 0 .3rem .1rem;">Wasser IN den Zellen</div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Extrazellulär</span><span class="mono" style="font-size:.8rem;color:#0c4a6e;">${waterExtra.toFixed(1).replace('.',',')} kg</span></div>
+          <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin:.1rem 0 .3rem .1rem;">Wasser ZWISCHEN den Zellen</div>
+        </div>
+      </div>
+      ${scanLineChart(scans, 'water', 'var(--sky)')}
+    </div>` : ''}
+
+    <!-- MUSKELMASSE -->
+    <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('muscle')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
+        <div class="eyebrow mono" style="color:var(--lime);">MUSKELMASSE</div>
+        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${last.muscle!=null && last.weight!=null ? (last.muscle/last.weight*100).toFixed(1).replace('.',',') + ' % vom Gewicht':''}</div>
+      </div>
+      ${scaleBar(78)}
+      <div class="ring-wrap">
+        ${donut([{value:musProtein||1},{value:musWater||1}], last.muscle!=null?last.muscle.toFixed(1).replace('.',','):'—', 'kg', ['#84cc16','#0c4a6e'])}
+        <div style="flex:1;">
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Muskelprotein</span><span class="mono" style="font-size:.8rem;color:#84cc16;">${musProtein!=null?musProtein.toFixed(1).replace('.',','):'—'} kg</span></div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Wasser im Muskel</span><span class="mono" style="font-size:.8rem;color:#0c4a6e;">${musWater!=null?musWater.toFixed(1).replace('.',','):'—'} kg</span></div>
+        </div>
+      </div>
+      ${scanLineChart(scans, 'muscle', 'var(--lime)')}
+    </div>
+
+    <!-- FETTMASSE -->
+    <div class="frame" style="--accent:#FFD700;padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('fat')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
+        <div class="eyebrow mono" style="color:#FFD700;">FETTMASSE</div>
+        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${last.fat!=null && last.weight!=null ? (last.fat/last.weight*100).toFixed(1).replace('.',',') + ' % vom Gewicht':''}</div>
+      </div>
+      ${scaleBar(48)}
+      <div class="ring-wrap">
+        ${donut([{value:fatEss||1},{value:fatRes||1},{value:0.001}], last.fat!=null?last.fat.toFixed(1).replace('.',','):'—', 'kg', ['#1e40af','#FFD700','#7f1d1d'])}
+        <div style="flex:1;">
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Essentiell</span><span class="mono" style="font-size:.8rem;color:#60a5fa;">${fatEss!=null?fatEss.toFixed(1).replace('.',','):'—'} kg</span></div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Reserve</span><span class="mono" style="font-size:.8rem;color:#FFD700;">${fatRes!=null?fatRes.toFixed(1).replace('.',','):'—'} kg</span></div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Überschüssig</span><span class="mono" style="font-size:.8rem;color:var(--green);">0,0 kg ✓</span></div>
+        </div>
+      </div>
+      ${scanLineChart(scans, 'fat', '#FFD700')}
+    </div>
+
+    <!-- VISZERALES FETT -->
+    <div class="frame" style="--accent:var(--red);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('visceral')}
+      <div class="eyebrow mono" style="color:var(--red);margin-bottom:.5rem;padding-right:1.6rem;">VISZERALES FETT</div>
+      ${scaleBar(55)}
+      <div style="display:flex;gap:1rem;align-items:center;">
+        ${visceralProfile(last.visceral || 0)}
+        <div style="flex:1;">
+          <div class="single-value" style="margin:.2rem 0;">
+            <div class="num" style="color:${(last.visceral||0) < 2 ? '#a3e635' : '#ef4444'};font-size:2rem;">${last.visceral != null ? last.visceral.toFixed(1).replace('.',',') : '—'}</div>
+            <div class="unit">kg</div>
+          </div>
+          <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.3rem;">Unter 2,0 kg = gut</div>
+        </div>
+      </div>
+      ${scanLineChart(scans, 'visceral', 'var(--red)')}
+    </div>
+
+    <!-- ZELLFITNESS -->
+    <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('cellFit')}
+      <div class="eyebrow mono" style="color:var(--lime);margin-bottom:.5rem;padding-right:1.6rem;">ZELLFITNESS (PHASENWINKEL)</div>
+      ${scaleBar(75)}
+      <div class="single-value"><div class="num" style="color:var(--lime);">${last.cellFit != null ? last.cellFit.toFixed(1).replace('.',',') : '—'}</div><div class="unit">Phasenwinkel</div></div>
+      ${scanLineChart(scans, 'cellFit', 'var(--lime)')}
+    </div>
+
+    <!-- SAUERSTOFF -->
+    <div class="frame" style="--accent:var(--sky);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('spo2')}
+      <div class="eyebrow mono" style="color:var(--sky);margin-bottom:.5rem;padding-right:1.6rem;">SAUERSTOFFSÄTTIGUNG</div>
+      ${scaleBar(88)}
+      <div style="display:flex;align-items:center;gap:1rem;">
+        ${o2Icon('#38bdf8')}
+        <div class="single-value"><div class="num" style="color:var(--sky);">${last.oxygen != null ? last.oxygen : '—'}</div><div class="unit">%</div></div>
+      </div>
+      ${scanLineChart(scans, 'oxygen', 'var(--sky)')}
+    </div>
+
+    <!-- RUHE-HF -->
+    <div class="frame" style="--accent:var(--text-dim);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('hr')}
+      <div class="eyebrow mono" style="color:var(--text-dim);margin-bottom:.5rem;padding-right:1.6rem;">RUHE-HERZFREQUENZ</div>
+      ${scaleBar(35)}
+      <div style="display:flex;align-items:center;gap:1rem;">
+        ${heartEkg('#a1a1aa')}
+        <div class="single-value"><div class="num" style="color:var(--text);">${last.hr != null ? last.hr : '—'}</div><div class="unit">bpm</div></div>
+      </div>
+      ${scanLineChart(scans, 'hr', '#a1a1aa')}
+    </div>
+
+    <!-- HRV -->
+    <div class="frame" style="--accent:var(--pink);padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('hrv')}
+      <div class="eyebrow mono" style="color:var(--pink);margin-bottom:.5rem;padding-right:1.6rem;">HRV · TRAININGSEREITSCHAFT</div>
+      ${scaleBar(28)}
+      <div class="single-value"><div class="num" style="color:var(--pink);">${last.hrv != null ? last.hrv : '—'}</div><div class="unit">ms</div></div>
+      ${scanLineChart(scans, 'hrv', 'var(--pink)')}
+    </div>
+
+    <!-- BIOAGE -->
+    <div class="frame" style="--accent:${bio.color};padding:1rem;margin-bottom:.8rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      ${infoBtn('bioage')}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
+        <div class="eyebrow mono" style="color:${bio.color};">BIOLOGISCHES ALTER</div>
+        <div class="mono" style="font-size:.6rem;color:${bio.color};font-weight:600;">${bio.verdict}</div>
+      </div>
+      ${scaleBar(bio.scalePos)}
+      <div style="display:flex;align-items:center;gap:1rem;">
+        ${bioageIcon(bio.iconType, bio.color)}
+        <div style="flex:1;">
+          <div class="single-value" style="margin:.2rem 0;">
+            <div class="num" style="color:${bio.color};">${bioageVal}</div>
+            <div class="unit">Jahre</div>
+          </div>
+          <div class="mono" style="font-size:.7rem;color:var(--text-dim);">Kalendarisch: <span style="color:var(--text);">${calAge} J.</span></div>
+          <div class="mono" style="font-size:.75rem;color:${bio.color};margin-top:.2rem;font-weight:600;">
+            ${bio.diffPct > 0 ? '+' : ''}${bio.diffPct.toFixed(1)} % Abweichung
+          </div>
+        </div>
+      </div>
+      ${scanLineChart(scans, 'bioage', bio.color)}
+    </div>
+
+    ${kraft.length ? `<div class="eyebrow mono" style="margin:1.5rem 0 .6rem;">KRAFTWERTE AUS DEINEN SESSIONS</div>${kraft.map(g=>`<div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>${g.items.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;cursor:pointer;" data-exercise-open="${escapeHtml(u.name)}"><div class="mono" style="font-size:.8rem;color:var(--text-dim);text-decoration:underline;text-decoration-color:var(--text-faint);text-underline-offset:3px;">${u.name}</div><div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg ›</div></div>`).join('')}</div>`).join('')}` : ''}
+
+    ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:1rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
   `;
 }
+
 function renderScanForm(){
   const f = state.scanForm;
+  const isEdit = state.scanEditIndex != null;
   const field = (label, key, placeholder, unit) => `<div class="eyebrow mono" style="margin:1rem 0 .4rem;">${label}</div><input class="set-input mono" type="number" step="0.1" data-scan-field="${key}" value="${f[key]??''}" placeholder="${placeholder}" />${unit?`<div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-top:.25rem;">${unit}</div>`:''}`;
   return `
     <button class="back" data-back="scan">${ICON.chevronLeft} Abbrechen</button>
-    <div class="eyebrow mono">NEUE MESSUNG</div>
+    <div class="eyebrow mono">${isEdit?'MESSUNG BEARBEITEN':'NEUE MESSUNG'}</div>
     <div class="h1 display" style="margin-bottom:.5rem;">WERTE EINTRAGEN</div>
     <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.5rem;line-height:1.5;">Tipp die Werte aus deiner vicoach-App ab. Leere Felder werden übersprungen.</div>
     <div class="eyebrow mono" style="margin-bottom:.4rem;">DATUM</div>
     <input class="set-input mono" type="date" data-scan-field="date" value="${f.date || new Date().toISOString().slice(0,10)}" />
-    ${field('GEWICHT','weight','86.3','kg')}
-    ${field('MUSKELMASSE','muscle','35.7','kg')}
-    ${field('FETTMASSE','fat','14.8','kg')}
+
+    <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;color:var(--lime);">BASIS</div>
+    ${field('GEWICHT','weight','88.8','kg')}
+    ${field('MUSKELMASSE','muscle','36.7','kg')}
+    ${field('FETTMASSE','fat','15.6','kg')}
     ${field('VISZERALES FETT','visceral','1.9','kg')}
     ${field('ZELLFITNESS','cellFit','5.4','Phasenwinkel')}
-    ${field('HERZFREQUENZVARIABILITÄT','hrv','82','ms')}
-    ${field('SAUERSTOFFSÄTTIGUNG','oxygen','98','%')}
-    ${field('RUHE-HERZFREQUENZ','hr','73','bpm')}
-    ${field('BIOLOGISCHES ALTER','bioage','15.7','Jahre')}
+    ${field('HERZFREQUENZVARIABILITÄT','hrv','64','ms')}
+    ${field('SAUERSTOFFSÄTTIGUNG','oxygen','99','%')}
+    ${field('RUHE-HERZFREQUENZ','hr','79','bpm')}
+    ${field('BIOLOGISCHES ALTER','bioage','15','Jahre')}
+
+    <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;color:var(--sky);">ERWEITERT (OPTIONAL)</div>
+    ${field('KÖRPERWASSER GESAMT','water','54.2','kg')}
+    ${field('WASSER INTRAZELLULÄR','waterIntra','33.8','kg')}
+    ${field('WASSER EXTRAZELLULÄR','waterExtra','20.4','kg')}
+    ${field('MUSKELPROTEIN','muscleProtein','11.3','kg')}
+    ${field('WASSER IM MUSKEL','muscleWater','25.4','kg')}
+    ${field('FETT ESSENTIELL','fatEssential','5.3','kg')}
+    ${field('FETT RESERVE','fatReserve','10.3','kg')}
+    ${field('MUSKEL TORSO','muscleTorso','16.1','kg')}
+    ${field('MUSKEL ARM R','muscleArmR','2.6','kg')}
+    ${field('MUSKEL ARM L','muscleArmL','2.6','kg')}
+    ${field('MUSKEL BEIN R','muscleLegR','7.7','kg')}
+    ${field('MUSKEL BEIN L','muscleLegL','7.7','kg')}
+
     <button class="save-btn mono" data-save-scan="1" style="background:var(--lime);margin-top:1.5rem;">${ICON.check} SPEICHERN</button>
   `;
 }
@@ -983,7 +1387,7 @@ function renderScanList(){
     <div class="h1 display" style="margin-bottom:1rem;">ALLE MESSUNGEN</div>
     ${[...scans].reverse().map((s, idx)=>{
       const origIdx = scans.length - 1 - idx;
-      return `<div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.5rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div class="mono" style="font-size:.7rem;color:var(--sky);margin-bottom:.3rem;">${new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div><div class="mono" style="font-size:.75rem;color:var(--text-dim);line-height:1.7;">${s.weight?`Gewicht: <span style="color:var(--text);">${s.weight} kg</span><br>`:''}${s.muscle?`Muskel: <span style="color:var(--text);">${s.muscle} kg</span><br>`:''}${s.fat?`Fett: <span style="color:var(--text);">${s.fat} kg</span>`:''}</div></div><button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button></div></div>`;
+      return `<div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.5rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div class="mono" style="font-size:.7rem;color:var(--sky);margin-bottom:.3rem;">${new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div><div class="mono" style="font-size:.75rem;color:var(--text-dim);line-height:1.7;">${s.weight?`Gewicht: <span style="color:var(--text);">${s.weight} kg</span><br>`:''}${s.muscle?`Muskel: <span style="color:var(--text);">${s.muscle} kg</span><br>`:''}${s.fat?`Fett: <span style="color:var(--text);">${s.fat} kg</span>`:''}</div></div><div style="display:flex;flex-direction:column;gap:.3rem;"><button class="x-btn" data-scan-edit="${origIdx}" title="Bearbeiten">${ICON.edit}</button><button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button></div></div></div>`;
     }).join('')}
   `;
 }
@@ -1026,16 +1430,15 @@ function renderExerciseDetail(){
     ${[...progress].reverse().map(p=>`<div class="frame" style="--accent:var(--text-mute);padding:.7rem 1rem;margin-bottom:.4rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="mono" style="font-size:.7rem;color:var(--text-mute);">${fmtWd(p.date)} · ${fmtDate(p.date)}</div><div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight} kg <span style="color:var(--text-faint);">× ${p.reps||'–'}</span></div></div><button class="x-btn" data-exercise-goto-session="${p.sessionId}" title="Session öffnen">${ICON.check}</button></div></div>`).join('')}
   `;
 }
+
+// =====================================================================
+// HOME / SCORE-CHARTS
+// =====================================================================
 function chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR){
   const step = (rangeMax - rangeMin) > 40 ? 10 : 5;
   let ticks = [];
   for(let v=Math.ceil(rangeMin/step)*step; v<=rangeMax; v+=step) ticks.push(v);
-  const lines = ticks.map(v=>{
-    const stroke = 'var(--border)';
-    const fill = 'var(--text-faint)';
-    return `<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="${stroke}" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="${fill}" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`;
-  }).join('');
-  return lines;
+  return ticks.map(v=>`<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`).join('');
 }
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
@@ -1165,15 +1568,6 @@ function renderProfile(){
     </div>
     <div class="eyebrow mono" style="margin-bottom:.5rem;">TRAININGSERFAHRUNG</div>
     <div class="chip-row">${expBtn('anfaenger','ANFÄNGER')}${expBtn('fortgeschritten','FORTSCHR.')}${expBtn('erfahren','ERFAHREN')}</div>
-    <div class="frame" style="--accent:var(--lime);padding:.9rem 1rem;margin-bottom:1.2rem;">
-      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div class="eyebrow mono" style="margin-bottom:.5rem;">WAS BEDEUTET DIE AUSWAHL?</div>
-      <div class="mono" style="font-size:.72rem;color:var(--text-dim);line-height:1.7;">
-        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">ANFÄNGER</span> · Neu im Gym oder erst seit wenigen Monaten.</div>
-        <div style="margin-bottom:.4rem;"><span style="color:var(--lime);">FORTSCHR.</span> · Regelmäßig seit 1–3 Jahren. Solide Kraftbasis.</div>
-        <div><span style="color:var(--lime);">ERFAHREN</span> · Seit über 3 Jahren konsequent. Deutlich über Durchschnitt.</div>
-      </div>
-    </div>
     <button class="save-btn mono" data-profile-save="1" style="background:var(--lime);">${ICON.check} PROFIL SPEICHERN</button>
     <div class="eyebrow mono" style="margin:2rem 0 .6rem;">BACKUP</div>
     <button class="btn-outline mono" data-export-backup="1" style="margin-bottom:.5rem;">${ICON.check} DATEN EXPORTIEREN</button>
@@ -1181,14 +1575,13 @@ function renderProfile(){
       <span>${ICON.plus} DATEN IMPORTIEREN</span>
       <input type="file" accept=".json,application/json" data-import-backup="1" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
     </label>
-    <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.6rem;text-align:center;line-height:1.5;">Export erstellt eine JSON-Datei mit allen deinen Daten.<br>Import ersetzt alle aktuellen Daten durch das Backup.</div>
   `;
 }
 function renderAuth(){
   const a = state.authForm;
   return `
     <div class="h1 display">ANMELDEN</div>
-    <div class="mono" style="font-size:.8rem;color:var(--text-mute);margin-bottom:1.5rem;">Login ist Pflicht — deine Daten werden über deinen Account gespeichert und zwischen Geräten synchronisiert. Du bleibst dauerhaft angemeldet.</div>
+    <div class="mono" style="font-size:.8rem;color:var(--text-mute);margin-bottom:1.5rem;">Login ist Pflicht — deine Daten werden über deinen Account gespeichert und zwischen Geräten synchronisiert.</div>
     ${a.error ? `<div class="mono" style="color:var(--red);font-size:.78rem;margin-bottom:1rem;">${a.error}</div>` : ''}
     <div class="eyebrow mono" style="margin-bottom:.5rem;">E-MAIL</div>
     <input class="set-input mono" type="email" autocomplete="email" style="margin-bottom:1rem;" value="${a.email}" data-auth-email="1" />
@@ -1213,7 +1606,7 @@ function renderStreak(){
     ${row('LÄNGSTE STREAK', longest+' Wochen', 'var(--lime)')}
     ${row('SESSIONS INSGESAMT', total, 'var(--sky)')}
     ${row('DABEI SEIT', since+' Wochen', 'var(--text-mute)')}
-    <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-top:.5rem;line-height:1.6;">Eine Streak-Woche zählt, wenn du an mindestens 3 verschiedenen Tagen (Mo–So) trainiert hast. Die laufende Woche bricht die Streak nicht, solange sie noch nicht vorbei ist.</div>
+    <div class="mono" style="font-size:.75rem;color:var(--text-mute);margin-top:.5rem;line-height:1.6;">Eine Streak-Woche zählt, wenn du an mindestens 3 verschiedenen Tagen (Mo–So) trainiert hast.</div>
   `;
 }
 function autoShort(name){
@@ -1271,7 +1664,7 @@ function renderSession(){
   const moodRow = `<div class="eyebrow mono" style="margin:0 0 .5rem;">STIMMUNG <span style="color:var(--text-faint);font-size:.6rem;letter-spacing:.1em;">(INFO · NICHT IM SCORE)</span></div><div class="mood-row">${Object.entries(MOODS).map(([key,m])=>`<button class="mood-btn ${d.mood===key?'active':''}" style="--accent:${m.color}" data-mood="${key}"><span class="mood-icon" style="color:${m.color}">${moodIconSvg(key)}</span><span class="lbl">${m.label}</span></button>`).join('')}</div>`;
   const energyVal = d.energyLevel ?? 50;
   const isPerfect = energyVal > 100;
-  const energyRow = `<div class="eyebrow mono" style="margin:0 0 .5rem;">ENERGIE-LEVEL <span style="color:var(--text-faint);font-size:.6rem;letter-spacing:.1em;">(INFO · NICHT IM SCORE)</span></div><div class="energy-row"><input type="range" min="0" max="100" step="5" value="${Math.min(energyVal,100)}" data-energy-slider="1" style="flex:1;" /><span class="mono" data-energy-value="1" style="width:3.4rem;text-align:right;color:${isPerfect?'var(--gold)':'var(--lime)'};">${energyVal}%</span></div><button class="btn-outline mono perfect-btn" style="margin-bottom:1.5rem;${isPerfect?'background:color-mix(in srgb, var(--gold) 15%, transparent);':''}" data-perfect="1">${ICON.check} PERFEKT${isPerfect?' · 110%':''}</button>`;
+  const energyRow = `<div class="eyebrow mono" style="margin:0 0 .5rem;">ENERGIE-LEVEL</div><div class="energy-row"><input type="range" min="0" max="100" step="5" value="${Math.min(energyVal,100)}" data-energy-slider="1" style="flex:1;" /><span class="mono" data-energy-value="1" style="width:3.4rem;text-align:right;color:${isPerfect?'var(--gold)':'var(--lime)'};">${energyVal}%</span></div><button class="btn-outline mono perfect-btn" style="margin-bottom:1.5rem;${isPerfect?'background:color-mix(in srgb, var(--gold) 15%, transparent);':''}" data-perfect="1">${ICON.check} PERFEKT${isPerfect?' · 110%':''}</button>`;
   const foodRow = `<div class="eyebrow mono" style="margin:0 0 .5rem;">ERNÄHRUNG (OPTIONAL)</div><textarea class="set-input mono" data-food-input="1" placeholder="Was hast du gegessen?" style="margin-bottom:1.5rem;">${d.food||''}</textarea>`;
   const exCards = d.exercises.map((ex, exIdx)=>{
     const perArm = isPerArm(d.dayType, ex.name);
@@ -1384,7 +1777,6 @@ function historyRowHtml(s, DAYS, bestMap){
           <div><div class="tag mono" style="color:${day.accent}">${day.short}${isBest?' ★':''}</div><div style="font-size:.9rem;color:var(--text-dim);">${s.exercises.length} Übungen</div></div>
         </div>
         <div class="hist-right">
-          ${s.food?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">ERNÄHRUNG</span>`:''}
           ${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,18)}</span>`:''}
           ${typeof s.energyLevel==='number'?`<span class="mono" style="font-size:.68rem;color:var(--text-mute);">${s.energyLevel}%</span>`:''}
           ${s.preWorkout?`<span class="mono" style="font-size:.68rem;color:var(--lime);">PW</span>`:''}
@@ -1494,24 +1886,38 @@ function refreshWeightSuggestFor(exName){
   }
 }
 function attachListeners(){
+  // Info-Buttons
+  app.querySelectorAll('[data-info]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); currentInfo = el.getAttribute('data-info'); render(); }));
+  app.querySelectorAll('[data-close-info]').forEach(el=>el.addEventListener('click', (e)=>{ if(e.target.getAttribute('data-close-info') === '1'){ currentInfo = null; render(); } }));
+
   app.querySelectorAll('[data-modal-cancel]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onCancel; state.modal = null; if(cb) cb(); render(); }));
   app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onConfirm; state.modal = null; if(cb) cb(); render(); }));
   app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{ const m = state.modal; state.modal = null; if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; } render(); }));
   app.querySelectorAll('[data-pick-day]').forEach(el=>el.addEventListener('click', ()=>{ const key = el.getAttribute('data-pick-day'); const day = getDayTypes()[key]; state.modal = null; if(!day) { render(); return; } state.editDay = {key, name:day.label, short:day.short, accent:day.accent}; state.view = 'editday'; render(); }));
-  app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{ const t = el.getAttribute('data-scan-action'); if(t==='manual'){ state.scanForm = {}; state.view = 'scan-form'; render(); } else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); } else if(t==='list'){ state.view = 'scan-list'; render(); } }));
+  app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{ const t = el.getAttribute('data-scan-action'); if(t==='manual'){ state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan-form'; render(); } else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); } else if(t==='list'){ state.view = 'scan-list'; render(); } }));
   app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
   app.querySelectorAll('[data-save-scan]').forEach(el=>el.addEventListener('click', ()=>{
     const f = state.scanForm; if(!f.date) f.date = new Date().toISOString().slice(0,10);
     const scan = {date: f.date};
-    ['weight','muscle','fat','visceral','cellFit','hrv','oxygen','hr','bioage'].forEach(k=>{ const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v; });
-    state.bodyScans.push(scan); saveBodyScans(state.bodyScans);
-    state.scanForm = {}; state.view = 'scan'; render();
+    ['weight','muscle','muscleProtein','muscleWater','fat','fatEssential','fatReserve','visceral','cellFit','hrv','oxygen','hr','bioage','water','waterIntra','waterExtra','muscleTorso','muscleArmR','muscleArmL','muscleLegR','muscleLegL'].forEach(k=>{
+      const v = parseFloat(f[k]);
+      if(!isNaN(v)) scan[k] = v;
+    });
+    if(state.scanEditIndex != null){
+      state.bodyScans[state.scanEditIndex] = scan;
+    } else {
+      state.bodyScans.push(scan);
+    }
+    saveBodyScans(state.bodyScans);
+    state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan'; render();
+    showToast('MESSUNG GESPEICHERT');
   }));
   app.querySelectorAll('[data-scan-delete]').forEach(el=>el.addEventListener('click', ()=>{ const idx = +el.getAttribute('data-scan-delete'); state.bodyScans.splice(idx, 1); saveBodyScans(state.bodyScans); render(); }));
+  app.querySelectorAll('[data-scan-edit]').forEach(el=>el.addEventListener('click', ()=>{ const idx = +el.getAttribute('data-scan-edit'); const s = state.bodyScans[idx]; if(!s) return; state.scanForm = {...s}; state.scanEditIndex = idx; state.view = 'scan-form'; render(); }));
   app.querySelectorAll('[data-pdf-input]').forEach(el=>el.addEventListener('change', async (e)=>{
     const file = e.target.files[0]; if(!file) return;
     state.pdfParsing = true; state.pdfError = null; render();
-    try{ const data = await extractPdf(file); state.pdfParsing = false; state.modal = null; state.scanForm = data; state.view = 'scan-form'; render(); }
+    try{ const data = await extractPdf(file); state.pdfParsing = false; state.modal = null; state.scanForm = data; state.scanEditIndex = null; state.view = 'scan-form'; render(); }
     catch(err){ state.pdfParsing = false; state.pdfError = 'PDF konnte nicht gelesen werden: ' + (err.message || err); state.modal = null; render(); }
   }));
   app.querySelectorAll('[data-exercise-open]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); state.exerciseName = el.getAttribute('data-exercise-open'); state.view = 'exercise'; render(); }));
@@ -1520,7 +1926,7 @@ function attachListeners(){
   app.querySelectorAll('[data-import-backup]').forEach(el=>el.addEventListener('change', (e)=>{ const file = e.target.files[0]; if(file) importBackup(file); e.target.value = ''; }));
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
-    if(state.draft && state.draft.exercises.length>0){ askConfirm({ title:'Offene Session', message:'Du hast eine ungespeicherte Session. Behalten (weiter bearbeiten) oder verwerfen und neu starten?', confirmLabel:'VERWERFEN', cancelLabel:'BEHALTEN', danger:true, onConfirm:()=>{ state.draft = newDraft(key); state.view='session'; }, onCancel:()=>{ state.view='session'; } }); return; }
+    if(state.draft && state.draft.exercises.length>0){ askConfirm({ title:'Offene Session', message:'Du hast eine ungespeicherte Session. Behalten oder verwerfen?', confirmLabel:'VERWERFEN', cancelLabel:'BEHALTEN', danger:true, onConfirm:()=>{ state.draft = newDraft(key); state.view='session'; }, onCancel:()=>{ state.view='session'; } }); return; }
     state.draft = newDraft(key); state.view='session'; render();
   }));
   app.querySelectorAll('[data-history]').forEach(el=>el.addEventListener('click', ()=>{ state.view='history'; render(); }));
@@ -1537,12 +1943,10 @@ function attachListeners(){
   app.querySelectorAll('[data-food-input]').forEach(el=>el.addEventListener('input', ()=>{ state.draft.food = el.value; persistDraft(); }));
   app.querySelectorAll('[data-copy-last]').forEach(el=>el.addEventListener('click', ()=>{
     const last = state.sessions.find(s=>s.dayType===state.draft.dayType);
-    if(last){
-      state.draft.exercises = last.exercises.map(ex=>({ name: ex.name, sets: ex.sets.map(s=>{
-        if(s.repsLeft!==undefined || s.repsRight!==undefined){ return {weight:s.weight, repsLeft:'', repsRight:'', repsLeftHint:s.repsLeft, repsRightHint:s.repsRight}; }
-        return {weight:s.weight, reps:'', repsHint:s.reps};
-      }) }));
-    }
+    if(last){ state.draft.exercises = last.exercises.map(ex=>({ name: ex.name, sets: ex.sets.map(s=>{
+      if(s.repsLeft!==undefined || s.repsRight!==undefined){ return {weight:s.weight, repsLeft:'', repsRight:'', repsLeftHint:s.repsLeft, repsRightHint:s.repsRight}; }
+      return {weight:s.weight, reps:'', repsHint:s.reps};
+    }) })); }
     render();
   }));
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{ const name = el.getAttribute('data-add-ex'); state.draft.exercises.push({name, sets:[blankSet(state.draft.dayType, name)]}); render(); }));
@@ -1579,7 +1983,7 @@ function attachListeners(){
   app.querySelectorAll('[data-editday-short]').forEach(el=>el.addEventListener('input', ()=>{ state.editDay.short = el.value; }));
   app.querySelectorAll('[data-editday-color]').forEach(el=>el.addEventListener('click', ()=>{ state.editDay.accent = el.getAttribute('data-editday-color'); render(); }));
   app.querySelectorAll('[data-editday-save]').forEach(el=>el.addEventListener('click', ()=>{ const name = state.editDay.name.trim(); if(!name) return; const short = (state.editDay.short.trim() || autoShort(name)).toUpperCase(); upsertCustomDay(state.editDay.key, {label:name.toUpperCase(), short, accent:state.editDay.accent}); state.editDay = null; state.view='home'; render(); }));
-  app.querySelectorAll('[data-editday-delete]').forEach(el=>el.addEventListener('click', ()=>{ const key = state.editDay.key; askConfirm({ title:'Tag löschen', message:'Diesen Tag wirklich löschen? Bereits gespeicherte Sessions dazu bleiben im Verlauf erhalten.', confirmLabel:'LÖSCHEN', cancelLabel:'BEHALTEN', danger:true, onConfirm:()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; } }); }));
+  app.querySelectorAll('[data-editday-delete]').forEach(el=>el.addEventListener('click', ()=>{ const key = state.editDay.key; askConfirm({ title:'Tag löschen', message:'Diesen Tag wirklich löschen?', confirmLabel:'LÖSCHEN', cancelLabel:'BEHALTEN', danger:true, onConfirm:()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; } }); }));
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{ state.newDay = {name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0]}; state.view='newday'; render(); }));
   app.querySelectorAll('[data-editmode-open]').forEach(el=>el.addEventListener('click', ()=>{ showDayPicker(); }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{ state.newDay.name = el.value; if(!state.newDay.shortTouched){ state.newDay.short = autoShort(el.value); const si = app.querySelector('[data-newday-short]'); if(si) si.value = state.newDay.short; } const btn = app.querySelector('[data-newday-create]'); if(btn) btn.disabled = !el.value.trim(); }));
