@@ -127,6 +127,35 @@
   .set-grid-pro{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .set-grid-norm{display:grid;grid-template-columns:1.5rem 1fr auto 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:var(--lime);color:#000;padding:.7rem 1.4rem;font-family:var(--font-mono);font-size:.8rem;letter-spacing:.1em;z-index:999;box-shadow:0 4px 20px rgba(163,230,53,.4);transition:opacity .3s;font-weight:600;}
+  /* SCAN-Tab Styles */
+  .info-btn{position:absolute;top:.7rem;right:.7rem;width:22px;height:22px;border-radius:50%;
+    border:1px solid var(--border-hover);background:#09090b;color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);
+    font-size:.75rem;cursor:pointer;padding:0;line-height:1;z-index:5;font-weight:600;}
+  .info-btn:hover{border-color:var(--lime);color:var(--lime);}
+  .info-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:999;padding:1.5rem;}
+  .info-box{background:#0a0a0b;border:1px solid var(--border);padding:1.4rem;max-width:400px;width:100%;position:relative;}
+  .info-box .ic{position:absolute;width:12px;height:12px;border-color:var(--lime);}
+  .info-box .ic.tl{top:-1px;left:-1px;border-top:2px solid var(--lime);border-left:2px solid var(--lime);}
+  .info-box .ic.tr{top:-1px;right:-1px;border-top:2px solid var(--lime);border-right:2px solid var(--lime);}
+  .info-box .ic.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--lime);border-left:2px solid var(--lime);}
+  .info-box .ic.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--lime);border-right:2px solid var(--lime);}
+  .info-box h3{font-family:var(--font-display);font-size:1.15rem;margin:0 0 1rem;color:var(--text);letter-spacing:.02em;}
+  .info-box p{font-size:.85rem;line-height:1.7;color:var(--text-dim);margin:0 0 .8rem;}
+  .info-box .close-btn{width:100%;padding:.85rem;background:var(--lime);border:none;color:#000;font-weight:600;letter-spacing:.15em;font-family:var(--font-display);font-size:.85rem;margin-top:.5rem;}
+  .scale-bar{display:flex;height:14px;border-radius:3px;overflow:hidden;margin-bottom:.6rem;position:relative;border:1px solid #1a1a1d;}
+  .scale-seg{flex:1;height:100%;}
+  .scale-marker{position:absolute;top:-2px;width:2px;height:18px;background:#fff;border-radius:1px;box-shadow:0 0 10px rgba(255,255,255,1);transition:left .3s;}
+  .ring-wrap{display:flex;align-items:center;gap:1rem;}
+  .ring-svg{width:120px;height:120px;flex-shrink:0;}
+  .body-svg{width:120px;height:250px;flex-shrink:0;}
+  .sub-row{display:flex;justify-content:space-between;padding:.25rem 0;border-bottom:1px dashed var(--border);}
+  .sub-row:last-child{border-bottom:none;}
+  .single-value{display:flex;align-items:baseline;gap:.4rem;margin:.6rem 0;}
+  .single-value .num{font-family:var(--font-display);font-size:2.4rem;font-weight:600;line-height:1;}
+  .single-value .unit{font-family:var(--font-mono);font-size:.8rem;color:var(--text-mute);}
+  .icon-med{width:56px;height:56px;flex-shrink:0;}
+  .term-help{font-size:.6rem;color:var(--text-faint);font-weight:400;margin-left:.4rem;cursor:help;border-bottom:1px dotted var(--text-faint);}
 </style>
 </head><body>
 <div id="app"></div>
@@ -563,28 +592,121 @@ async function extractPdf(file){
     const tc = await page.getTextContent();
     text += tc.items.map(it=>it.str).join(' ') + '\n';
   }
+  console.log('=== PDF TEXT ===\n', text);
   return parseVicoachText(text);
 }
+
+// =====================================================================
+// VERBESSERTER PDF-PARSER
+// Sucht Zahlen VOR und NACH dem Schlüsselwort
+// Erkennt Formate: "86,3 kg", "86.3", "86"
+// =====================================================================
 function parseVicoachText(raw){
   const t = raw.replace(/\s+/g,' ');
   const result = {date: new Date().toISOString().slice(0,10)};
-  const numOf = (str) => { if(!str) return null; const n = parseFloat(String(str).replace(',','.')); return isNaN(n) ? null : n; };
+
+  // Zahl mit Komma oder Punkt
+  const numOf = (str) => {
+    if(!str) return null;
+    const n = parseFloat(String(str).replace(',','.'));
+    return isNaN(n) ? null : n;
+  };
+
+  // Datum finden
   let m = t.match(/(\d{2})\.(\d{2})\.(\d{4})/);
   if(m){ result.date = `${m[3]}-${m[2]}-${m[1]}`; }
   else { m = t.match(/(\d{4})\/(\d{2})\/(\d{2})/); if(m) result.date = `${m[1]}-${m[2]}-${m[3]}`; }
-  const findNear = (keyword) => { const idx = t.toLowerCase().indexOf(keyword.toLowerCase()); if(idx < 0) return null;
-    const sub = t.substring(idx, idx + 250); const nm = sub.match(/([0-9]+[.,][0-9]+|[0-9]+)/); return nm ? numOf(nm[1]) : null; };
-  const g = findNear('Gewicht'); if(g!=null) result.weight = g;
-  const mm = findNear('Muskelmasse'); if(mm!=null) result.muscle = mm;
-  const f = findNear('Fettmasse'); if(f!=null) result.fat = f;
-  const vz = findNear('Viszerales Fett'); if(vz!=null) result.visceral = vz;
-  const cf = findNear('Zellfitnesswert'); if(cf!=null) result.cellFit = cf;
-  const hrv = findNear('HRV-Trainingsbereitschaft'); if(hrv!=null) result.hrv = hrv;
-  const oxy = findNear('SpO2'); if(oxy!=null) result.oxygen = oxy;
-  const hr = findNear('Herzfrequenz'); if(hr!=null) result.hr = hr;
-  const ba = findNear('Bioage'); if(ba!=null) result.bioage = ba;
+
+  // Sucht Zahl in einem Fenster von ±80 Zeichen um das Schlüsselwort
+  // probiert erst NACH, dann VOR dem Keyword
+  function findNear(keyword, opts){
+    opts = opts || {};
+    const lower = t.toLowerCase();
+    const kw = keyword.toLowerCase();
+    const idx = lower.indexOf(kw);
+    if(idx < 0) return null;
+
+    // 1) NACH dem Keyword suchen (nächste 3 Zahlen)
+    const after = t.substring(idx + kw.length, idx + kw.length + 200);
+    const afterNums = after.match(/(\d+[.,]\d+|\d+)/g) || [];
+
+    // 2) VOR dem Keyword suchen (letzte 3 Zahlen)
+    const before = t.substring(Math.max(0, idx - 200), idx);
+    const beforeNums = (before.match(/(\d+[.,]\d+|\d+)/g) || []).slice(-3);
+
+    // Priorisiere: erst nach, dann vor
+    const candidates = [...afterNums.slice(0,3), ...beforeNums];
+
+    for(const c of candidates){
+      const n = numOf(c);
+      if(n == null) continue;
+      // Plausibilität prüfen, falls opts.min/max gesetzt
+      if(opts.min != null && n < opts.min) continue;
+      if(opts.max != null && n > opts.max) continue;
+      // Jahrgang (2024-2030) ausschließen
+      if(n > 1900 && n < 2100) continue;
+      // Reine Zahlen wie 1 (Satz-Nummer) sind meist zu klein
+      if(opts.min == null && n < 0.1) continue;
+      return n;
+    }
+    return null;
+  }
+
+  // GEWICHT: meist im Bereich 50-150
+  const g = findNear('Gewicht', {min: 30, max: 200}); if(g!=null) result.weight = g;
+
+  // MUSKELMASSE: 20-80 kg
+  const mm = findNear('Muskelmasse', {min: 10, max: 100}); if(mm!=null) result.muscle = mm;
+  // Muskelprotein separat
+  const mp = findNear('Muskelprotein', {min: 5, max: 30}); if(mp!=null) result.muscleProtein = mp;
+
+  // FETTMASSE: 2-50 kg
+  const f = findNear('Fettmasse', {min: 1, max: 80}); if(f!=null) result.fat = f;
+  const fe = findNear('Essentielles Fett', {min: 1, max: 20}); if(fe!=null) result.fatEssential = fe;
+  const fr = findNear('Fettreserve', {min: 0, max: 40}); if(fr!=null) result.fatReserve = fr;
+
+  // VISZERALES FETT: 0-10 kg
+  const vz = findNear('Viszerales Fett', {min: 0, max: 10}); if(vz!=null) result.visceral = vz;
+
+  // ZELLFITNESS (Phasenwinkel): 3-10
+  const cf = findNear('Zellfitnesswert', {min: 2, max: 12});
+  if(cf!=null) result.cellFit = cf;
+  else {
+    const cf2 = findNear('Phasenwinkel', {min: 2, max: 12});
+    if(cf2!=null) result.cellFit = cf2;
+  }
+
+  // HRV: 10-200 ms
+  const hrv = findNear('HRV-Trainingsbereitschaft', {min: 5, max: 250});
+  if(hrv!=null) result.hrv = hrv;
+  else {
+    const hrv2 = findNear('HRV', {min: 5, max: 250});
+    if(hrv2!=null) result.hrv = hrv2;
+  }
+
+  // SpO2: 80-100 %
+  const oxy = findNear('Sauerstoffsättigung', {min: 70, max: 100});
+  if(oxy!=null) result.oxygen = oxy;
+  else {
+    const oxy2 = findNear('SpO2', {min: 70, max: 100});
+    if(oxy2!=null) result.oxygen = oxy2;
+  }
+
+  // Herzfrequenz: 30-150 bpm
+  const hr = findNear('Herzfrequenz', {min: 30, max: 150}); if(hr!=null) result.hr = hr;
+
+  // Bioage: 5-90 Jahre
+  const ba = findNear('Bioage', {min: 5, max: 90}); if(ba!=null) result.bioage = ba;
+
+  // WASSER (zusätzlich für neue Anzeige)
+  const wt = findNear('Körperwasser', {min: 20, max: 80}); if(wt!=null) result.water = wt;
+  const wi = findNear('Intrazelluläres Wasser', {min: 10, max: 60}); if(wi!=null) result.waterIntra = wi;
+  const we = findNear('Extrazelluläres Wasser', {min: 5, max: 40}); if(we!=null) result.waterExtra = we;
+
+  console.log('=== PDF PARSED ===', result);
   return result;
 }
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBhRCi36Ac-1AO6UcfF1NVsTY9YXtwIwdE",
   authDomain: "trainingslog-102.firebaseapp.com",
@@ -667,6 +789,7 @@ let state = {
   profile: loadProfile() || {height:'',weight:'',birthDate:'',gender:'',experience:''},
   bodyScans: loadBodyScans(), scanForm:{},
   exerciseName:null, pdfParsing:false, pdfError:null,
+  infoModal:null,
 };
 const app = document.getElementById('app');
 let historyInitialized = false, suppressHistoryPush = false;
@@ -903,7 +1026,6 @@ function renderExerciseDetail(){
     ${[...progress].reverse().map(p=>`<div class="frame" style="--accent:var(--text-mute);padding:.7rem 1rem;margin-bottom:.4rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="mono" style="font-size:.7rem;color:var(--text-mute);">${fmtWd(p.date)} · ${fmtDate(p.date)}</div><div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight} kg <span style="color:var(--text-faint);">× ${p.reps||'–'}</span></div></div><button class="x-btn" data-exercise-goto-session="${p.sessionId}" title="Session öffnen">${ICON.check}</button></div></div>`).join('')}
   `;
 }
-// y-Achse: alle Linien grau wie die anderen Prozent-Linien
 function chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR){
   const step = (rangeMax - rangeMin) > 40 ? 10 : 5;
   let ticks = [];
