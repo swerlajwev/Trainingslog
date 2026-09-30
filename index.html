@@ -126,6 +126,7 @@
   .header-label{font-family:var(--font-mono);font-size:.5rem;letter-spacing:.1em;color:var(--text-faint);}
   .set-grid-pro{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .set-grid-norm{display:grid;grid-template-columns:1.5rem 1fr auto 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
+  .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:var(--lime);color:#000;padding:.7rem 1.4rem;font-family:var(--font-mono);font-size:.8rem;letter-spacing:.1em;z-index:999;box-shadow:0 4px 20px rgba(163,230,53,.4);transition:opacity .3s;font-weight:600;}
 </style>
 </head><body>
 <div id="app"></div>
@@ -194,7 +195,6 @@ const HUMAN_REFERENCE = {
   'Bizepscurls':550, 'Trizeps Push-Down':750, 'Hammercurls (einarmig)':550,
   'Trizeps überkopf':650, 'Unterarme':400, 'Untere Brust / Kabel-Flys':1000,
 };
-// Alter aus Geburtsdatum berechnen
 function calcAge(birthDateIso){
   if(!birthDateIso) return null;
   const b = new Date(birthDateIso);
@@ -377,6 +377,19 @@ function importBackup(file){
     }catch(err){ alert('Fehler beim Importieren: ' + err.message); }
   };
   reader.readAsText(file);
+}
+// Toast-Feedback
+let toastTimer = null;
+function showToast(msg){
+  let el = document.getElementById('toast');
+  if(el) el.remove();
+  el = document.createElement('div');
+  el.id = 'toast';
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ const t = document.getElementById('toast'); if(t) t.remove(); }, 1800);
 }
 const STORE_KEY = 'trainingslog_sessions';
 const CUSTOM_DAYS_KEY = 'trainingslog_custom_days';
@@ -860,18 +873,20 @@ function renderExerciseDetail(){
   const latest = progress[progress.length-1]; const first = progress[0];
   const diff = latest.weight - first.weight; const sign = diff > 0 ? '+' : '';
   const dcolor = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--red)' : 'var(--text-mute)';
-  const w = 300, h = 140, padL = 36, padR = 12, padT = 12, padB = 20;
+  const w = 300, h = 140, padL = 36, padR = 12, padT = 14, padB = 20;
   const weights = progress.map(p=>p.weight);
   const minW = Math.min(...weights), maxW = Math.max(...weights);
-  const span = Math.max((maxW - minW) * 1.4, 5);
-  const rMin = Math.max(0, Math.floor((minW - span*0.25)/2.5)*2.5);
-  const rMax = Math.ceil((maxW + span*0.25)/2.5)*2.5;
+  const span = Math.max((maxW - minW) * 1.4, 10);
+  const rMin = Math.max(0, Math.floor((minW - span*0.25)/5)*5);
+  const rMax = Math.ceil((maxW + span*0.25)/5)*5;
   const stepX = progress.length > 1 ? (w - padL - padR) / (progress.length - 1) : 0;
   const sY = v => h - padB - ((v - rMin) / (rMax - rMin)) * (h - padT - padB);
   const path = progress.map((p, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(p.weight).toFixed(1)}`).join(' ');
   const dots = progress.map((p, i) => { const isLast = i === progress.length - 1; return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(p.weight).toFixed(1)}" r="${isLast?5:3}" fill="${isLast?'var(--lime)':'var(--text-faint)'}"/>`; }).join('');
-  const tickMid = Math.round((rMin + rMax) / 2 / 2.5) * 2.5;
-  const yTickLines = [rMin, tickMid, rMax].map(v=>`<line x1="${padL}" y1="${sY(v).toFixed(1)}" x2="${w-padR}" y2="${sY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(sY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}</text>`).join('');
+  const step = (rMax - rMin) > 30 ? 10 : 5;
+  const ticks = [];
+  for(let v=rMin; v<=rMax; v+=step) ticks.push(v);
+  const yTickLines = ticks.map(v=>`<line x1="${padL}" y1="${sY(v).toFixed(1)}" x2="${w-padR}" y2="${sY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(sY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}</text>`).join('');
   return `
     <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono">ÜBUNGS-VERLAUF</div>
@@ -889,7 +904,22 @@ function renderExerciseDetail(){
     ${[...progress].reverse().map(p=>`<div class="frame" style="--accent:var(--text-mute);padding:.7rem 1rem;margin-bottom:.4rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="mono" style="font-size:.7rem;color:var(--text-mute);">${fmtWd(p.date)} · ${fmtDate(p.date)}</div><div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight} kg <span style="color:var(--text-faint);">× ${p.reps||'–'}</span></div></div><button class="x-btn" data-exercise-goto-session="${p.sessionId}" title="Session öffnen">${ICON.check}</button></div></div>`).join('')}
   `;
 }
-// Gesamt-Chart (bleibt wie gehabt, aber ohne Tages-Mittel-Linien)
+// Charts: y-Achse mit automatischen 5/10er-Schritten, 100%-Linie hervorgehoben, keine Ø-Linie
+function chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR){
+  const step = (rangeMax - rangeMin) > 40 ? 10 : 5;
+  let ticks = [];
+  for(let v=Math.ceil(rangeMin/step)*step; v<=rangeMax; v+=step) ticks.push(v);
+  const lines = ticks.map(v=>{
+    const is100 = v === 100;
+    const stroke = is100 ? 'var(--lime)' : 'var(--border)';
+    const opacity = is100 ? '0.9' : '1';
+    const dash = is100 ? '0' : '2,4';
+    const width = is100 ? '1.5' : '1';
+    const fill = is100 ? 'var(--lime)' : 'var(--text-faint)';
+    return `<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" opacity="${opacity}"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="${fill}" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`;
+  }).join('');
+  return lines;
+}
 function renderScoreChart(){
   const chronological = [...state.sessions].reverse();
   if(chronological.length < 2){ return `<div class="empty" style="margin-top:1.5rem;">Noch nicht genug Sessions für ein Diagramm (mind. 2 nötig).</div>`; }
@@ -909,28 +939,25 @@ function renderScoreChart(){
   rangeMin = Math.max(0, rangeMin); rangeMax = Math.min(110, rangeMax);
   if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
   if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
+  // Wenn 100 nicht im Bereich, erweitern
+  if(rangeMax < 100 && dataMax > 90) rangeMax = 100;
   const w = 320, h = 180, padL = 34, padR = 14, padT = 14, padB = 14;
   const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
   const scaleY = v => h - padB - ((v - rangeMin) / (rangeMax - rangeMin)) * (h - padT - padB);
   const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
   const dots = points.map((p,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="6" fill="${p.accent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"></circle><circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="16" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>`).join('');
   const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
-  const avgLineY = scaleY(avgY).toFixed(1);
-  const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
-  const yTickLines = [rangeMin, tickMid, rangeMax].map(v=>`<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`).join('');
   return `
     <div class="eyebrow mono" style="margin:1.5rem 0 .5rem;">GESAMT-VERLAUF (${points.length} SESSIONS)</div>
     <div class="frame" style="--accent:var(--lime);padding:1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
-        ${yTickLines}
-        <line x1="${padL}" y1="${avgLineY}" x2="${w-padR}" y2="${avgLineY}" stroke="var(--text-mute)" stroke-width="1.2" stroke-dasharray="6,3"/>
+        ${chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR)}
         <path d="${pathD}" fill="none" stroke="var(--lime)" stroke-width="2.2"/>${dots}
       </svg>
       <div class="mono" style="font-size:.6rem;color:var(--text-mute);text-align:center;margin-top:.5rem;">Gesamt-Ø ${Math.round(avgY)}%</div>
     </div>`;
 }
-// Einzel-Chart je Tagestyp
 function renderDayScoreChart(dayKey, dayLabel, dayAccent){
   const sessions = state.sessions.filter(s=>s.dayType===dayKey).slice().reverse();
   if(sessions.length < 1) return '';
@@ -950,22 +977,19 @@ function renderDayScoreChart(dayKey, dayLabel, dayAccent){
   rangeMin = Math.max(0, rangeMin); rangeMax = Math.min(110, rangeMax);
   if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
   if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
+  if(rangeMax < 100 && dataMax > 90) rangeMax = 100;
   const w = 320, h = 140, padL = 34, padR = 14, padT = 14, padB = 14;
   const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
   const scaleY = v => h - padB - ((v - rangeMin) / (rangeMax - rangeMin)) * (h - padT - padB);
   const pathD = points.map((p,i)=> `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${scaleY(p.y).toFixed(1)}`).join(' ');
   const dots = points.map((p,i)=>`<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="5" fill="${dayAccent}" stroke="#000" stroke-width="1.5" style="cursor:pointer;" data-chart-point="${p.id}"></circle><circle cx="${(padL+i*stepX).toFixed(1)}" cy="${scaleY(p.y).toFixed(1)}" r="14" fill="transparent" style="cursor:pointer;" data-chart-point="${p.id}"></circle>`).join('');
   const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
-  const avgLineY = scaleY(avgY).toFixed(1);
-  const tickMid = Math.round((rangeMin + rangeMax) / 2 / 5) * 5;
-  const yTickLines = [rangeMin, tickMid, rangeMax].map(v=>`<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`).join('');
   return `
     <div class="eyebrow mono" style="margin:1.2rem 0 .5rem;color:${dayAccent};">${dayLabel} · ${points.length} SESSIONS · Ø ${Math.round(avgY)}%</div>
     <div class="frame" style="--accent:${dayAccent};padding:1rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;">
-        ${yTickLines}
-        <line x1="${padL}" y1="${avgLineY}" x2="${w-padR}" y2="${avgLineY}" stroke="var(--text-mute)" stroke-width="1.2" stroke-dasharray="6,3"/>
+        ${chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR)}
         <path d="${pathD}" fill="none" stroke="${dayAccent}" stroke-width="2.2"/>${dots}
       </svg>
     </div>`;
@@ -1126,7 +1150,7 @@ function renderSession(){
   const lastSession = state.sessions.find(s=>s.dayType===d.dayType);
   const isEdit = state.poolEditMode;
   const preToggle = `<div class="chip-row"><button class="chip ${d.preWorkout?'active':''}" style="--accent:var(--lime)" data-toggle="preWorkout">PRE-WORKOUT</button><button class="chip ${d.energy?'active':''}" style="--accent:var(--pink)" data-toggle="energy">ENERGY DRINK</button></div>`;
-  const preSub = d.preWorkout ? `<div class="chip-row" style="margin-top:-1rem;"><button class="chip ${d.preWorkoutCaffeine!==false?'active':''}" style="--accent:var(--lime);font-size:.65rem;" data-toggle-caffeine="1">MIT KOFFEIN</button><button class="chip ${d.preWorkoutCaffeine===false?'active':''}" style="--accent:var(--lime);font-size:.65rem;" data-toggle-caffeine="0">ZERO</button></div>` : '';
+  const preSub = d.preWorkout ? `<div class="chip-row" style="margin-top:-1rem;"><button class="chip ${d.preWorkoutCaffeine!==false?'active':''}" style="--accent:var(--lime);font-size:.65rem;" data-toggle-caffeine="1">MIT KOFFEIN</button><button class="chip ${d.preWorkoutCaffeine===false?'active':''}" style="--accent:var(--lime);font-size:.65rem;" data-toggle-caffeine="0">OHNE KOFFEIN</button></div>` : '';
   const energySub = d.energy ? `<div class="chip-row" style="margin-top:-1rem;"><button class="chip ${d.energyZucker!==false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="1">MIT ZUCKER</button><button class="chip ${d.energyZucker===false?'active':''}" style="--accent:var(--pink);font-size:.65rem;" data-toggle-zucker="0">ZERO</button></div>` : '';
   const moodRow = `<div class="eyebrow mono" style="margin:0 0 .5rem;">STIMMUNG <span style="color:var(--text-faint);font-size:.6rem;letter-spacing:.1em;">(INFO · NICHT IM SCORE)</span></div><div class="mood-row">${Object.entries(MOODS).map(([key,m])=>`<button class="mood-btn ${d.mood===key?'active':''}" style="--accent:${m.color}" data-mood="${key}"><span class="mood-icon" style="color:${m.color}">${moodIconSvg(key)}</span><span class="lbl">${m.label}</span></button>`).join('')}</div>`;
   const energyVal = d.energyLevel ?? 50;
@@ -1145,7 +1169,6 @@ function renderSession(){
       sugHtml = `<span class="weight-suggest" style="color:${col};" title="${sug.reason}">${arrow} ${sug.weight} kg</span>`;
     }
     const moveButtons = isEdit ? `<div style="display:flex;gap:.2rem;"><button class="move-btn" data-move-up="${exIdx}" title="Nach oben">${ICON.arrowUp}</button><button class="move-btn" data-move-down="${exIdx}" title="Nach unten">${ICON.arrowDown}</button></div>` : '';
-    // Header einmal über der Satzliste
     const headerHtml = perArm
       ? `<div class="header-row" style="grid-template-columns:1.5rem 1fr 1fr 1fr 1.5rem;"><span></span><span class="header-label">GEWICHT</span><span class="header-label">L</span><span class="header-label">R</span><span></span></div>`
       : `<div class="header-row" style="grid-template-columns:1.5rem 1fr auto 1fr 1.5rem;"><span></span><span class="header-label">GEWICHT</span><span></span><span class="header-label">WDH</span><span></span></div>`;
@@ -1220,7 +1243,6 @@ function renderSession(){
     <button class="save-btn" data-finish="1" ${d.exercises.length===0?'disabled':''} style="background:${day.accent}">${ICON.check} SESSION SPEICHERN</button>
   `;
 }
-// Verlauf mit bester Session pro Tagestyp markiert
 function bestSessionIdsByDayType(){
   const DAYS = getDayTypes();
   const best = {};
@@ -1273,7 +1295,7 @@ function renderDetail(){
   const day = DAYS[s.dayType] || {label:'?',accent:'var(--text-mute)'};
   if(state.editSessionDraft && state.editSessionDraft.id===s.id) return renderSessionEdit(day);
   const mood = s.mood ? MOODS[s.mood] : null;
-  const badges = `${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">PRE-WORKOUT${s.preWorkoutCaffeine===false?' (ZERO)':''}</span>`:''}${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK${s.energyZucker===false?' (ZERO)':''}</span>`:''}`;
+  const badges = `${s.preWorkout?`<span class="badge mono" style="border-color:var(--lime);color:var(--lime)">PRE-WORKOUT${s.preWorkoutCaffeine===false?' (OHNE KOFFEIN)':''}</span>`:''}${s.energy?`<span class="badge mono" style="border-color:var(--pink);color:var(--pink)">ENERGY DRINK${s.energyZucker===false?' (ZERO)':''}</span>`:''}`;
   const moodBlock = (mood || typeof s.energyLevel==='number') ? `<div class="frame" style="--accent:${mood?mood.color:'var(--border)'};margin-bottom:1rem;padding:.9rem 1rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;align-items:center;gap:.7rem;">${mood?`<span style="color:${mood.color};">${moodIconSvg(s.mood,30)}</span>`:''}${mood?`<div><div class="mono eyebrow" style="color:${mood.color};">STIMMUNG</div><div style="font-size:.95rem;">${mood.label}</div></div>`:''}${typeof s.energyLevel==='number'?`<div style="margin-left:auto;text-align:right;"><div class="mono eyebrow">ENERGIE</div><div class="mono" style="font-size:1.1rem;color:${s.energyLevel>100?'var(--gold)':'var(--lime)'};">${s.energyLevel}%</div></div>`:''}</div></div>` : '';
   const foodBlock = s.food ? `<div class="frame" style="margin-bottom:1rem;padding:.9rem 1rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="mono eyebrow" style="margin-bottom:.4rem;">ERNÄHRUNG</div><div style="font-size:.9rem;color:var(--text-dim);white-space:pre-wrap;">${escapeHtml(s.food)}</div></div>` : '';
   const exList = s.exercises.map(ex=>`<div class="frame" style="--accent:${day.accent};margin-bottom:.75rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="ex-title" style="margin-bottom:.5rem;" data-exercise-open="${escapeHtml(ex.name)}">${ex.name}</div><div>${ex.sets.map(st=>`<span class="set-pill mono">${st.weight||'–'}kg × ${(st.repsLeft!==undefined||st.repsRight!==undefined) ? `${st.repsLeft||'–'}L/${st.repsRight||'–'}R` : (st.reps||'–')}</span>`).join('')}</div></div>`).join('');
@@ -1378,7 +1400,7 @@ function attachListeners(){
   }));
   app.querySelectorAll('[data-exercise-open]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); state.exerciseName = el.getAttribute('data-exercise-open'); state.view = 'exercise'; render(); }));
   app.querySelectorAll('[data-exercise-goto-session]').forEach(el=>el.addEventListener('click', ()=>{ state.detailId = el.getAttribute('data-exercise-goto-session'); state.confirmDelete = false; state.view = 'detail'; render(); }));
-  app.querySelectorAll('[data-export-backup]').forEach(el=>el.addEventListener('click', ()=>{ exportBackup(); }));
+  app.querySelectorAll('[data-export-backup]').forEach(el=>el.addEventListener('click', ()=>{ exportBackup(); showToast('BACKUP EXPORTIERT'); }));
   app.querySelectorAll('[data-import-backup]').forEach(el=>el.addEventListener('change', (e)=>{ const file = e.target.files[0]; if(file) importBackup(file); e.target.value = ''; }));
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
@@ -1434,7 +1456,7 @@ function attachListeners(){
   app.querySelectorAll('[data-move-up]').forEach(el=>el.addEventListener('click', ()=>{ const i = +el.getAttribute('data-move-up'); if(i > 0){ const arr = state.draft.exercises; [arr[i-1], arr[i]] = [arr[i], arr[i-1]]; persistDraft(); render(); } }));
   app.querySelectorAll('[data-move-down]').forEach(el=>el.addEventListener('click', ()=>{ const i = +el.getAttribute('data-move-down'); const arr = state.draft.exercises; if(i < arr.length-1){ [arr[i+1], arr[i]] = [arr[i], arr[i+1]]; persistDraft(); render(); } }));
   app.querySelectorAll('[data-finish]').forEach(el=>el.addEventListener('click', ()=>{
-    if(state.draft && state.draft.exercises.length>0){ state.sessions = [state.draft, ...state.sessions]; saveSessions(state.sessions); }
+    if(state.draft && state.draft.exercises.length>0){ state.sessions = [state.draft, ...state.sessions]; saveSessions(state.sessions); showToast('SESSION GESPEICHERT'); }
     state.draft=null; state.view='home'; render();
   }));
   app.querySelectorAll('[data-editday-name]').forEach(el=>el.addEventListener('input', ()=>{ state.editDay.name = el.value; const btn = app.querySelector('[data-editday-save]'); if(btn) btn.disabled = !el.value.trim(); }));
@@ -1461,7 +1483,7 @@ function attachListeners(){
   app.querySelectorAll('[data-profile-birthdate]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.birthDate = el.value; }));
   app.querySelectorAll('[data-profile-gender]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.gender = el.getAttribute('data-profile-gender'); render(); }));
   app.querySelectorAll('[data-profile-exp]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.experience = el.getAttribute('data-profile-exp'); render(); }));
-  app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); render(); }));
+  app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); showToast('✓ PROFIL GESPEICHERT'); render(); }));
   app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showSessionPopup(el.getAttribute('data-chart-point')); }));
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{ state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render(); }));
   app.querySelectorAll('[data-ask-delete]').forEach(el=>el.addEventListener('click', ()=>{ state.confirmDelete=true; render(); }));
@@ -1471,7 +1493,7 @@ function attachListeners(){
   app.querySelectorAll('[data-edit-add-set]').forEach(el=>el.addEventListener('click', ()=>{ const i = +el.getAttribute('data-edit-add-set'); const ex = state.editSessionDraft.exercises[i]; const last = ex.sets[ex.sets.length-1] || {}; const newSet = {weight: last.weight||'', reps:''}; if(last.repsLeft!==undefined || last.repsRight!==undefined){ newSet.repsLeft=''; newSet.repsRight=''; delete newSet.reps; } ex.sets.push(newSet); render(); }));
   app.querySelectorAll('[data-edit-remove-set]').forEach(el=>el.addEventListener('click', ()=>{ const i = +el.getAttribute('data-edit-remove-set'); const si = +el.getAttribute('data-edit-set-idx'); state.editSessionDraft.exercises[i].sets.splice(si,1); render(); }));
   app.querySelectorAll('.set-input[data-edit-ex]').forEach(el=>el.addEventListener('input', ()=>{ const i = +el.getAttribute('data-edit-ex'); const si = +el.getAttribute('data-edit-idx'); const field = el.getAttribute('data-edit-field'); state.editSessionDraft.exercises[i].sets[si][field] = el.value; }));
-  app.querySelectorAll('[data-edit-save]').forEach(el=>el.addEventListener('click', ()=>{ const idx = state.sessions.findIndex(x=>x.id===state.editSessionDraft.id); if(idx>=0){ state.sessions[idx] = state.editSessionDraft; saveSessions(state.sessions); } state.editSessionDraft = null; render(); }));
+  app.querySelectorAll('[data-edit-save]').forEach(el=>el.addEventListener('click', ()=>{ const idx = state.sessions.findIndex(x=>x.id===state.editSessionDraft.id); if(idx>=0){ state.sessions[idx] = state.editSessionDraft; saveSessions(state.sessions); } state.editSessionDraft = null; showToast('SESSION AKTUALISIERT'); render(); }));
   app.querySelectorAll('[data-cancel-delete]').forEach(el=>el.addEventListener('click', ()=>{ state.confirmDelete=false; render(); }));
   app.querySelectorAll('[data-confirm-delete]').forEach(el=>el.addEventListener('click', ()=>{ const id = el.getAttribute('data-confirm-delete'); state.sessions = state.sessions.filter(s=>s.id!==id); saveSessions(state.sessions); state.confirmDelete=false; state.detailId=null; state.view='history'; render(); }));
 }
