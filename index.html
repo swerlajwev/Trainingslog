@@ -378,7 +378,6 @@ function importBackup(file){
   };
   reader.readAsText(file);
 }
-// Toast-Feedback
 let toastTimer = null;
 function showToast(msg){
   let el = document.getElementById('toast');
@@ -904,19 +903,15 @@ function renderExerciseDetail(){
     ${[...progress].reverse().map(p=>`<div class="frame" style="--accent:var(--text-mute);padding:.7rem 1rem;margin-bottom:.4rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="mono" style="font-size:.7rem;color:var(--text-mute);">${fmtWd(p.date)} · ${fmtDate(p.date)}</div><div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight} kg <span style="color:var(--text-faint);">× ${p.reps||'–'}</span></div></div><button class="x-btn" data-exercise-goto-session="${p.sessionId}" title="Session öffnen">${ICON.check}</button></div></div>`).join('')}
   `;
 }
-// Charts: y-Achse mit automatischen 5/10er-Schritten, 100%-Linie hervorgehoben, keine Ø-Linie
+// y-Achse: alle Linien grau wie die anderen Prozent-Linien
 function chartYAxis(rangeMin, rangeMax, scaleY, padL, w, padR){
   const step = (rangeMax - rangeMin) > 40 ? 10 : 5;
   let ticks = [];
   for(let v=Math.ceil(rangeMin/step)*step; v<=rangeMax; v+=step) ticks.push(v);
   const lines = ticks.map(v=>{
-    const is100 = v === 100;
-    const stroke = is100 ? 'var(--lime)' : 'var(--border)';
-    const opacity = is100 ? '0.9' : '1';
-    const dash = is100 ? '0' : '2,4';
-    const width = is100 ? '1.5' : '1';
-    const fill = is100 ? 'var(--lime)' : 'var(--text-faint)';
-    return `<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}" opacity="${opacity}"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="${fill}" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`;
+    const stroke = 'var(--border)';
+    const fill = 'var(--text-faint)';
+    return `<line x1="${padL}" y1="${scaleY(v).toFixed(1)}" x2="${w-padR}" y2="${scaleY(v).toFixed(1)}" stroke="${stroke}" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(scaleY(v)+3).toFixed(1)}" fill="${fill}" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}%</text>`;
   }).join('');
   return lines;
 }
@@ -939,7 +934,6 @@ function renderScoreChart(){
   rangeMin = Math.max(0, rangeMin); rangeMax = Math.min(110, rangeMax);
   if(dataMin < rangeMin + 3){ rangeMin = Math.max(0, rangeMin - 5); }
   if(dataMax > rangeMax - 3){ rangeMax = Math.min(110, rangeMax + 5); }
-  // Wenn 100 nicht im Bereich, erweitern
   if(rangeMax < 100 && dataMax > 90) rangeMax = 100;
   const w = 320, h = 180, padL = 34, padR = 14, padT = 14, padB = 14;
   const stepX = points.length>1 ? (w - padL - padR) / (points.length-1) : 0;
