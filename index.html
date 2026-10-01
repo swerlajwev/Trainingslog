@@ -127,12 +127,7 @@
   .set-grid-pro{display:grid;grid-template-columns:1.5rem 1fr 1fr 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .set-grid-norm{display:grid;grid-template-columns:1.5rem 1fr auto 1fr 1.5rem;gap:.5rem;align-items:center;margin-bottom:.5rem;}
   .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:var(--lime);color:#000;padding:.7rem 1.4rem;font-family:var(--font-mono);font-size:.8rem;letter-spacing:.1em;z-index:999;box-shadow:0 4px 20px rgba(163,230,53,.4);transition:opacity .3s;font-weight:600;}
-
-  /* === SCAN-TAB STYLES === */
-  .info-btn{position:absolute;top:.7rem;right:.7rem;width:22px;height:22px;border-radius:50%;
-    border:1px solid var(--border-hover);background:#09090b;color:var(--text-dim);
-    display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);
-    font-size:.75rem;cursor:pointer;padding:0;line-height:1;z-index:5;font-weight:600;}
+  .info-btn{position:absolute;top:.7rem;right:.7rem;width:22px;height:22px;border-radius:50%;border:1px solid var(--border-hover);background:#09090b;color:var(--text-dim);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.75rem;cursor:pointer;padding:0;line-height:1;z-index:5;font-weight:600;}
   .info-btn:hover{border-color:var(--lime);color:var(--lime);}
   .info-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:999;padding:1.5rem;}
   .info-box{background:#0a0a0b;border:1px solid var(--border);padding:1.4rem;max-width:400px;width:100%;position:relative;}
@@ -165,8 +160,7 @@
 <div id="bottomNav"></div>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script><script>
 if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
 
 const ICON = {
@@ -512,19 +506,27 @@ function exerciseStats(dayKey){
   });
   return stats;
 }
+// >>> FIX #4: kraftwerteByGroup – zeigt aktuellsten Wert (nicht All-time-Max) <<<
 function kraftwerteByGroup(){
   const DAYS = getDayTypes();
   const result = [];
   const seen = new Set();
+  const sortedSessions = [...state.sessions].sort((a,b)=> new Date(b.date) - new Date(a.date));
   Object.values(DAYS).forEach(day=>{
     const items = [];
     day.pool.forEach(name=>{
       if(seen.has(name)) return;
-      let maxWeight = 0;
-      state.sessions.forEach(s=>{ s.exercises.forEach(ex=>{
-        if(ex.name===name) ex.sets.forEach(st=>{ const w = parseFloat(st.weight); if(!isNaN(w) && w>maxWeight) maxWeight = w; });
-      }); });
-      if(maxWeight > 0){ items.push({name, maxWeight}); seen.add(name); }
+      let latestWeight = 0;
+      for(const s of sortedSessions){
+        const ex = s.exercises.find(e=>e.name===name);
+        if(!ex) continue;
+        for(const st of ex.sets){
+          const w = parseFloat(st.weight);
+          if(!isNaN(w) && w > 0){ latestWeight = w; break; }
+        }
+        if(latestWeight > 0) break;
+      }
+      if(latestWeight > 0){ items.push({name, maxWeight: latestWeight}); seen.add(name); }
     });
     if(items.length) result.push({key:day.key, label:day.label, color:day.accent, items});
   });
@@ -606,6 +608,7 @@ async function extractPdf(file){
   console.log('=== PDF TEXT ===\n', text);
   return parseVicoachText(text);
 }
+// >>> FIX #1: Parser erkennt jetzt "Körperwasser" gesamt korrekt <<<
 function parseVicoachText(raw){
   const t = raw.replace(/\s+/g,' ');
   const result = {date: new Date().toISOString().slice(0,10)};
@@ -654,9 +657,15 @@ function parseVicoachText(raw){
   else { const o2 = findNear('SpO2', {min: 70, max: 100}); if(o2!=null) result.oxygen = o2; }
   const hr = findNear('Herzfrequenz', {min: 30, max: 150}); if(hr!=null) result.hr = hr;
   const ba = findNear('Bioage', {min: 5, max: 90}); if(ba!=null) result.bioage = ba;
+  // Körperwasser gesamt (vicoach: "Körperwasser" / "Wasser")
+  let wt = findNear('Körperwasser', {min: 20, max: 70});
+  if(wt == null) wt = findNear('Wasser', {min: 20, max: 70});
+  if(wt != null) result.water = wt;
   const wi = findNear('Intrazelluläres Wasser', {min: 10, max: 60}); if(wi!=null) result.waterIntra = wi;
   const we = findNear('Extrazelluläres Wasser', {min: 5, max: 40}); if(we!=null) result.waterExtra = we;
-  if(result.waterIntra != null && result.waterExtra != null) result.water = Math.round((result.waterIntra + result.waterExtra)*10)/10;
+  if(result.water == null && result.waterIntra != null && result.waterExtra != null){
+    result.water = Math.round((result.waterIntra + result.waterExtra) * 10) / 10;
+  }
   const t1 = findNear('Torso', {min: 5, max: 40}); if(t1!=null) result.muscleTorso = t1;
   const aR = findNear('Arm R', {min: 1, max: 15}); if(aR!=null) result.muscleArmR = aR;
   const aL = findNear('Arm L', {min: 1, max: 15}); if(aL!=null) result.muscleArmL = aL;
@@ -804,7 +813,7 @@ function donut(segments, centerValue, centerUnit, colors){
   </svg>`;
 }
 
-// >>> HIER KOMMEN GLEICH DIE 6 GROSSEN BILD-FUNKTIONEN AUS DER VORSCHAU <<<// ============================================================
+// ============================================================
 // MUSKEL-SILHOUETTE (vicoach-Stil) – 1:1 aus Vorschau
 // ============================================================
 function bodySilhouette(dist){
@@ -831,13 +840,15 @@ function bodySilhouette(dist){
       <path d="M92.5 239.2 92.0 240.2 92.0 242.8 91.0 247.2 90.8 252.0 90.2 253.2 90.2 258.0 90.8 259.2 91.0 261.8 93.0 267.0 95.0 275.5 95.5 275.8 96.2 271.2 96.8 262.5 97.5 257.0 97.8 249.2 95.5 243.8 93.5 240.0ZM67.2 239.0 66.2 240.2 63.2 246.0 62.2 248.8 62.0 250.8 64.2 276.0 64.8 275.8 65.5 273.8 66.8 267.5 67.8 264.2 68.8 262.5 68.8 261.2 69.5 259.5 69.8 257.5 69.5 251.2 68.8 248.2 68.8 245.5 67.8 241.5 67.8 239.5ZM107.5 235.5 107.2 235.5 107.2 237.5 107.5 237.8 107.5 242.5 107.8 242.8 107.8 249.8 107.5 250.0 107.5 252.5 107.0 254.0 107.0 256.2 106.2 258.8 106.0 262.0 105.2 263.8 105.0 266.8 104.2 268.8 104.0 271.0 103.5 272.0 101.2 282.0 101.8 286.5 102.8 288.8 103.5 288.8 103.5 284.0 107.5 267.5 108.0 261.2 108.5 259.5 108.8 241.8 108.5 241.5 108.5 238.8 107.8 237.2ZM52.5 234.8 52.0 235.5 52.0 237.8 51.5 239.0 51.5 244.2 51.2 244.5 51.5 259.5 52.0 261.8 52.2 266.5 56.5 285.0 56.2 288.2 56.5 288.8 57.2 288.8 58.5 285.5 58.5 280.8 57.8 279.0 57.8 277.5 56.8 274.5 56.5 272.2 55.8 270.5 55.8 269.0 54.8 266.2 54.5 263.0 53.8 261.2 53.8 259.0 52.8 255.5 52.8 252.8 52.2 250.5 52.2 245.8 52.8 241.8 52.8 235.0ZM92.5 192.5 92.0 193.0 92.0 193.8 91.0 196.0 90.8 198.2 90.2 199.0 90.0 205.5 89.8 205.8 90.5 215.8 91.2 217.0 92.2 217.0 93.0 216.5 94.0 214.5 93.8 206.8 93.0 202.5 93.0 198.5 92.8 198.2 93.0 198.0 92.8 197.8 93.0 193.0ZM67.0 192.5 67.0 202.5 66.5 204.0 65.8 213.8 66.8 216.2 67.5 217.0 68.5 217.2 69.5 216.2 69.8 210.0 70.2 208.0 70.2 204.0 69.5 198.0 69.0 197.2 68.5 194.5 67.8 192.8ZM110.5 179.5 110.0 180.0 110.0 181.2 109.2 183.2 109.0 186.5 108.2 188.8 108.0 191.2 107.2 193.0 107.0 195.5 106.2 197.0 105.0 202.2 104.2 203.5 104.2 204.2 103.0 207.2 103.0 208.2 102.2 209.5 101.8 214.5 102.5 215.8 103.8 214.5 104.8 211.0 106.8 207.2 108.8 201.8 109.0 199.2 109.8 197.0 109.8 194.0 110.5 191.2 110.5 188.5 110.8 188.2 111.0 179.8ZM49.0 179.5 48.8 180.0 49.2 185.0 49.0 186.8 49.8 190.8 50.0 195.5 51.0 199.5 51.0 201.0 53.0 206.8 54.8 210.0 56.0 214.0 56.8 215.5 57.2 215.8 57.8 215.5 58.2 214.5 57.8 209.8 56.8 207.8 56.5 206.0 55.8 204.8 55.5 203.0 54.5 200.8 54.5 199.8 53.8 198.5 53.5 196.2 52.8 194.8 52.5 192.5 52.0 191.5 51.5 188.0 50.8 185.8 50.5 182.2 49.8 179.8ZM54.5 147.8 54.0 148.2 52.0 153.0 50.0 160.5 49.8 162.8 50.0 174.0 51.0 177.8 51.2 180.5 52.0 182.2 52.2 184.8 53.0 186.5 53.2 189.0 54.0 190.5 54.2 192.8 55.0 194.5 55.0 195.5 56.0 198.2 56.2 200.5 57.0 202.0 57.2 204.0 58.0 205.2 58.0 206.2 60.5 212.8 61.5 214.0 62.5 214.0 63.8 212.2 63.8 211.2 64.5 209.8 64.8 205.5 65.5 201.8 65.8 190.2 65.5 190.0 65.2 184.0 64.8 182.5 64.5 179.0 63.8 177.0 63.8 175.5 62.8 172.8 61.8 168.0 58.8 159.5 58.5 157.8 57.8 156.5 57.5 154.8 56.8 153.5 56.8 152.5 55.8 150.0 55.5 148.2ZM105.2 147.5 104.8 147.8 104.2 148.8 102.0 157.0 101.0 159.0 101.0 160.0 100.0 162.0 100.0 163.0 99.5 163.8 98.0 169.5 97.2 171.0 96.8 174.0 96.2 174.8 96.0 177.5 95.2 179.8 95.0 184.2 94.2 188.0 94.2 201.0 95.0 203.8 95.0 207.2 96.8 213.5 97.8 214.2 98.5 214.0 99.2 213.0 101.5 207.8 101.8 206.0 102.5 204.8 102.8 202.8 103.8 200.2 103.8 199.0 104.5 197.5 104.8 194.8 105.5 193.5 105.8 191.0 106.5 189.5 106.8 187.0 107.8 184.2 107.8 182.8 108.8 180.2 108.8 178.8 109.8 175.5 109.8 173.2 110.5 169.8 110.5 165.8 109.8 162.0 109.8 159.5 107.5 152.0Z" fill="${cL}"/>
     </g>
   </svg>`;
-}// ============================================================
-// VISZERALES FETT (Seitenprofil) – 1:1 aus Vorschau
-// ============================================================
-function visceralProfile(value, color){
-  let blobColor = '#a3e635';
-  if(value > 3) blobColor = '#ef4444';
-  else if(value > 2) blobColor = '#facc15';
+}
+
+// >>> FIX #3: Viszerales Fett – 5-stufige Farbe für die Bauch-Blase <<<
+function visceralProfile(value){
+  let blobColor = '#22c55e';   // < 1.0 → grün
+  if(value >= 4) blobColor = '#ef4444';
+  else if(value >= 3) blobColor = '#f97316';
+  else if(value >= 2) blobColor = '#facc15';
+  else if(value >= 1) blobColor = '#a3e635';
   return `<svg viewBox="0 0 58.2 212.2" style="height:190px;width:auto;flex-shrink:0;">
     <path d="M18.2 1.0 14.0 2.2 11.8 3.5 8.5 6.5 6.0 10.0 6.0 10.5 5.0 12.2 5.0 13.5 4.2 15.2 4.2 18.5 5.2 23.0 6.0 24.0 6.0 24.8 6.8 26.0 7.2 28.0 11.0 35.0 11.2 36.2 12.0 37.2 12.2 38.8 13.0 40.0 13.0 41.2 13.5 42.8 13.5 46.5 13.2 46.8 12.8 51.8 12.2 52.5 12.0 54.5 11.2 55.8 11.0 57.5 10.0 59.2 10.0 59.8 7.2 62.8 5.2 66.2 5.0 67.8 4.0 70.0 4.0 71.5 3.2 73.8 3.2 75.5 3.0 75.8 3.0 88.2 3.2 88.5 3.2 91.0 4.0 94.8 4.2 102.5 4.5 102.8 4.8 107.2 5.0 107.5 5.0 114.2 5.2 114.5 5.2 119.5 5.5 119.8 5.5 128.5 5.2 128.8 5.0 136.5 4.2 138.8 4.0 142.2 3.2 143.8 3.0 146.5 2.2 148.5 2.0 152.5 1.2 155.0 1.0 165.0 2.2 170.0 3.0 171.0 3.2 172.0 5.2 174.8 5.2 180.8 5.0 181.0 5.2 188.5 6.0 191.0 6.2 194.2 6.8 194.8 7.2 198.2 8.0 199.2 8.2 201.5 8.8 202.0 9.0 203.0 9.0 204.8 10.0 207.8 10.0 210.2 10.2 210.8 11.0 211.2 35.5 211.2 36.2 210.5 36.2 209.5 37.0 208.0 37.2 205.8 38.0 204.5 38.2 202.2 39.2 200.2 39.2 198.8 39.5 197.8 40.0 197.2 40.2 195.0 41.2 192.5 41.2 191.0 42.0 189.8 42.0 188.2 42.2 188.0 42.8 182.0 42.5 181.8 42.0 177.5 41.5 176.8 41.0 174.8 41.0 173.5 40.2 172.2 40.2 171.0 41.0 170.2 42.8 170.2 45.0 169.2 46.5 169.0 48.2 168.0 52.2 164.5 55.0 160.2 55.5 158.2 56.0 157.5 56.5 154.2 57.0 153.0 57.0 151.5 57.2 151.2 57.2 142.2 57.0 142.0 57.0 139.2 56.5 137.8 56.2 134.2 55.2 130.5 55.0 127.8 54.2 126.2 54.0 123.8 53.2 122.2 53.2 121.2 52.5 119.5 52.0 116.8 51.2 115.5 51.2 114.5 50.2 112.5 50.2 111.5 49.5 110.0 49.0 107.8 47.2 104.0 47.0 102.2 46.2 101.2 46.0 100.0 45.2 99.0 45.2 98.0 43.2 94.2 43.2 93.0 42.2 91.5 41.8 87.2 41.2 85.5 41.0 79.8 40.5 78.8 40.0 73.5 39.2 72.0 39.0 70.0 36.8 65.0 33.2 60.2 33.0 57.5 32.2 55.5 32.2 50.5 32.0 50.2 32.2 45.5 33.2 45.0 37.0 46.2 40.5 46.5 41.8 46.0 42.8 45.0 43.2 43.8 43.2 41.8 43.5 41.5 43.2 39.5 43.8 38.2 43.8 36.8 43.0 35.5 43.8 34.8 44.5 34.8 46.0 32.5 46.0 31.8 45.5 31.2 45.0 29.8 44.2 29.0 44.0 27.8 43.2 26.8 43.2 24.0 43.8 23.2 43.8 18.2 43.0 14.5 42.2 13.2 42.0 12.0 39.8 8.5 36.2 5.0 33.8 3.2 30.8 2.0 29.0 1.8 28.2 1.2 26.8 1.2 26.5 1.0Z" fill="#9ca3af" fill-rule="evenodd"/>
     <path d="M38.5 130.2 38.5 132.8 38.0 134.0 38.0 137.2 37.8 137.5 38.0 138.5 38.5 138.0 38.5 136.0 38.8 135.8ZM39.5 116.2 39.5 118.8 39.0 120.0 39.2 121.8 39.8 121.2ZM9.0 67.2 7.8 69.0 7.0 71.2 7.0 72.8 6.5 74.2 6.5 75.8 6.2 76.0 6.2 84.8 7.0 87.5 7.2 90.8 10.0 97.8 10.2 100.0 11.0 101.5 11.2 106.2 12.0 108.2 12.2 115.5 13.0 118.5 13.2 123.8 14.0 125.8 14.0 127.2 14.2 127.5 14.0 132.0 13.2 134.2 13.2 140.2 14.0 143.2 14.2 147.2 15.0 149.0 15.2 152.5 16.0 154.2 16.2 157.5 17.0 159.0 17.2 161.2 18.0 163.0 18.2 165.8 19.0 167.2 19.2 171.8 19.5 172.0 19.5 173.5 19.2 173.8 19.2 182.5 20.0 184.2 20.2 186.0 21.2 188.0 22.8 189.8 25.2 190.5 25.8 190.0 25.5 189.5 24.0 189.2 21.8 186.8 20.2 182.5 20.2 174.0 20.5 173.8 20.2 169.0 19.8 166.5 19.2 165.8 19.0 162.8 18.2 161.2 18.0 158.5 17.2 157.0 17.0 154.0 16.2 152.0 16.2 150.2 15.8 147.8 15.2 146.8 15.0 142.8 14.5 141.5 14.2 134.8 14.8 133.5 15.0 130.8 15.2 130.5 15.2 127.0 14.0 121.5 14.0 117.8 13.2 114.8 13.0 107.8 12.2 105.8 12.2 103.0 11.0 97.5 9.2 93.8 9.0 92.0 8.2 90.5 8.0 86.8 7.2 83.8 7.2 76.2 8.0 73.2 8.2 69.8 8.8 69.0ZM15.2 59.5 13.5 60.2 13.2 61.0 13.5 61.2 15.0 60.8 22.0 61.0 25.0 62.0 29.0 64.2 31.5 66.8 32.2 68.2 33.0 69.0 34.2 72.5 35.0 73.8 35.0 75.2 35.2 75.5 35.5 81.0 35.2 81.2 35.0 87.5 34.2 89.0 34.0 93.2 33.2 95.0 33.0 98.8 32.2 100.5 32.0 103.8 31.2 105.8 31.0 108.5 30.2 110.0 30.0 113.0 29.2 114.8 29.0 117.2 28.2 118.8 28.2 121.5 28.0 121.8 28.0 130.0 28.2 130.2 28.0 135.8 28.2 136.5 28.0 136.8 28.0 138.2 27.2 140.0 27.0 144.2 26.2 146.2 26.0 151.8 25.2 155.2 25.2 159.2 25.0 159.5 25.2 168.2 26.0 170.0 26.2 172.8 27.0 174.2 27.2 176.5 28.0 178.2 28.2 186.5 27.5 188.2 27.5 189.2 28.0 189.2 29.2 187.0 29.2 180.2 29.0 180.0 29.0 178.0 28.2 176.2 28.2 175.0 27.2 172.5 27.0 169.8 26.2 167.8 26.2 162.5 26.0 162.2 26.2 155.8 27.0 152.8 27.2 146.5 28.0 144.5 28.2 140.5 29.0 138.5 29.0 135.8 29.2 135.5 29.0 122.8 29.2 122.5 29.2 120.0 30.0 118.2 30.2 114.8 31.0 113.0 31.2 110.2 32.0 108.5 32.2 106.0 33.0 104.8 33.2 100.5 34.0 99.0 34.2 95.5 35.0 93.5 35.2 90.2 36.0 88.2 36.2 82.2 36.5 82.0 36.5 77.5 36.2 77.2 36.0 73.8 34.2 69.2 32.2 66.0 29.8 63.5 26.5 61.5 23.2 60.2 19.8 60.0 18.2 59.5Z" fill="#7b8190" fill-rule="evenodd"/>
@@ -845,9 +856,6 @@ function visceralProfile(value, color){
   </svg>`;
 }
 
-// ============================================================
-// O2-ICON (Outline-Stil wie Herz) – 1:1 aus Vorschau
-// ============================================================
 function o2Icon(color){
   return `<svg class="icon-med" viewBox="0 0 60 60" fill="none">
     <circle cx="30" cy="30" r="22" stroke="${color}" stroke-width="3" fill="none"/>
@@ -857,9 +865,6 @@ function o2Icon(color){
   </svg>`;
 }
 
-// ============================================================
-// HERZ-EKG-ICON – 1:1 aus Vorschau
-// ============================================================
 function heartEkg(color){
   return `<svg class="icon-med" viewBox="0 0 60 60" fill="none">
     <path d="M30 52 C 10 38, 5 22, 14 14 C 22 7, 30 14, 30 20 C 30 14, 38 7, 46 14 C 55 22, 50 38, 30 52 Z"
@@ -869,25 +874,12 @@ function heartEkg(color){
   </svg>`;
 }
 
-// ============================================================
-// BIOAGE-STRICHMÄNNCHEN (3 Varianten) – 1:1 aus Vorschau
-// ============================================================
 function stickFigure(iconType, color){
-  const P = {
-    muscle: "M29.5 8.5 29.5 8.6 28.9 8.6 28.0 8.9 27.7 9.1 27.1 9.4 26.6 10.0 26.3 10.3 26.0 10.8 25.6 11.6 25.6 12.2 25.5 12.4 25.5 13.2 25.6 13.4 25.6 14.0 25.9 14.7 26.2 15.1 26.2 15.2 26.8 15.9 27.4 16.4 28.4 16.9 29.0 17.0 29.9 17.1 29.9 17.1 30.3 17.1 30.5 17.0 30.8 17.0 31.0 16.9 31.2 16.9 31.4 16.8 31.5 16.8 32.2 16.4 33.0 15.6 33.4 15.0 33.7 14.5 33.7 14.4 33.9 14.0 33.9 13.9 33.9 13.7 34.0 13.4 34.0 13.3 34.0 12.4 33.8 11.5 33.5 10.7 33.1 10.1 32.5 9.5 31.7 9.0 31.1 8.7 30.9 8.7 30.4 8.6ZM14.8 3.1 14.4 3.3 13.8 3.8 13.5 4.2 13.1 4.9 12.9 5.5 12.1 7.2 12.1 7.5 11.9 7.8 11.9 7.9 11.8 7.9 11.8 8.2 11.1 9.6 10.8 10.5 10.6 10.6 10.5 11.0 10.3 11.4 10.1 11.9 10.0 12.1 10.0 12.1 9.4 13.4 9.4 13.5 9.3 13.8 9.3 14.8 9.4 15.3 9.6 15.6 9.9 16.0 19.7 25.3 21.9 29.7 22.0 29.8 22.0 29.9 22.4 30.7 22.4 30.8 22.5 30.8 22.5 31.1 22.6 31.1 22.8 31.6 23.0 31.8 23.0 31.9 23.0 32.0 23.0 32.1 23.2 32.3 23.4 32.8 23.5 32.8 23.5 32.9 24.4 34.7 24.4 34.7 24.4 34.8 24.5 35.2 24.5 35.3 24.5 54.8 24.6 55.1 24.6 55.3 24.8 55.7 24.9 55.8 24.9 55.9 25.1 56.1 25.4 56.5 25.9 56.8 26.4 57.0 27.1 57.0 27.2 57.0 27.4 57.0 27.8 56.8 28.3 56.5 28.8 56.0 29.1 55.4 29.2 54.9 29.2 42.7 29.3 42.3 29.6 42.1 29.8 42.0 30.2 42.0 30.4 42.1 30.7 42.3 30.8 42.7 30.8 54.9 30.8 54.9 30.9 55.3 31.2 55.9 31.5 56.3 31.9 56.7 32.3 56.9 32.4 56.9 32.8 57.0 33.3 57.0 34.1 56.8 34.6 56.5 35.1 56.0 35.3 55.5 35.5 54.8 35.5 35.1 35.5 34.9 35.7 34.6 35.7 34.5 35.8 34.3 36.0 33.9 36.1 33.9 36.1 33.8 36.8 32.3 36.8 32.3 36.9 32.2 37.4 31.2 37.4 31.1 37.5 31.1 37.5 31.0 37.7 30.6 37.7 30.6 37.7 30.5 38.0 30.0 38.0 29.9 38.0 29.8 38.5 29.0 38.5 28.9 38.5 28.9 40.2 25.4 41.1 24.5 49.9 16.2 50.2 15.8 50.6 15.2 50.7 14.8 50.7 13.9 50.6 13.5 50.6 13.4 50.2 12.7 50.1 12.2 49.8 11.8 49.4 10.6 48.6 9.0 48.6 8.8 48.4 8.4 48.3 8.3 48.2 8.2 48.2 7.9 48.0 7.6 47.9 7.4 47.6 6.7 47.5 6.5 47.4 6.1 46.9 4.9 46.4 4.0 45.9 3.5 45.3 3.2 45.1 3.1 44.8 3.0 44.5 3.0 44.5 3.0 43.8 3.0 43.1 3.3 42.5 3.8 42.2 4.1 42.0 4.5 41.9 4.9 41.9 5.0 41.8 5.3 41.8 5.8 41.8 5.9 41.9 6.2 42.0 6.3 42.0 6.6 42.1 6.7 43.1 9.0 43.6 10.1 44.0 11.1 44.6 12.4 44.8 12.9 44.8 12.9 44.9 13.2 45.0 13.3 45.0 13.4 44.9 13.5 44.6 13.4 44.2 13.4 44.1 13.4 43.0 13.5 42.1 13.8 41.9 13.9 41.4 14.1 40.7 14.6 40.0 15.3 39.9 15.4 39.6 15.8 39.6 15.9 39.4 16.3 39.3 16.6 39.2 16.8 39.2 17.0 39.0 17.2 38.8 17.2 38.6 17.1 38.4 17.1 37.9 17.0 37.7 17.0 37.6 16.9 36.3 16.9 36.3 17.0 36.1 17.0 35.5 17.1 35.3 17.1 33.9 17.5 32.8 17.9 31.7 18.6 31.1 19.0 30.4 19.8 30.2 20.1 30.0 20.2 29.8 20.1 29.8 20.0 29.4 19.5 28.6 18.8 27.7 18.2 27.7 18.2 27.5 18.1 26.9 17.8 26.0 17.4 25.6 17.3 25.3 17.2 24.0 17.0 22.4 16.9 22.4 17.0 22.1 17.0 21.6 17.1 21.4 17.1 21.2 17.2 21.0 17.2 20.9 17.1 20.8 17.0 20.8 16.8 20.7 16.5 20.7 16.4 20.2 15.5 19.4 14.7 18.8 14.2 18.3 13.9 18.1 13.9 17.8 13.7 17.5 13.6 17.3 13.6 17.0 13.5 16.3 13.4 16.3 13.4 15.5 13.4 15.2 13.5 15.0 13.5 15.0 13.3 15.2 12.9 15.6 12.0 15.9 11.3 15.9 11.1 16.2 10.8 16.2 10.6 16.5 9.9 16.7 9.4 16.9 9.0 17.3 8.1 18.0 6.4 18.2 5.8 18.2 5.2 18.2 5.2 18.1 4.8 17.9 4.4 17.7 4.0 17.4 3.6 16.9 3.3 16.8 3.3 16.5 3.1 15.9 3.0 15.4 3.0ZM25.8 26.3 25.9 26.2 33.6 26.2 33.8 26.4 33.8 26.6 33.7 26.8 33.5 26.9 30.2 26.9 30.1 27.0 30.1 29.2 30.2 29.3 32.3 29.3 32.5 29.3 32.6 29.5 32.7 29.6 32.6 29.8 32.5 29.9 32.3 30.0 30.2 30.0 30.2 30.0 30.1 30.3 30.1 30.5 30.1 30.5 30.1 32.0 30.2 32.1 32.3 32.1 32.6 32.3 32.7 32.5 32.6 32.6 32.4 32.8 32.3 32.8 30.2 32.8 30.2 32.8 30.1 33.0 30.1 33.2 30.1 34.7 30.1 34.7 30.1 35.0 30.2 35.2 30.2 35.2 30.3 35.2 30.5 35.2 30.8 35.2 30.8 35.2 30.9 35.2 32.3 35.2 32.5 35.3 32.7 35.5 32.7 35.6 32.5 35.8 32.4 35.9 27.1 35.9 26.9 35.7 26.9 35.4 27.0 35.3 27.2 35.2 29.3 35.2 29.4 35.1 29.4 32.9 29.4 32.8 29.3 32.8 27.2 32.8 27.0 32.7 26.9 32.5 26.9 32.3 27.2 32.1 29.3 32.1 29.4 32.0 29.4 30.1 29.4 30.0 29.3 30.0 27.2 30.0 27.0 29.9 26.9 29.7 26.9 29.4 27.0 29.3 27.2 29.3 29.3 29.3 29.4 29.2 29.4 29.2 29.4 27.0 29.3 26.9 25.9 26.9 25.7 26.7 25.7 26.5Z",
-    grandpa: "M33.1 11.2 32.9 11.2 32.5 11.1 31.9 11.0 31.9 11.0 31.0 11.0 30.4 11.2 30.2 11.3 29.8 11.4 29.6 11.6 29.5 11.6 28.9 12.0 28.8 12.0 28.6 12.1 28.5 12.2 28.2 12.4 28.1 12.4 27.9 12.6 27.4 12.8 26.1 13.9 25.3 14.6 24.0 15.9 23.2 16.9 23.0 17.2 22.5 17.9 21.9 18.9 21.8 19.0 21.7 19.1 21.5 19.6 21.5 19.7 21.7 19.7 21.9 19.9 21.9 21.0 21.8 21.1 21.7 21.0 21.3 21.1 21.3 21.0 21.2 20.9 21.2 20.6 21.4 20.3 21.6 20.2 21.6 20.1 21.5 20.0 21.4 20.1 21.1 20.2 20.7 21.1 20.5 21.6 20.4 21.8 20.4 21.9 20.3 22.1 20.2 22.3 20.1 22.4 20.1 22.6 20.0 22.9 20.0 23.0 19.9 23.2 19.7 23.8 19.6 24.1 19.6 24.3 19.4 24.6 19.4 24.8 19.3 25.1 19.3 25.3 19.2 25.5 19.1 25.9 19.0 26.2 19.0 26.6 18.9 26.8 18.9 26.9 18.9 27.2 18.9 27.4 18.8 27.7 18.7 28.4 18.6 28.8 18.6 29.8 18.5 30.1 18.5 31.5 18.5 31.6 18.5 32.1 18.6 32.4 18.6 32.7 18.7 33.1 18.8 33.3 19.0 33.9 19.3 34.3 19.7 34.8 19.8 35.0 19.9 35.2 20.0 35.4 20.0 35.5 20.1 35.8 20.1 36.1 20.2 36.3 20.3 36.5 20.4 36.7 20.4 36.9 20.7 37.6 20.7 37.9 20.8 38.1 20.8 38.2 20.9 38.5 20.9 38.7 21.1 39.0 21.1 39.1 21.2 39.4 21.2 39.6 21.3 39.8 21.4 40.1 21.5 40.3 21.5 40.6 21.6 40.8 21.7 41.1 21.7 41.2 21.7 41.3 21.9 41.6 21.9 41.9 22.0 42.0 22.1 42.3 22.1 42.4 22.2 42.6 22.3 43.0 22.3 43.2 21.4 44.5 21.4 44.6 21.0 45.1 20.9 45.2 20.8 45.3 19.4 47.5 19.3 47.6 18.9 48.3 18.5 48.8 18.1 49.5 17.6 50.1 17.6 50.2 17.4 50.5 17.4 50.5 16.5 51.8 16.4 52.0 15.9 52.7 15.6 53.2 15.4 53.5 15.3 53.7 15.2 53.8 15.2 54.1 15.1 54.3 15.1 54.8 15.2 55.1 15.2 55.3 15.3 55.6 15.5 55.9 15.9 56.4 16.6 56.8 17.0 56.9 17.8 56.9 17.9 56.9 18.0 56.8 18.3 56.8 18.3 56.7 18.5 56.6 18.9 56.4 19.2 56.0 20.9 53.5 21.0 53.4 21.0 53.3 21.1 53.2 21.2 53.1 21.3 53.0 21.5 52.5 21.7 52.4 22.4 51.3 22.5 51.1 22.7 50.8 22.8 50.7 23.2 50.0 23.4 49.9 23.4 49.8 23.7 49.4 23.9 49.0 24.4 48.3 24.9 47.6 25.4 46.9 25.4 46.8 25.9 46.1 26.1 45.7 26.7 44.8 26.9 44.5 27.1 43.9 27.1 43.6 27.1 43.6 27.1 43.1 27.0 43.0 27.0 42.7 26.9 42.5 26.9 42.2 26.8 42.0 26.8 41.9 26.6 41.6 26.6 41.3 26.5 41.2 26.5 40.9 26.4 40.7 26.2 40.0 26.1 39.8 26.1 39.5 25.9 39.4 25.9 39.2 25.8 38.9 25.8 38.8 25.5 38.0 25.5 37.8 25.4 37.6 25.3 37.2 25.3 37.1 25.3 36.9 25.3 36.9 25.4 36.9 25.7 37.3 26.9 38.7 27.4 39.2 27.9 39.8 29.0 41.2 29.0 41.4 28.9 41.8 28.9 42.5 28.8 42.5 28.8 43.2 28.7 43.3 28.7 43.6 28.6 44.0 28.6 44.7 28.5 45.1 28.4 45.8 28.4 45.9 28.3 46.3 28.3 46.4 28.3 46.8 28.2 47.1 28.2 47.8 28.1 48.3 28.0 48.9 28.0 48.9 28.0 49.4 27.9 49.7 27.9 50.1 27.8 50.5 27.8 51.1 27.7 51.5 27.6 52.2 27.5 52.5 27.5 53.2 27.4 53.6 27.4 53.9 27.4 54.0 27.4 54.3 27.3 54.3 27.3 54.9 27.4 54.9 27.4 55.3 27.7 55.9 27.8 56.1 28.2 56.5 28.7 56.8 28.9 56.8 29.0 56.9 29.5 57.0 29.8 57.0 29.9 57.0 30.4 56.9 31.0 56.6 31.2 56.4 31.7 55.9 31.9 55.5 32.1 54.9 32.1 54.3 32.2 53.9 32.2 53.2 32.3 52.8 32.4 52.1 32.5 51.8 32.5 51.2 32.6 50.5 32.6 50.1 32.8 49.7 32.8 49.3 32.8 49.2 32.8 49.0 32.9 48.8 32.9 48.5 32.9 48.2 32.9 47.8 33.1 47.2 33.1 46.8 33.2 46.4 33.2 45.7 33.3 45.6 33.3 45.1 33.3 45.1 33.3 44.7 33.4 44.3 33.5 43.7 33.6 43.2 33.6 42.9 33.6 42.9 33.6 42.6 33.7 42.0 33.7 41.4 33.9 40.7 33.8 39.9 33.8 39.8 33.7 39.4 33.3 38.9 32.4 37.8 31.7 36.9 31.4 36.6 31.1 36.3 29.8 34.7 27.8 32.3 27.2 31.6 26.6 30.9 26.5 30.7 26.5 30.1 26.6 30.1 26.6 29.5 26.6 29.5 26.6 29.1 26.7 28.8 26.8 28.3 26.9 28.1 26.9 27.6 27.0 27.4 27.0 27.2 27.1 27.0 27.2 26.5 27.3 26.3 27.3 26.1 27.4 25.9 27.5 25.7 27.6 25.6 27.6 25.4 27.7 25.2 27.7 25.0 27.8 24.8 27.9 24.7 27.9 24.6 28.0 24.4 28.8 22.8 29.7 21.5 29.9 21.4 30.0 21.5 30.1 21.6 30.1 21.8 30.2 21.9 30.3 22.1 30.4 22.3 30.4 22.5 30.5 22.6 30.6 23.0 30.8 23.4 31.0 23.8 31.0 23.8 31.2 24.1 31.3 24.5 32.3 26.0 32.9 26.7 33.0 26.9 33.1 27.0 33.3 27.0 33.3 27.0 33.5 27.0 33.6 27.2 33.6 27.6 33.6 27.7 34.1 28.3 34.8 29.1 36.5 30.8 38.2 32.3 38.8 32.7 38.9 32.9 38.9 33.0 38.8 33.1 38.8 33.1 38.5 33.2 38.0 33.6 37.5 34.1 37.2 34.4 37.0 34.9 36.8 35.4 36.7 35.5 36.6 35.8 36.5 36.0 36.5 36.3 36.5 36.3 36.5 37.0 36.7 37.3 36.9 37.5 37.2 37.7 37.6 37.7 37.9 37.5 38.1 37.3 38.1 37.2 38.3 37.0 38.3 36.4 38.4 36.2 38.4 35.9 38.7 35.4 38.7 35.2 38.9 35.0 39.1 34.9 39.5 34.6 40.2 34.4 41.2 34.4 41.9 34.6 42.4 35.0 42.6 35.2 43.0 35.8 43.0 35.9 43.1 36.1 43.1 36.5 43.2 36.7 43.2 56.0 43.2 56.3 43.4 56.5 43.8 56.8 44.3 56.7 44.4 56.7 44.5 56.6 44.8 56.3 44.9 56.0 44.9 44.4 44.6 44.0 44.6 43.5 44.9 43.1 44.9 43.0 44.9 42.9 44.6 42.9 44.6 42.8 44.6 42.5 44.9 42.3 44.9 42.1 44.9 36.6 44.8 36.2 44.8 35.8 44.7 35.6 44.6 35.3 44.5 35.2 44.5 35.0 44.4 34.9 44.4 34.8 44.2 34.6 44.1 34.3 43.3 33.5 43.3 33.3 43.5 33.1 43.7 32.7 43.8 32.1 43.8 31.7 43.7 31.4 43.7 31.2 43.4 30.6 43.1 30.2 42.6 29.8 42.3 29.7 42.0 29.4 41.9 29.4 40.4 28.1 38.9 26.8 37.7 25.5 36.5 23.9 36.4 23.8 36.2 23.5 35.9 23.0 35.7 22.7 35.7 22.6 35.5 22.4 35.3 22.1 35.3 22.0 35.2 21.8 35.0 21.4 34.9 21.3 34.7 20.8 34.7 20.7 34.4 20.1 34.4 20.0 34.3 19.7 34.3 19.6 34.2 19.3 34.2 19.2 34.0 18.9 33.9 18.3 34.8 17.5 35.2 17.0 35.5 16.3 35.5 16.0 35.6 15.8 35.7 15.1 35.7 15.0 35.6 14.1 35.6 14.0 35.5 13.7 35.4 13.5 35.4 13.4 35.2 13.1 35.2 13.0 34.7 12.3 34.3 12.0 33.8 11.6ZM38.6 3.0 38.2 3.1 37.8 3.1 37.5 3.2 37.4 3.2 37.2 3.4 36.7 3.5 36.2 3.8 35.7 4.2 35.2 4.7 34.9 5.1 34.6 5.5 34.6 5.6 34.3 6.0 34.3 6.1 34.2 6.3 34.2 6.5 34.1 6.7 34.0 7.0 33.9 7.4 33.9 7.6 33.9 7.6 33.9 8.8 34.0 9.0 34.0 9.3 34.2 9.6 34.2 9.8 34.6 10.7 35.1 11.3 35.9 12.1 36.5 12.5 36.9 12.6 37.2 12.8 37.3 12.8 37.5 12.9 38.3 13.0 39.6 13.0 40.4 12.9 40.5 12.8 40.8 12.7 41.3 12.5 41.3 12.5 42.3 11.9 43.0 11.0 43.4 10.4 43.6 9.9 43.7 9.7 43.7 9.5 43.8 9.3 43.9 8.9 44.0 8.6 44.0 7.5 43.9 7.2 43.8 6.8 43.8 6.7 43.6 6.0 43.4 5.9 43.3 5.5 42.9 4.9 42.0 4.0 41.5 3.7 41.4 3.7 40.9 3.4 40.7 3.4 40.5 3.2 40.3 3.2 40.1 3.1 39.7 3.1 39.5 3.0Z",
-    runner: "M20.0 34.7 19.9 34.7 19.8 34.9 19.8 35.2 19.8 35.2 19.8 35.5 19.7 35.9 19.7 36.3 19.5 37.2 19.5 37.8 19.4 38.6 19.4 39.0 19.2 39.7 19.2 40.5 19.0 41.3 19.0 41.8 18.7 42.6 18.3 43.1 9.8 52.0 9.3 52.7 9.2 53.2 9.2 53.5 9.1 53.6 9.1 54.3 9.3 55.0 9.5 55.3 9.5 55.4 9.9 56.1 10.8 56.7 11.7 57.0 12.7 57.0 13.6 56.7 13.7 56.6 14.1 56.4 21.5 49.5 22.5 48.7 23.7 47.5 24.1 47.1 24.7 46.5 25.1 46.0 25.1 45.8 25.2 45.7 25.6 44.6 25.6 44.0 25.8 43.4 25.8 43.1 25.9 42.6 26.0 42.0 26.1 41.7 26.1 41.0 26.3 40.4 26.3 40.1 26.4 39.6 26.4 39.3 26.3 39.1 25.8 39.0 25.5 38.8 25.4 38.8 25.1 38.7 24.7 38.5 24.5 38.4 24.2 38.3 23.8 38.0 23.7 38.0 22.9 37.5 21.4 36.4 20.7 35.5ZM50.5 15.9 49.9 15.2 49.5 15.0 49.0 14.8 48.0 14.7 47.9 14.8 47.6 14.8 47.3 14.9 47.1 15.0 46.7 15.2 46.2 15.8 42.0 21.0 41.8 21.0 39.5 19.2 39.0 18.7 38.9 18.7 38.4 18.3 38.0 18.0 37.7 17.7 37.2 17.3 36.9 17.1 36.8 17.0 36.7 17.2 36.8 17.4 36.8 17.7 36.9 18.1 37.0 18.6 37.1 18.9 37.1 19.2 37.1 19.3 37.1 20.8 37.1 20.8 37.0 21.6 36.8 22.2 36.8 22.5 36.6 22.8 36.5 23.0 36.1 23.8 36.2 24.1 36.5 24.4 36.7 24.5 37.1 24.8 38.4 25.8 39.0 26.2 39.6 26.7 40.3 27.3 41.0 27.7 41.3 27.7 41.7 27.9 42.7 27.9 43.2 27.7 43.4 27.7 43.8 27.5 44.1 27.2 44.7 26.7 50.5 18.6 50.8 18.1 50.8 17.6 50.9 17.6 50.8 16.7 50.7 16.3 50.6 16.2ZM28.1 13.9 28.1 14.0 27.8 14.0 27.5 14.1 27.1 14.1 26.8 14.3 26.6 14.3 26.3 14.4 26.1 14.5 25.8 14.6 25.3 14.8 25.0 14.9 24.7 15.0 24.1 15.3 23.9 15.3 23.7 15.5 23.4 15.5 22.8 15.8 22.5 15.8 22.3 16.0 22.1 16.0 21.4 16.3 21.3 16.3 20.9 16.5 20.4 16.6 20.3 16.8 19.9 16.9 19.7 17.0 19.4 17.0 18.8 17.3 17.8 17.7 17.5 17.8 17.2 17.9 16.6 18.2 16.5 18.2 16.2 18.4 15.9 18.4 15.1 18.7 14.5 19.2 14.2 19.5 13.8 20.1 13.4 21.0 13.4 21.6 13.2 22.0 13.2 22.3 13.0 22.9 13.0 23.2 12.9 23.7 12.9 24.0 12.7 24.5 12.5 25.6 12.4 25.9 12.4 26.5 12.2 26.8 12.0 28.1 11.9 28.5 11.8 29.1 11.7 29.5 11.6 30.0 11.6 30.1 11.6 30.6 11.7 31.2 11.9 31.5 12.1 31.8 12.6 32.3 12.7 32.3 12.8 32.4 13.3 32.6 13.6 32.7 14.0 32.7 14.1 32.7 15.0 32.6 15.8 32.2 16.4 31.6 16.8 30.9 16.9 30.0 17.1 29.6 17.1 29.4 17.2 29.1 17.3 28.8 17.4 28.4 17.4 28.0 17.6 27.6 17.6 27.3 17.8 26.9 17.8 26.7 17.9 26.4 18.0 25.9 18.1 25.6 18.1 25.4 18.2 25.2 18.3 24.7 18.4 24.4 18.4 24.2 18.5 23.9 18.7 23.8 18.9 23.6 19.4 23.6 19.6 23.4 20.0 23.4 20.6 23.1 21.0 23.1 21.3 22.9 21.6 22.9 22.5 22.6 22.7 22.6 22.9 22.5 23.1 22.6 23.1 22.7 23.0 23.0 22.9 23.4 22.8 23.6 22.8 23.9 22.6 24.2 22.6 24.7 22.5 24.8 22.4 25.2 22.3 25.6 22.3 25.7 22.1 26.1 22.1 26.4 21.9 26.8 21.9 27.0 21.7 27.4 21.7 27.6 21.6 27.9 21.6 28.2 21.4 28.6 21.4 29.0 21.2 29.2 21.1 29.9 21.1 30.0 20.9 30.5 20.9 31.0 20.9 31.1 20.9 32.3 21.1 32.8 21.1 33.1 21.4 33.8 22.2 34.9 22.9 35.6 23.8 36.2 24.9 36.8 25.1 36.9 25.2 36.9 25.8 37.3 26.3 37.4 27.1 37.9 27.2 37.9 27.8 38.2 28.1 38.3 28.1 38.4 28.7 38.6 29.3 39.0 29.8 39.1 30.4 39.5 31.2 39.8 31.5 40.0 31.9 40.1 32.0 40.3 32.0 40.5 30.5 42.5 30.4 42.6 29.9 43.2 29.9 43.3 29.4 43.9 29.4 44.0 27.9 46.0 27.5 46.6 27.5 46.8 27.4 47.1 27.4 47.5 27.4 47.6 27.4 48.3 27.6 48.9 28.0 49.6 28.5 50.2 29.0 50.5 30.0 50.9 31.3 50.9 31.6 50.7 31.7 50.7 32.2 50.6 32.7 50.2 33.1 49.7 34.7 47.7 37.2 44.5 37.6 43.9 38.3 43.1 38.4 42.8 40.1 40.7 40.5 40.1 40.5 39.9 40.6 39.5 40.6 38.4 40.5 38.0 40.4 37.7 39.9 36.9 39.4 36.4 38.7 36.1 38.6 35.9 38.4 35.9 38.2 35.7 37.8 35.5 37.7 35.4 37.6 35.4 37.2 35.2 36.9 35.0 36.8 34.9 36.7 34.9 35.7 34.4 35.3 34.1 35.2 34.1 34.8 33.8 34.6 33.8 33.9 33.3 33.6 33.2 33.5 33.1 32.9 32.7 32.8 32.7 32.6 32.6 32.3 32.4 32.2 32.4 31.8 32.1 31.7 31.7 31.9 31.4 31.9 31.2 32.1 30.9 32.1 30.8 32.5 30.0 32.5 29.9 32.6 29.7 32.6 29.4 32.7 29.3 32.8 28.9 33.0 28.6 33.0 28.5 33.1 28.1 33.1 28.0 33.3 27.7 33.3 27.4 33.5 27.1 33.6 26.4 33.8 26.0 33.8 25.9 34.0 25.5 34.0 25.4 34.1 25.1 34.1 24.9 34.3 24.5 34.4 24.1 34.6 23.5 34.7 23.1 34.8 22.8 34.9 22.5 35.0 22.3 35.0 22.0 35.2 21.6 35.2 21.4 35.4 21.0 35.4 20.8 35.5 20.2 35.5 19.0 35.4 18.4 35.4 18.2 35.2 17.8 35.1 17.4 34.6 16.4 33.9 15.6 33.4 15.2 33.0 14.8 32.3 14.5 32.1 14.4 31.9 14.3 30.5 13.9 29.9 13.9 29.8 13.9ZM33.1 3.4 32.2 4.1 31.3 4.9 30.8 5.9 30.6 6.4 30.4 6.7 30.4 6.9 30.3 7.2 30.3 7.9 30.2 7.9 30.3 9.2 30.4 9.6 30.5 10.2 30.6 10.3 30.7 10.5 30.9 11.0 31.0 11.1 31.0 11.2 31.6 12.1 32.6 13.0 33.1 13.3 33.3 13.4 33.5 13.5 34.0 13.7 34.2 13.8 34.7 13.9 34.8 14.0 35.3 14.0 35.3 14.0 36.6 14.0 37.2 13.9 37.6 13.8 38.4 13.5 38.6 13.4 38.9 13.3 39.3 13.0 40.3 12.1 40.9 11.1 41.3 10.3 41.3 10.2 41.5 9.8 41.5 9.5 41.6 9.1 41.7 8.1 41.6 8.0 41.6 7.6 41.5 7.2 41.5 6.8 41.3 6.5 41.3 6.4 40.9 5.5 40.2 4.5 39.3 3.7 38.4 3.2 38.0 3.0 33.9 3.0Z"
-  };
+  const P = stickFigurePaths();
   return `<svg class="icon-med" viewBox="0 0 60 60"><path d="${P[iconType] || P.runner}" fill="${color}" fill-rule="evenodd"/></svg>`;
 }
-
-// Alle drei Icons nebeneinander (Opa – Renner – Muskelmann)
 function bioIconRow(activeType, color){
-  const P = {
-    muscle: stickFigurePaths().muscle,
-    grandpa: stickFigurePaths().grandpa,
-    runner: stickFigurePaths().runner
-  };
+  const P = stickFigurePaths();
   return `<div style="display:flex;align-items:flex-end;gap:.35rem;flex-shrink:0;">` +
     ['grandpa','runner','muscle'].map(t => {
       const on = t === activeType;
@@ -990,18 +982,23 @@ function infoBtn(key){ return `<button class="info-btn" data-info="${key}">i</bu
 // =====================================================================
 // SCAN-TAB RENDER
 // =====================================================================
+// >>> FIX #5: Punkte klickbar mit größerem Hit-Bereich <<<
 function scanLineChart(scans, key, color){
-  const pts = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
+  const pts = scans.map((s,i)=>({v: parseFloat(s[key]), i})).filter(p=>!isNaN(p.v));
   if(pts.length < 2) return '';
+  const vals = pts.map(p=>p.v);
   const w = 260, h = 55, padL = 8, padR = 8, padT = 8, padB = 8;
-  const min = Math.min(...pts), max = Math.max(...pts);
+  const min = Math.min(...vals), max = Math.max(...vals);
   const range = Math.max(max - min, 0.5);
   const stepX = (w - padL - padR) / (pts.length - 1);
   const sY = v => h - padB - ((v - min) / range) * (h - padT - padB);
-  const path = pts.map((v, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(v).toFixed(1)}`).join(' ');
-  const dots = pts.map((v, i) => {
+  const path = pts.map((p, i) => `${i===0?'M':'L'} ${(padL+i*stepX).toFixed(1)} ${sY(p.v).toFixed(1)}`).join(' ');
+  const dots = pts.map((p, i) => {
     const isLast = i === pts.length - 1;
-    return `<circle cx="${(padL+i*stepX).toFixed(1)}" cy="${sY(v).toFixed(1)}" r="${isLast?5:2.5}" fill="${isLast?color:'#52525b'}" stroke="#000" stroke-width="1"/>`;
+    const cx = (padL+i*stepX).toFixed(1);
+    const cy = sY(p.v).toFixed(1);
+    return `<circle cx="${cx}" cy="${cy}" r="${isLast?5:2.5}" fill="${isLast?color:'#52525b'}" stroke="#000" stroke-width="1" style="cursor:pointer;" data-scan-point="${p.i}"/>
+            <circle cx="${cx}" cy="${cy}" r="12" fill="transparent" style="cursor:pointer;" data-scan-point="${p.i}"/>`;
   }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;margin-top:.6rem;">
     <path d="${path}" fill="none" stroke="${color}" stroke-width="1.5"/>${dots}
@@ -1057,6 +1054,20 @@ function renderScan(){
     legR: last.muscleLegR != null ? last.muscleLegR : 7.7,
     legL: last.muscleLegL != null ? last.muscleLegL : 7.7,
   };
+  // >>> FIX #2: Balance + gemeinsame Farbfunktion <<<
+  const MV_MAX = Math.max(dist.torso, dist.armR, dist.armL, dist.legR, dist.legL, 16.1);
+  const mvColor = (v) => {
+    const p = v / MV_MAX;
+    if(p > 0.7) return '#ef4444';
+    if(p > 0.4) return '#f97316';
+    if(p > 0.2) return '#84cc16';
+    return '#22c55e';
+  };
+  const armDiffPct = (dist.armR && dist.armL) ? (Math.abs(dist.armR - dist.armL) / Math.max(dist.armR, dist.armL)) * 100 : 0;
+  const legDiffPct = (dist.legR && dist.legL) ? (Math.abs(dist.legR - dist.legL) / Math.max(dist.legR, dist.legL)) * 100 : 0;
+  const maxDiffPct = Math.max(armDiffPct, legDiffPct);
+  const balanced = maxDiffPct < 8;
+
   const waterTotal = last.water != null ? last.water : (last.waterIntra != null && last.waterExtra != null ? Math.round((last.waterIntra + last.waterExtra)*10)/10 : null);
   const waterIntra = last.waterIntra != null ? last.waterIntra : (waterTotal ? waterTotal * 0.62 : null);
   const waterExtra = last.waterExtra != null ? last.waterExtra : (waterTotal ? waterTotal * 0.38 : null);
@@ -1147,34 +1158,37 @@ function renderScan(){
       </div>
     </div>
 
-    <!-- MUSKELVERTEILUNG -->
+    <!-- MUSKELVERTEILUNG (Fix #2) -->
     <div class="frame" style="--accent:#a78bfa;padding:1rem;margin-bottom:.8rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('muscleDist')}
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
         <div class="eyebrow mono" style="color:#a78bfa;">MUSKELVERTEILUNG</div>
-        <div class="mono" style="font-size:.6rem;color:var(--green);">✓ AUSGEGLICHEN</div>
+        <div class="mono" style="font-size:.6rem;color:${balanced?'var(--green)':'var(--orange)'};">
+          ${balanced ? '✓ AUSGEGLICHEN' : '⚠ UNGLEICH ' + maxDiffPct.toFixed(1) + '%'}
+        </div>
       </div>
       <div style="display:flex;gap:1rem;align-items:center;">
         ${bodySilhouette(dist)}
         <div style="flex:1;min-width:0;">
           ${[
-            {label:'Torso', val:dist.torso, color:'#ef4444'},
-            {label:'Arm R', val:dist.armR, color:'#84cc16'},
-            {label:'Arm L', val:dist.armL, color:'#84cc16'},
-            {label:'Bein R', val:dist.legR, color:'#84cc16'},
-            {label:'Bein L', val:dist.legL, color:'#84cc16'},
-          ].map(r=>`
-            <div style="margin-bottom:.4rem;">
+            {label:'Torso', val:dist.torso},
+            {label:'Arm R', val:dist.armR},
+            {label:'Arm L', val:dist.armL},
+            {label:'Bein R', val:dist.legR},
+            {label:'Bein L', val:dist.legL},
+          ].map(r=>{
+            const col = mvColor(r.val);
+            return `<div style="margin-bottom:.4rem;">
               <div style="display:flex;justify-content:space-between;margin-bottom:.15rem;">
                 <span class="mono" style="font-size:.65rem;color:var(--text-dim);">${r.label}</span>
-                <span class="mono" style="font-size:.7rem;color:${r.color};">${r.val.toFixed(1).replace('.',',')} kg</span>
+                <span class="mono" style="font-size:.7rem;color:${col};">${r.val.toFixed(1).replace('.',',')} kg</span>
               </div>
               <div style="height:4px;background:var(--border);border-radius:999px;overflow:hidden;">
-                <div style="height:100%;width:${(r.val/16.1)*100}%;background:${r.color};"></div>
+                <div style="height:100%;width:${(r.val/MV_MAX)*100}%;background:${col};"></div>
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -1251,7 +1265,7 @@ function renderScan(){
         <div style="flex:1;">
           <div class="mono" style="font-size:.65rem;color:var(--text-mute);letter-spacing:.1em;">VISZERALES FETT</div>
           <div class="single-value" style="margin:.2rem 0;">
-            <div class="num" style="color:${(last.visceral||0) < 2 ? '#a3e635' : '#ef4444'};font-size:2rem;">${last.visceral != null ? last.visceral.toFixed(1).replace('.',',') : '—'}</div>
+            <div class="num" style="color:${(last.visceral||0) < 1 ? '#22c55e' : (last.visceral||0) < 2 ? '#a3e635' : (last.visceral||0) < 3 ? '#facc15' : (last.visceral||0) < 4 ? '#f97316' : '#ef4444'};font-size:2rem;">${last.visceral != null ? last.visceral.toFixed(1).replace('.',',') : '—'}</div>
             <div class="unit">kg</div>
           </div>
           <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-top:.3rem;">Unter 2,0 kg = gut</div>
@@ -1373,16 +1387,42 @@ function renderScanForm(){
     <button class="save-btn mono" data-save-scan="1" style="background:var(--lime);margin-top:1.5rem;">${ICON.check} SPEICHERN</button>
   `;
 }
+// >>> FIX #4: Scan-Liste zeigt alle Werte <<<
 function renderScanList(){
   const scans = state.bodyScans;
   if(!scans.length) return '';
+  const fmt = v => v == null ? '—' : (typeof v === 'number' ? v.toFixed(1).replace('.',',') : v);
+  const row = (label, v, unit) => v == null ? '' :
+    `<div style="display:flex;justify-content:space-between;padding:.15rem 0;border-bottom:1px dashed var(--border);">
+      <span class="mono" style="font-size:.7rem;color:var(--text-mute);">${label}</span>
+      <span class="mono" style="font-size:.75rem;color:var(--text);">${fmt(v)}${unit?' '+unit:''}</span>
+    </div>`;
   return `
     <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono">BODY-SCANS</div>
     <div class="h1 display" style="margin-bottom:1rem;">ALLE MESSUNGEN</div>
     ${[...scans].reverse().map((s, idx)=>{
       const origIdx = scans.length - 1 - idx;
-      return `<div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.5rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div class="mono" style="font-size:.7rem;color:var(--sky);margin-bottom:.3rem;">${new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div><div class="mono" style="font-size:.75rem;color:var(--text-dim);line-height:1.7;">${s.weight?`Gewicht: <span style="color:var(--text);">${s.weight} kg</span><br>`:''}${s.muscle?`Muskel: <span style="color:var(--text);">${s.muscle} kg</span><br>`:''}${s.fat?`Fett: <span style="color:var(--text);">${s.fat} kg</span>`:''}</div></div><div style="display:flex;flex-direction:column;gap:.3rem;"><button class="x-btn" data-scan-edit="${origIdx}" title="Bearbeiten">${ICON.edit}</button><button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button></div></div></div>`;
+      return `<div class="frame" style="--accent:var(--sky);padding:.9rem 1rem;margin-bottom:.6rem;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem;">
+          <div class="mono" style="font-size:.75rem;color:var(--sky);">${new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+          <div style="display:flex;gap:.3rem;">
+            <button class="x-btn" data-scan-edit="${origIdx}" title="Bearbeiten">${ICON.edit}</button>
+            <button class="x-btn" data-scan-delete="${origIdx}" title="Löschen">${ICON.trash}</button>
+          </div>
+        </div>
+        ${row('Gewicht', s.weight, 'kg')}
+        ${row('Muskelmasse', s.muscle, 'kg')}
+        ${row('Fettmasse', s.fat, 'kg')}
+        ${row('Körperwasser', s.water, 'kg')}
+        ${row('Viszerales Fett', s.visceral, 'kg')}
+        ${row('Zellfitness', s.cellFit, '')}
+        ${row('HRV', s.hrv, 'ms')}
+        ${row('SpO₂', s.oxygen, '%')}
+        ${row('Ruhe-HF', s.hr, 'bpm')}
+        ${row('Bioage', s.bioage, 'J.')}
+      </div>`;
     }).join('')}
   `;
 }
@@ -1850,6 +1890,9 @@ function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfi
 function showSessionPopup(sessionId){ state.modal = {type:'session-preview', sessionId}; render(); }
 function showDayPicker(){ state.modal = {type:'day-picker'}; render(); }
 function showPdfUpload(){ state.modal = {type:'pdf-upload'}; render(); }
+// >>> FIX #5: Popup für Scan-Punkt <<<
+function showScanPopup(scanIndex){ state.modal = {type:'scan-preview', scanIndex}; render(); }
+
 function renderModalOverlay(){
   const m = state.modal;
   if(!m) return '';
@@ -1861,6 +1904,39 @@ function renderModalOverlay(){
     const sc = computeScore(s);
     const tier = sc.overall != null ? getTier(Math.min(sc.overall,100)) : null;
     return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;"><div class="frame" style="--accent:${day.accent};max-width:340px;width:100%;padding:1.3rem;background:#0a0a0b;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="color:${day.accent};margin-bottom:.3rem;">${day.short} · ${fmtWd(s.date)} ${fmtDate(s.date)}</div><div class="display" style="font-size:1.2rem;margin-bottom:1rem;">${day.label}</div><div style="display:flex;justify-content:space-between;gap:1rem;margin-bottom:.9rem;"><div><div class="eyebrow mono" style="font-size:.55rem;">SCORE</div><div class="mono" style="font-size:1.3rem;color:${tier?tier.color:'var(--text)'};">${sc.overall!=null?sc.overall+'%':'–'}</div></div><div style="text-align:right;"><div class="eyebrow mono" style="font-size:.55rem;">VOLUMEN</div><div class="mono" style="font-size:1.3rem;">${Math.round(sc.vol).toLocaleString('de-DE')} kg</div></div></div><div style="display:flex;gap:.6rem;"><button class="btn-outline mono" data-modal-cancel="1" style="flex:1;font-size:.7rem;">SCHLIESSEN</button><button class="btn-primary" data-modal-open-session="1" style="flex:1;background:${day.accent};font-size:.75rem;">ZUR SESSION</button></div></div></div>`;
+  }
+  // >>> FIX #5: Scan-Preview-Popup <<<
+  if(m.type === 'scan-preview'){
+    const s = state.bodyScans[m.scanIndex];
+    if(!s) return '';
+    const dateStr = new Date(s.date).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const fmt = v => v == null ? '—' : (typeof v === 'number' ? v.toFixed(1).replace('.',',') : v);
+    const rows = [
+      ['Gewicht', s.weight, 'kg'],
+      ['Muskelmasse', s.muscle, 'kg'],
+      ['Fettmasse', s.fat, 'kg'],
+      ['Körperwasser', s.water, 'kg'],
+      ['Viszerales Fett', s.visceral, 'kg'],
+      ['Zellfitness', s.cellFit, ''],
+      ['HRV', s.hrv, 'ms'],
+      ['SpO₂', s.oxygen, '%'],
+      ['Ruhe-HF', s.hr, 'bpm'],
+      ['Bioage', s.bioage, 'J.'],
+    ].filter(r=>r[1]!=null);
+    return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;">
+      <div class="frame" style="--accent:var(--sky);max-width:340px;width:100%;padding:1.3rem;background:#0a0a0b;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="eyebrow mono" style="color:var(--sky);margin-bottom:.3rem;">MESSUNG</div>
+        <div class="display" style="font-size:1.15rem;margin-bottom:.9rem;">${dateStr}</div>
+        <div style="margin-bottom:1rem;">
+          ${rows.map(([l,v,u])=>`<div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px dashed var(--border);">
+            <span class="mono" style="font-size:.72rem;color:var(--text-mute);">${l}</span>
+            <span class="mono" style="font-size:.8rem;color:var(--text);">${fmt(v)}${u?' '+u:''}</span>
+          </div>`).join('')}
+        </div>
+        <button class="btn-outline mono" data-modal-cancel="1" style="font-size:.7rem;">SCHLIESSEN</button>
+      </div>
+    </div>`;
   }
   if(m.type === 'day-picker'){
     const DAYS = getDayTypes();
@@ -1905,6 +1981,8 @@ function attachListeners(){
   app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onConfirm; state.modal = null; if(cb) cb(); render(); }));
   app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{ const m = state.modal; state.modal = null; if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; } render(); }));
   app.querySelectorAll('[data-pick-day]').forEach(el=>el.addEventListener('click', ()=>{ const key = el.getAttribute('data-pick-day'); const day = getDayTypes()[key]; state.modal = null; if(!day) { render(); return; } state.editDay = {key, name:day.label, short:day.short, accent:day.accent}; state.view = 'editday'; render(); }));
+  // >>> FIX #5: Klick auf Scan-Diagramm-Punkt <<<
+  app.querySelectorAll('[data-scan-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showScanPopup(+el.getAttribute('data-scan-point')); }));
   // Scan actions
   app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{ const t = el.getAttribute('data-scan-action'); if(t==='manual'){ state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan-form'; render(); } else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); } else if(t==='list'){ state.view = 'scan-list'; render(); } }));
   app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
