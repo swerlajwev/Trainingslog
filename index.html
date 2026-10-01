@@ -989,6 +989,19 @@ function avgOf(scans, key){
   return vals.reduce((a,b)=>a+b,0) / vals.length;
 }
 
+function calcBioageAssessment(bioage, calAge){
+  const cal = parseFloat(calAge) || 17;
+  const bio = parseFloat(bioage);
+  const diffPct = isNaN(bio) ? 0 : ((bio - cal) / cal) * 100;
+  let verdict, color, iconType;
+  if(diffPct <= -15){ verdict = 'DEUTLICH JÜNGER'; color = 'var(--lime)'; iconType = 'muscle'; }
+  else if(diffPct < -5){ verdict = 'JÜNGER'; color = 'var(--green)'; iconType = 'muscle'; }
+  else if(diffPct <= 5){ verdict = 'NORMAL'; color = 'var(--yellow)'; iconType = 'runner'; }
+  else if(diffPct < 15){ verdict = 'ÄLTER'; color = 'var(--orange)'; iconType = 'grandpa'; }
+  else { verdict = 'DEUTLICH ÄLTER'; color = 'var(--red)'; iconType = 'grandpa'; }
+  const scalePos = Math.max(0, Math.min(100, 50 - diffPct * (50 / 30)));
+  return { diffPct, verdict, color, iconType, scalePos };
+}
 function renderScan(){
   const scans = state.bodyScans;
   const kraft = kraftwerteByGroup();
