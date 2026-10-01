@@ -642,8 +642,14 @@ function parseVicoachText(raw){
     }
     return null;
   }
-  const g = findNear('Gewicht', {min: 30, max: 200}); if(g!=null) result.weight = g;
-  const mm = findNear('Muskelmasse', {min: 10, max: 100}); if(mm!=null) result.muscle = mm;
+  // Strikte Muster: Der Wert steht direkt hinter der Überschrift der Messkarte (nicht in den Beschreibungstexten).
+  const strict = (re, min, max) => { const mt = t.match(re); if(!mt) return null; const n = numOf(mt[1]); return (n != null && n >= min && n <= max) ? n : null; };
+  let g = strict(/Gesamtübersicht\s*(\d+(?:[.,]\d+)?)\s*kg/i, 30, 250);
+  if(g == null) g = findNear('Gewicht', {min: 30, max: 200});
+  if(g!=null) result.weight = g;
+  let mm = strict(/Muskelmasse\s*(\d+(?:[.,]\d+)?)\s*kg/i, 10, 100);
+  if(mm == null) mm = findNear('Muskelmasse', {min: 10, max: 100});
+  if(mm!=null) result.muscle = mm;
   const mp = findNear('Muskelprotein', {min: 5, max: 30}); if(mp!=null) result.muscleProtein = mp;
   const mw = findNear('Wasser im Muskel', {min: 5, max: 40}); if(mw!=null) result.muscleWater = mw;
   const f = findNear('Fettmasse', {min: 1, max: 80}); if(f!=null) result.fat = f;
@@ -653,23 +659,32 @@ function parseVicoachText(raw){
   const cf = findNear('Zellfitnesswert', {min: 2, max: 12});
   if(cf!=null) result.cellFit = cf;
   else { const c2 = findNear('Phasenwinkel', {min: 2, max: 12}); if(c2!=null) result.cellFit = c2; }
-  const hrv = findNear('HRV-Trainingsbereitschaft', {min: 5, max: 250});
+  let hrv = strict(/(\d{2,3})\s*ms\s*Allgemeiner\s*Normbereich/i, 5, 250);
+  if(hrv == null) hrv = strict(/HRV-Trainingsbereitschaft\s*(\d{2,3})\s*ms/i, 5, 250);
+  if(hrv == null) hrv = findNear('HRV-Trainingsbereitschaft', {min: 5, max: 250});
+  if(hrv == null) hrv = findNear('HRV', {min: 5, max: 250});
   if(hrv!=null) result.hrv = hrv;
-  else { const h2 = findNear('HRV', {min: 5, max: 250}); if(h2!=null) result.hrv = h2; }
   const oxy = findNear('Sauerstoffsättigung', {min: 70, max: 100});
   if(oxy!=null) result.oxygen = oxy;
   else { const o2 = findNear('SpO2', {min: 70, max: 100}); if(o2!=null) result.oxygen = o2; }
   const hr = findNear('Herzfrequenz', {min: 30, max: 150}); if(hr!=null) result.hr = hr;
   const ba = findNear('Bioage', {min: 5, max: 90}); if(ba!=null) result.bioage = ba;
-  // Körperwasser gesamt (vicoach: "Körperwasser" / "Wasser")
-  let wt = findNear('Körperwasser', {min: 20, max: 70});
-  if(wt == null) wt = findNear('Wasser', {min: 20, max: 70});
-  if(wt != null) result.water = wt;
+  // Wasser gesamt: "Wasser 54,2 kg" (oberste Karte), NICHT "Intrazelluläres/Extrazelluläres Wasser"
+  let wt = null;
+  { const reW = /Wasser\s*(\d+(?:[.,]\d+)?)\s*kg/gi; let mw;
+    while((mw = reW.exec(t))){
+      const prev = t.substring(Math.max(0, mw.index - 16), mw.index);
+      if(/läres\s*$/i.test(prev)) continue;
+      const n = numOf(mw[1]);
+      if(n != null && n >= 20 && n <= 90){ wt = n; break; }
+    } }
   const wi = findNear('Intrazelluläres Wasser', {min: 10, max: 60}); if(wi!=null) result.waterIntra = wi;
   const we = findNear('Extrazelluläres Wasser', {min: 5, max: 40}); if(we!=null) result.waterExtra = we;
-  if(result.water == null && result.waterIntra != null && result.waterExtra != null){
-    result.water = Math.round((result.waterIntra + result.waterExtra) * 10) / 10;
+  if(wi != null && we != null){
+    const sum = Math.round((wi + we) * 10) / 10;
+    if(wt == null || Math.abs(wt - sum) > 1) wt = sum;
   }
+  if(wt != null) result.water = wt;
   const t1 = findNear('Torso', {min: 5, max: 40}); if(t1!=null) result.muscleTorso = t1;
   const aR = findNear('Arm R', {min: 1, max: 15}); if(aR!=null) result.muscleArmR = aR;
   const aL = findNear('Arm L', {min: 1, max: 15}); if(aL!=null) result.muscleArmL = aL;
@@ -1902,6 +1917,12 @@ function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfi
 }
 function showSessionPopup(sessionId){ state.modal = {type:'session-preview', sessionId}; render(); }
 function showDayPicker(){ state.modal = {type:'day-picker'}; render(); }
+function upsertScan(scan){
+  const day = String(scan.date || '').slice(0,10);
+  const idx = state.bodyScans.findIndex(x => String(x.date || '').slice(0,10) === day);
+  if(idx >= 0){ state.bodyScans[idx] = Object.assign({}, state.bodyScans[idx], scan); return 'merged'; }
+  state.bodyScans.push(scan); return 'added';
+}
 function showPdfUpload(){ state.modal = {type:'pdf-upload'}; render(); }
 // >>> FIX #5: Popup für Scan-Punkt <<<
 function showScanPopup(scanIndex){ state.modal = {type:'scan-preview', scanIndex}; render(); }
@@ -2005,11 +2026,13 @@ function attachListeners(){
     ['weight','muscle','muscleProtein','muscleWater','fat','fatEssential','fatReserve','visceral','cellFit','hrv','oxygen','hr','bioage','water','waterIntra','waterExtra','muscleTorso','muscleArmR','muscleArmL','muscleLegR','muscleLegL'].forEach(k=>{
       const v = parseFloat(f[k]); if(!isNaN(v)) scan[k] = v;
     });
-    if(state.scanEditIndex != null){ state.bodyScans[state.scanEditIndex] = scan; }
-    else { state.bodyScans.push(scan); }
+    let saveMode = 'added';
+    if(state.scanEditIndex != null){ state.bodyScans[state.scanEditIndex] = scan; saveMode = 'edit'; }
+    else { saveMode = upsertScan(scan); }
     saveBodyScans(state.bodyScans);
     state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan'; render();
-    showToast('MESSUNG GESPEICHERT');
+    const dd = String(scan.date).slice(8,10) + '.' + String(scan.date).slice(5,7) + '.';
+    showToast(saveMode === 'merged' ? 'MESSUNG VOM ' + dd + ' AKTUALISIERT' : 'MESSUNG GESPEICHERT');
   }));
   app.querySelectorAll('[data-scan-delete]').forEach(el=>el.addEventListener('click', ()=>{ const idx = +el.getAttribute('data-scan-delete'); state.bodyScans.splice(idx, 1); saveBodyScans(state.bodyScans); render(); }));
   app.querySelectorAll('[data-scan-edit]').forEach(el=>el.addEventListener('click', ()=>{ const idx = +el.getAttribute('data-scan-edit'); const s = state.bodyScans[idx]; if(!s) return; state.scanForm = {...s}; state.scanEditIndex = idx; state.view = 'scan-form'; render(); }));
