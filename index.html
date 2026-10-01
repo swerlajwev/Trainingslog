@@ -2105,7 +2105,6 @@ function attachListeners(){
   app.querySelectorAll('[data-confirm-delete]').forEach(el=>el.addEventListener('click', ()=>{ const id = el.getAttribute('data-confirm-delete'); state.sessions = state.sessions.filter(s=>s.id!==id); saveSessions(state.sessions); state.confirmDelete=false; state.detailId=null; state.view='history'; render(); }));
 }
 restoreDraft();
-if(state.draft) state.view = 'session';
 render();
 if(fbEnabled){
   fbAuth.getRedirectResult().catch(err=>{ state.authForm.error = fbErrorMsg(err); });
