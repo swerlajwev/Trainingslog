@@ -945,6 +945,7 @@ const SCAN_INFOS = {
   hrv: { title: 'HRV · TRAININGSEREITSCHAFT', text: 'Die Herzratenvariabilität zeigt deine Erholung. Niedrig = Regeneration nötig.' },
   bioage: { title: 'BIOLOGISCHES ALTER', text: 'Relativ zu deinem kalendarischen Alter:\n≤ −15 % = deutlich jünger\n−5 bis −15 % = jünger\n±5 % = normal\n+5 bis +15 % = älter\n≥ +15 % = deutlich älter' },
 };
+let currentInfo = null;
 function renderScanInfoOverlay(){
   if(!currentInfo) return '';
   const info = SCAN_INFOS[currentInfo];
