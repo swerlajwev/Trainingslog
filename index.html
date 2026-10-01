@@ -1659,7 +1659,13 @@ function renderNewDay(){
 function renderSession(){
   const DAYS = getDayTypes();
   const d = state.draft;
-  const day = DAYS[d.dayType];
+  let day = DAYS[d.dayType];
+  if(!day){
+    const names = [];
+    d.exercises.forEach(e=>{ if(!names.includes(e.name)) names.push(e.name); });
+    state.sessions.filter(x=>x.dayType===d.dayType).forEach(x=>(x.exercises||[]).forEach(e=>{ if(!names.includes(e.name)) names.push(e.name); }));
+    day = { key:d.dayType, label:'UNBEKANNTER TAG', short:'?', accent:'var(--lime)', pool:names };
+  }
   const active = d.exercises.map(e=>e.name);
   const lastSession = state.sessions.find(s=>s.dayType===d.dayType);
   const isEdit = state.poolEditMode;
