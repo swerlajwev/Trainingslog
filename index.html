@@ -141,14 +141,16 @@
   .info-box .close-btn{width:100%;padding:.85rem;background:var(--lime);border:none;color:#000;font-weight:600;letter-spacing:.15em;font-family:var(--font-display);font-size:.85rem;margin-top:.5rem;}
   .scale-wrap{margin-bottom:.6rem;}
   .scale-wrap.compact{margin-bottom:0;}
-  .scale-bar{display:flex;align-items:center;gap:3px;height:22px;}
+  .scale-bar{display:flex;align-items:center;gap:4px;height:34px;}
+  .scale-seg{position:relative;flex:1;height:20px;border-radius:3px;transition:all .3s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  .scale-seg::after{content:'';position:absolute;top:-8px;bottom:-8px;left:-2px;right:-2px;}
   .scale-bar[data-sb] .scale-seg{cursor:pointer;}
-  .scale-seg{flex:1;height:12px;border-radius:2px;transition:all .3s;}
-  .scale-seg.on{flex:1.5;height:20px;}
+  .scale-seg.on{flex:1.5;height:30px;}
   .scale-seg.sel{outline:1px solid #f4f4f5;outline-offset:1px;}
-  .scale-bar.compact{height:14px;gap:2px;}
-  .scale-bar.compact .scale-seg{height:7px;}
-  .scale-bar.compact .scale-seg.on{height:13px;}
+  .scale-bar.compact{height:24px;gap:3px;}
+  .scale-bar.compact .scale-seg{height:12px;}
+  .scale-bar.compact .scale-seg::after{top:-6px;bottom:-6px;left:-1.5px;right:-1.5px;}
+  .scale-bar.compact .scale-seg.on{height:18px;}
   .scale-cap{display:none;margin-top:.4rem;font-size:.68rem;color:var(--text-dim);}
   .scale-cap.show{display:block;}
   .ring-wrap{display:flex;align-items:center;gap:1rem;}
@@ -1254,11 +1256,11 @@ function renderScan(){
       </div>
       ${scaleBarFor(scans, s=>s.water!=null ? s.water : ((s.waterIntra!=null && s.waterExtra!=null) ? s.waterIntra + s.waterExtra : null), true, 'kg', 1)}
       <div class="ring-wrap">
-        ${donut([{value:waterIntra||1},{value:waterExtra||1}], waterTotal.toFixed(1).replace('.',','), 'kg', ['#38bdf8','#0c4a6e'])}
+        ${donut([{value:waterIntra||1},{value:waterExtra||1}], waterTotal.toFixed(1).replace('.',','), 'kg', ['#38bdf8','#2563eb'])}
         <div style="flex:1;">
           <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Intrazellulär</span><span class="mono" style="font-size:.8rem;color:#38bdf8;">${waterIntra?waterIntra.toFixed(1).replace('.',','):'—'} kg</span></div>
           <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin:.1rem 0 .3rem .1rem;">Wasser IN den Zellen</div>
-          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Extrazellulär</span><span class="mono" style="font-size:.8rem;color:#0c4a6e;">${waterExtra?waterExtra.toFixed(1).replace('.',','):'—'} kg</span></div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Extrazellulär</span><span class="mono" style="font-size:.8rem;color:#2563eb;">${waterExtra?waterExtra.toFixed(1).replace('.',','):'—'} kg</span></div>
           <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin:.1rem 0 .3rem .1rem;">Wasser ZWISCHEN den Zellen</div>
         </div>
       </div>
@@ -1275,10 +1277,10 @@ function renderScan(){
       </div>
       ${scaleBarFor(scans, s=>s.muscle, true, 'kg', 1)}
       <div class="ring-wrap">
-        ${donut([{value:musProtein||1},{value:musWater||1}], last.muscle!=null?last.muscle.toFixed(1).replace('.',','):'—', 'kg', ['#84cc16','#0c4a6e'])}
+        ${donut([{value:musProtein||1},{value:musWater||1}], last.muscle!=null?last.muscle.toFixed(1).replace('.',','):'—', 'kg', ['#84cc16','#2563eb'])}
         <div style="flex:1;">
           <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Muskelprotein</span><span class="mono" style="font-size:.8rem;color:#84cc16;">${musProtein?musProtein.toFixed(1).replace('.',','):'—'} kg</span></div>
-          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Wasser im Muskel</span><span class="mono" style="font-size:.8rem;color:#0c4a6e;">${musWater?musWater.toFixed(1).replace('.',','):'—'} kg</span></div>
+          <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Wasser im Muskel</span><span class="mono" style="font-size:.8rem;color:#2563eb;">${musWater?musWater.toFixed(1).replace('.',','):'—'} kg</span></div>
         </div>
       </div>
       ${scanLineChart(scans, 'muscle', 'var(--lime)')}
