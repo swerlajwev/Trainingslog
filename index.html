@@ -139,12 +139,18 @@
   .info-box h3{font-family:var(--font-display);font-size:1.15rem;margin:0 0 1rem;color:var(--text);letter-spacing:.02em;}
   .info-box p{font-size:.85rem;line-height:1.7;color:var(--text-dim);margin:0 0 .8rem;}
   .info-box .close-btn{width:100%;padding:.85rem;background:var(--lime);border:none;color:#000;font-weight:600;letter-spacing:.15em;font-family:var(--font-display);font-size:.85rem;margin-top:.5rem;}
-  .scale-bar{display:flex;align-items:center;gap:3px;height:22px;margin-bottom:.6rem;}
+  .scale-wrap{margin-bottom:.6rem;}
+  .scale-wrap.compact{margin-bottom:0;}
+  .scale-bar{display:flex;align-items:center;gap:3px;height:22px;}
+  .scale-bar[data-sb] .scale-seg{cursor:pointer;}
   .scale-seg{flex:1;height:12px;border-radius:2px;transition:all .3s;}
   .scale-seg.on{flex:1.5;height:20px;}
-  .scale-bar.compact{height:14px;gap:2px;margin-bottom:0;}
+  .scale-seg.sel{outline:1px solid #f4f4f5;outline-offset:1px;}
+  .scale-bar.compact{height:14px;gap:2px;}
   .scale-bar.compact .scale-seg{height:7px;}
   .scale-bar.compact .scale-seg.on{height:13px;}
+  .scale-cap{display:none;margin-top:.4rem;font-size:.68rem;color:var(--text-dim);}
+  .scale-cap.show{display:block;}
   .ring-wrap{display:flex;align-items:center;gap:1rem;}
   .ring-svg{width:120px;height:120px;flex-shrink:0;}
   .body-svg{width:120px;height:250px;flex-shrink:0;}
@@ -800,11 +806,55 @@ function scanPos(scans, get, goodUp, curOverride){
   const p = Math.max(0, Math.min(100, (cur - mn) / (mx - mn) * 100));
   return goodUp ? p : 100 - p;
 }
-function scaleBar(positionPct, compact){
+function scaleBar(positionPct, compact, attrs){
   const idx = scaleBoxIndex(positionPct);
   const segsHtml = SCALE_BOX_COLORS.map((c,i)=>`<div class="scale-seg${i===idx?' on':''}" style="background:${c};"></div>`).join('');
-  return `<div class="scale-bar${compact?' compact':''}">${segsHtml}</div>`;
+  return `<div class="scale-wrap${compact?' compact':''}"><div class="scale-bar${compact?' compact':''}"${attrs||''}>${segsHtml}</div><div class="scale-cap mono"></div></div>`;
 }
+// Balken mit antippbaren Kästchen: zeigt pro Kästchen den Wertebereich (aus deinem eigenen Verlauf)
+function scaleBarFor(scans, get, goodUp, unit, dec, compact, curOverride){
+  const vals = scans.map(get).filter(v=>typeof v==='number' && isFinite(v));
+  const cur = curOverride != null ? curOverride : (scans.length ? get(scans[scans.length-1]) : null);
+  const pos = scanPos(scans, get, goodUp, curOverride);
+  const mn = vals.length ? Math.min(...vals) : 0, mx = vals.length ? Math.max(...vals) : 0;
+  const hasRange = vals.length >= 2 && mx - mn >= 1e-9 && typeof cur === 'number' && isFinite(cur);
+  const attrs = hasRange
+    ? ` data-sb="1" data-min="${mn}" data-max="${mx}" data-up="${goodUp?1:0}" data-unit="${unit}" data-dec="${dec}" data-cur="${cur}"`
+    : ` data-sb="1" data-none="1"`;
+  return scaleBar(pos, compact, attrs);
+}
+document.addEventListener('click', (e)=>{
+  const seg = e.target.closest ? e.target.closest('.scale-seg') : null;
+  if(!seg) return;
+  const bar = seg.parentElement;
+  if(!bar || !bar.hasAttribute('data-sb')) return;
+  const cap = bar.parentElement.querySelector('.scale-cap');
+  if(!cap) return;
+  const idx = Array.prototype.indexOf.call(bar.children, seg);
+  const prev = bar.querySelector('.scale-seg.sel');
+  if(prev) prev.classList.remove('sel');
+  if(cap.classList.contains('show') && cap.getAttribute('data-idx') === String(idx)){ cap.classList.remove('show'); return; }
+  seg.classList.add('sel');
+  cap.setAttribute('data-idx', idx);
+  let txt;
+  if(bar.hasAttribute('data-none')){
+    txt = 'Noch keine Spanne: Dafür brauchst du mindestens 2 verschiedene Messwerte.';
+  } else {
+    const mn = +bar.dataset.min, mx = +bar.dataset.max, up = bar.dataset.up === '1', dec = +bar.dataset.dec, unit = bar.dataset.unit, cur = +bar.dataset.cur;
+    const fmt = v => v.toFixed(dec).replace('.', ',');
+    const val = p => up ? mn + p * (mx - mn) : mx - p * (mx - mn);
+    const lo = val(idx / 7), hi = val((idx + 1) / 7);
+    let range;
+    if(idx === 0) range = up ? `bis ${fmt(hi)}` : `ab ${fmt(hi)}`;
+    else if(idx === 6) range = up ? `ab ${fmt(lo)}` : `bis ${fmt(lo)}`;
+    else range = `${fmt(Math.min(lo, hi))}–${fmt(Math.max(lo, hi))}`;
+    const p = Math.max(0, Math.min(100, (cur - mn) / (mx - mn) * 100));
+    const here = idx === scaleBoxIndex(up ? p : 100 - p);
+    txt = `${range} ${unit}` + (here ? ` · hier bist du (${fmt(cur)} ${unit})` : '');
+  }
+  cap.textContent = txt;
+  cap.classList.add('show');
+});
 function donut(segments, centerValue, centerUnit, colors){
   const size = 120, r = 46, cx = size/2, cy = size/2;
   const circumference = 2 * Math.PI * r;
@@ -957,15 +1007,15 @@ function renderInner(){
 // =====================================================================
 const SCAN_INFOS = {
   composition: { title: 'KÖRPERZUSAMMENSETZUNG', text: 'Dein Gewicht, aufgeteilt in zwei Teile:\nFettfreie Masse = alles, was kein Fett ist (Wasser, Muskeln, Knochen).\nFettmasse = dein Körperfett.' },
-  muscleDist: { title: 'MUSKELVERTEILUNG', text: 'Zeigt, wie viel Muskelmasse in Rumpf, Armen und Beinen steckt.\nRechts und links sollten ähnlich sein. Ist eine Seite deutlich schwächer, belastest du die andere zu stark, und das kann zu Verletzungen führen.\nDer Rumpf ist immer am schwersten, das ist normal.\nJeder Balken zeigt, wo dein Wert zwischen deinem niedrigsten (rot, links) und deinem höchsten Wert (grün, rechts) liegt.' },
-  water: { title: 'KÖRPERWASSER', text: 'Wie viel Wasser in deinem Körper steckt. Es teilt sich in zwei Teile:\nIntrazellulär = Wasser in deinen Zellen. Das ist das gute Wasser. Etwa 61–64 % deines Körperwassers sollten hier sein.\nExtrazellulär = Wasser zwischen den Zellen. Ist es zu viel, staut sich Wasser im Gewebe.\nBalken: ganz rechts = dein bisher höchster Wert.' },
-  muscle: { title: 'MUSKELMASSE', text: 'Deine gesamte Muskelmasse. Sie besteht aus Muskelprotein (das feste Muskelgewebe) und Wasser in den Muskeln.\nDas Muskelprotein sollte mindestens ein Drittel der Muskelmasse sein.\nMehr Muskeln = dein Körper verbrennt auch in Ruhe mehr Energie.\nBalken: ganz rechts = dein bisher höchster Wert.' },
-  fat: { title: 'FETTMASSE', text: 'Dein Körperfett insgesamt. Es besteht aus drei Teilen:\nEssentielles Fett = brauchst du zum Leben (z. B. zum Schutz der Organe).\nFettreserve = normales, gesundes Körperfett.\nÜberschüssiges Fett = zu viel, schadet der Gesundheit. Hier sollte 0 stehen.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert.' },
-  visceral: { title: 'VISZERALES FETT', text: 'Fett im Bauchraum, rund um die inneren Organe. Es ist ungesünder als Fett unter der Haut, auch wenn man es von außen nicht sieht.\nUnter 2 kg ist gut. Kraft- und Ausdauertraining und gesunde Ernährung senken es.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert.' },
-  cellFit: { title: 'ZELLFITNESS (PHASENWINKEL)', text: 'Zeigt, wie fit und gut versorgt deine Zellen sind (Wasser, Nährstoffe, Sauerstoff). Gemessen wird der Phasenwinkel.\nHöher = besser. Normal sind 5,0–7,0.\nSchlaf, Training, gutes Essen und genug Trinken verbessern den Wert.\nBalken: ganz rechts = dein bisher höchster Wert.' },
+  muscleDist: { title: 'MUSKELVERTEILUNG', text: 'Zeigt, wie viel Muskelmasse in Rumpf, Armen und Beinen steckt.\nRechts und links sollten ähnlich sein. Ist eine Seite deutlich schwächer, belastest du die andere zu stark, und das kann zu Verletzungen führen.\nDer Rumpf ist immer am schwersten, das ist normal.\nJeder Balken zeigt, wo dein Wert zwischen deinem niedrigsten (rot, links) und deinem höchsten Wert (grün, rechts) liegt. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  water: { title: 'KÖRPERWASSER', text: 'Wie viel Wasser in deinem Körper steckt. Es teilt sich in zwei Teile:\nIntrazellulär = Wasser in deinen Zellen. Das ist das gute Wasser. Etwa 61–64 % deines Körperwassers sollten hier sein.\nExtrazellulär = Wasser zwischen den Zellen. Ist es zu viel, staut sich Wasser im Gewebe.\nBalken: ganz rechts = dein bisher höchster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  muscle: { title: 'MUSKELMASSE', text: 'Deine gesamte Muskelmasse. Sie besteht aus Muskelprotein (das feste Muskelgewebe) und Wasser in den Muskeln.\nDas Muskelprotein sollte mindestens ein Drittel der Muskelmasse sein.\nMehr Muskeln = dein Körper verbrennt auch in Ruhe mehr Energie.\nBalken: ganz rechts = dein bisher höchster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  fat: { title: 'FETTMASSE', text: 'Dein Körperfett insgesamt. Es besteht aus drei Teilen:\nEssentielles Fett = brauchst du zum Leben (z. B. zum Schutz der Organe).\nFettreserve = normales, gesundes Körperfett.\nÜberschüssiges Fett = zu viel, schadet der Gesundheit. Hier sollte 0 stehen.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  visceral: { title: 'VISZERALES FETT', text: 'Fett im Bauchraum, rund um die inneren Organe. Es ist ungesünder als Fett unter der Haut, auch wenn man es von außen nicht sieht.\nUnter 2 kg ist gut. Kraft- und Ausdauertraining und gesunde Ernährung senken es.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  cellFit: { title: 'ZELLFITNESS (PHASENWINKEL)', text: 'Zeigt, wie fit und gut versorgt deine Zellen sind (Wasser, Nährstoffe, Sauerstoff). Gemessen wird der Phasenwinkel.\nHöher = besser. Normal sind 5,0–7,0.\nSchlaf, Training, gutes Essen und genug Trinken verbessern den Wert.\nBalken: ganz rechts = dein bisher höchster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
   spo2: { title: 'SAUERSTOFFSÄTTIGUNG', text: 'Wie viel Sauerstoff dein Blut transportiert.\n95–100 % ist normal. Sind die Werte dauerhaft niedriger oder bekommst du schlecht Luft, lass es ärztlich abklären.' },
-  hr: { title: 'RUHE-HERZFREQUENZ', text: 'Dein Puls in Ruhe (Herzschläge pro Minute).\nNiedriger ist besser: Ein trainiertes Herz muss weniger oft schlagen.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert.' },
-  hrv: { title: 'HRV · TRAININGSBEREITSCHAFT', text: 'Die Herzratenvariabilität (HRV) zeigt, wie gut du dich erholt hast. Gemessen wird der zeitliche Abstand zwischen deinen Herzschlägen in Millisekunden.\nIm Normbereich bist du erholt und kannst normal trainieren.\nDarunter solltest du lockerer trainieren oder einen Ruhetag machen.\nBalken: ganz rechts = dein bisher höchster Wert.' },
+  hr: { title: 'RUHE-HERZFREQUENZ', text: 'Dein Puls in Ruhe (Herzschläge pro Minute).\nNiedriger ist besser: Ein trainiertes Herz muss weniger oft schlagen.\nBalken: ganz rechts (grün) = dein bisher niedrigster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
+  hrv: { title: 'HRV · TRAININGSBEREITSCHAFT', text: 'Die Herzratenvariabilität (HRV) zeigt, wie gut du dich erholt hast. Gemessen wird der zeitliche Abstand zwischen deinen Herzschlägen in Millisekunden.\nIm Normbereich bist du erholt und kannst normal trainieren.\nDarunter solltest du lockerer trainieren oder einen Ruhetag machen.\nBalken: ganz rechts = dein bisher höchster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
   bioage: { title: 'BIOLOGISCHES ALTER', text: 'Wie alt dein Körper auf Zellebene ist. Das kann von deinem echten Alter abweichen. Liegt es darunter, ist das gut.\nWeniger als 5 % Unterschied: normal.\n5–15 % darunter = jünger, 5–15 % darüber = älter.\nMehr als 15 %: deutlich jünger oder älter.' },
 };
 let currentInfo = null;
@@ -1186,7 +1236,7 @@ function renderScan(){
                 <span class="mono" style="font-size:.65rem;color:var(--text-dim);">${r.label}</span>
                 <span class="mono" style="font-size:.7rem;color:${col};">${val.toFixed(1).replace('.',',')} kg</span>
               </div>
-              ${scaleBar(mvPos[r.key], true)}
+              ${scaleBarFor(scans, s=>s[mvKeys[r.key]], true, 'kg', 1, true, dist[r.key])}
             </div>`;
           }).join('')}
         </div>
@@ -1200,9 +1250,9 @@ function renderScan(){
       ${infoBtn('water')}
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
         <div class="eyebrow mono" style="color:var(--sky);">KÖRPERWASSER</div>
-        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${waterPct?waterPct.toFixed(1).replace('.',',')+' % vom Gewicht':''}</div>
+        <div class="mono" style="text-align:right;">${waterPct?'<span style="font-size:1.15rem;font-weight:600;color:var(--accent);">'+waterPct.toFixed(1).replace('.',',')+' %</span> <span style="font-size:.6rem;color:var(--text-mute);">vom Gewicht</span>':''}</div>
       </div>
-      ${scaleBar(scanPos(scans, s=>s.water!=null ? s.water : ((s.waterIntra!=null && s.waterExtra!=null) ? s.waterIntra + s.waterExtra : null), true))}
+      ${scaleBarFor(scans, s=>s.water!=null ? s.water : ((s.waterIntra!=null && s.waterExtra!=null) ? s.waterIntra + s.waterExtra : null), true, 'kg', 1)}
       <div class="ring-wrap">
         ${donut([{value:waterIntra||1},{value:waterExtra||1}], waterTotal.toFixed(1).replace('.',','), 'kg', ['#38bdf8','#0c4a6e'])}
         <div style="flex:1;">
@@ -1221,9 +1271,9 @@ function renderScan(){
       ${infoBtn('muscle')}
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
         <div class="eyebrow mono" style="color:var(--lime);">MUSKELMASSE</div>
-        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${musPct?musPct.toFixed(1).replace('.',',')+' % vom Gewicht':''}</div>
+        <div class="mono" style="text-align:right;">${musPct?'<span style="font-size:1.15rem;font-weight:600;color:var(--accent);">'+musPct.toFixed(1).replace('.',',')+' %</span> <span style="font-size:.6rem;color:var(--text-mute);">vom Gewicht</span>':''}</div>
       </div>
-      ${scaleBar(scanPos(scans, s=>s.muscle, true))}
+      ${scaleBarFor(scans, s=>s.muscle, true, 'kg', 1)}
       <div class="ring-wrap">
         ${donut([{value:musProtein||1},{value:musWater||1}], last.muscle!=null?last.muscle.toFixed(1).replace('.',','):'—', 'kg', ['#84cc16','#0c4a6e'])}
         <div style="flex:1;">
@@ -1240,9 +1290,9 @@ function renderScan(){
       ${infoBtn('fat')}
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;padding-right:1.6rem;">
         <div class="eyebrow mono" style="color:#FFD700;">FETTMASSE</div>
-        <div class="mono" style="font-size:.6rem;color:var(--text-mute);">${fatPct?fatPct.toFixed(1).replace('.',',')+' % vom Gewicht':''}</div>
+        <div class="mono" style="text-align:right;">${fatPct?'<span style="font-size:1.15rem;font-weight:600;color:var(--accent);">'+fatPct.toFixed(1).replace('.',',')+' %</span> <span style="font-size:.6rem;color:var(--text-mute);">vom Gewicht</span>':''}</div>
       </div>
-      ${scaleBar(scanPos(scans, s=>s.fat, false))}
+      ${scaleBarFor(scans, s=>s.fat, false, 'kg', 1)}
       <div class="ring-wrap">
         ${donut([{value:fatEss||1},{value:fatRes||1},{value:0.001}], last.fat!=null?last.fat.toFixed(1).replace('.',','):'—', 'kg', ['#1e40af','#FFD700','#7f1d1d'])}
         <div style="flex:1;">
@@ -1259,7 +1309,7 @@ function renderScan(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('visceral')}
       <div class="eyebrow mono" style="color:var(--red);margin-bottom:.5rem;padding-right:1.6rem;">VISZERALES FETT</div>
-      ${scaleBar(scanPos(scans, s=>s.visceral, false))}
+      ${scaleBarFor(scans, s=>s.visceral, false, 'kg', 1)}
       <div style="display:flex;gap:1rem;align-items:center;">
         ${visceralProfile(last.visceral || 0)}
         <div style="flex:1;">
@@ -1279,7 +1329,7 @@ function renderScan(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('cellFit')}
       <div class="eyebrow mono" style="color:var(--lime);margin-bottom:.5rem;padding-right:1.6rem;">ZELLFITNESS (PHASENWINKEL)</div>
-      ${scaleBar(scanPos(scans, s=>s.cellFit, true))}
+      ${scaleBarFor(scans, s=>s.cellFit, true, '°', 1)}
       <div class="single-value"><div class="num" style="color:var(--lime);">${last.cellFit != null ? last.cellFit.toFixed(1).replace('.',',') : '—'}</div><div class="unit">Phasenwinkel</div></div>
       ${scanLineChart(scans, 'cellFit', 'var(--lime)')}
     </div>
@@ -1289,7 +1339,7 @@ function renderScan(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('spo2')}
       <div class="eyebrow mono" style="color:var(--sky);margin-bottom:.5rem;padding-right:1.6rem;">SAUERSTOFFSÄTTIGUNG</div>
-      ${scaleBar(scanPos(scans, s=>s.oxygen, true))}
+      ${scaleBarFor(scans, s=>s.oxygen, true, '%', 0)}
       <div style="display:flex;align-items:center;gap:1rem;">
         ${o2Icon('#38bdf8')}
         <div class="single-value"><div class="num" style="color:var(--sky);">${last.oxygen != null ? last.oxygen : '—'}</div><div class="unit">%</div></div>
@@ -1302,7 +1352,7 @@ function renderScan(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('hr')}
       <div class="eyebrow mono" style="color:var(--text-dim);margin-bottom:.5rem;padding-right:1.6rem;">RUHE-HERZFREQUENZ</div>
-      ${scaleBar(scanPos(scans, s=>s.hr, false))}
+      ${scaleBarFor(scans, s=>s.hr, false, 'bpm', 0)}
       <div style="display:flex;align-items:center;gap:1rem;">
         ${heartEkg('#a1a1aa')}
         <div class="single-value"><div class="num" style="color:var(--text);">${last.hr != null ? last.hr : '—'}</div><div class="unit">bpm</div></div>
@@ -1315,7 +1365,7 @@ function renderScan(){
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
       ${infoBtn('hrv')}
       <div class="eyebrow mono" style="color:var(--pink);margin-bottom:.5rem;padding-right:1.6rem;">HRV · TRAININGSEREITSCHAFT</div>
-      ${scaleBar(scanPos(scans, s=>s.hrv, true))}
+      ${scaleBarFor(scans, s=>s.hrv, true, 'ms', 0)}
       <div class="single-value"><div class="num" style="color:var(--pink);">${last.hrv != null ? last.hrv : '—'}</div><div class="unit">ms</div></div>
       ${scanLineChart(scans, 'hrv', 'var(--pink)')}
     </div>
