@@ -183,6 +183,7 @@ const ICON = {
   check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   zap:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>',
+  share:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
   edit:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>',
   arrowUp:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>',
   arrowDown:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
@@ -466,6 +467,40 @@ function getPool(key){
   return [...new Set(names)];
 }
 function isPerArm(dayKey, name){ const ov = loadExOverrides(); return !!(ov[dayKey] && ov[dayKey].perArm && ov[dayKey].perArm[name]); }
+// ---- Tag teilen: Code erzeugen / importieren (ohne Gewichte & Wdh.) ----
+function encodeDayShare(dayKey){
+  const day = getDayTypes()[dayKey]; if(!day) return '';
+  const names = getPool(dayKey);
+  const obj = {v:1, n:day.label, s:day.short, c:day.accent, p:names, a:names.filter(n=>isPerArm(dayKey,n))};
+  return 'TL1:' + btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+}
+function decodeDayShare(code){
+  try{
+    let t = String(code||'').replace(/\s+/g,'');
+    const i = t.indexOf('TL1:'); if(i<0) return null;
+    t = t.slice(i+4);
+    const o = JSON.parse(decodeURIComponent(escape(atob(t))));
+    if(!o || typeof o.n!=='string' || !o.n.trim() || !Array.isArray(o.p)) return null;
+    const p = o.p.filter(x=>typeof x==='string' && x.trim()).map(x=>x.trim().slice(0,80)).slice(0,60);
+    const a = Array.isArray(o.a) ? o.a.filter(x=>typeof x==='string' && p.includes(x)) : [];
+    const c = (typeof o.c==='string' && /^(#[0-9a-fA-F]{3,8}|var\(--[a-z]+\))$/.test(o.c)) ? o.c : DAY_SWATCHES[0];
+    const s = (typeof o.s==='string' && o.s.trim()) ? o.s.trim().slice(0,4).toUpperCase() : autoShort(o.n);
+    return {label:o.n.trim().slice(0,40).toUpperCase(), short:s, accent:c, pool:[...new Set(p)], perArm:a};
+  }catch(e){ return null; }
+}
+function importDayShare(code){
+  const d = decodeDayShare(code); if(!d) return false;
+  const key = 'C' + uid();
+  const days = loadCustomDays(); days.push({key, label:d.label, short:d.short, accent:d.accent}); saveCustomDays(days, true);
+  const pool = loadCustomPool(); pool[key] = d.pool; saveCustomPool(pool, true);
+  if(d.perArm.length){ const ov = loadExOverrides(); ov[key] = {perArm:Object.fromEntries(d.perArm.map(n=>[n,true]))}; saveExOverrides(ov, true); }
+  pushToCloud();
+  return true;
+}
+function copyText(txt){
+  const fallback = ()=>{ try{ const ta = document.createElement('textarea'); ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('CODE KOPIERT'); }catch(e){ showToast('BITTE CODE MANUELL MARKIEREN'); } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>showToast('CODE KOPIERT')).catch(fallback); } else fallback();
+}
 function togglePerArm(dayKey, name){
   const ov = loadExOverrides();
   if(!ov[dayKey]) ov[dayKey] = {};
@@ -1008,6 +1043,7 @@ function renderInner(){
 // SCAN-INFO-MODAL
 // =====================================================================
 const SCAN_INFOS = {
+  changes: { title: 'VERÄNDERUNG', text: 'Zeigt, wie sich Muskelmasse, Fettmasse und Gewicht verändert haben.\nDie große Zahl rechts ist der Unterschied zwischen deinem aktuellen Scan und dem Scan davor.\nDie kleine Zahl darunter ist der Unterschied zwischen deinem aktuellen Scan und deinem allerersten Scan.\nLinks siehst du die Werte: erster Scan, vorletzter Scan, aktueller Scan.\nPfeil ↑ heißt: der Wert ist gestiegen, Pfeil ↓ heißt: er ist gesunken.\nGrün = gut für dich, Rot = schlecht für dich. Mehr Muskeln ist gut, mehr Fett oder mehr Gewicht ist hier rot.' },
   composition: { title: 'KÖRPERZUSAMMENSETZUNG', text: 'Dein Gewicht, aufgeteilt in zwei Teile:\nFettfreie Masse = alles, was kein Fett ist (Wasser, Muskeln, Knochen).\nFettmasse = dein Körperfett.' },
   muscleDist: { title: 'MUSKELVERTEILUNG', text: 'Zeigt, wie viel Muskelmasse in Rumpf, Armen und Beinen steckt.\nRechts und links sollten ähnlich sein. Ist eine Seite deutlich schwächer, belastest du die andere zu stark, und das kann zu Verletzungen führen.\nDer Rumpf ist immer am schwersten, das ist normal.\nJeder Balken zeigt, wo dein Wert zwischen deinem niedrigsten (rot, links) und deinem höchsten Wert (grün, rechts) liegt. Tippe auf ein Kästchen, um die Werte zu sehen.' },
   water: { title: 'KÖRPERWASSER', text: 'Wie viel Wasser in deinem Körper steckt. Es teilt sich in zwei Teile:\nIntrazellulär = Wasser in deinen Zellen. Das ist das gute Wasser. Etwa 61–64 % deines Körperwassers sollten hier sein.\nExtrazellulär = Wasser zwischen den Zellen. Ist es zu viel, staut sich Wasser im Gewebe.\nBalken: ganz rechts = dein bisher höchster Wert. Tippe auf ein Kästchen, um die Werte zu sehen.' },
@@ -1148,7 +1184,9 @@ function renderScan(){
   const changeBlock = `
     <div class="frame" style="--accent:var(--lime);padding:1rem;margin-bottom:.8rem;">
       <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <div class="eyebrow mono" style="margin-bottom:1rem;">VERÄNDERUNG SEIT ${firstDateStr}</div>
+      ${infoBtn('changes')}
+      <div class="eyebrow mono" style="margin-bottom:.35rem;padding-right:1.6rem;">VERÄNDERUNG</div>
+      <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin-bottom:1rem;line-height:1.6;">GROSS = ZUM LETZTEN SCAN · KLEIN = SEIT ${firstDateStr}</div>
       ${changeRows.map(r=>{
         const f = first[r.key], p = prev[r.key], l = last[r.key];
         if(f==null || l==null) return '';
@@ -1161,16 +1199,25 @@ function renderScan(){
         const gL = r.goodUp ? dL > 0 : dL < 0;
         const cL = Math.abs(dL) < 0.05 ? 'var(--text-mute)' : (gL ? 'var(--green)' : 'var(--red)');
         const symL = Math.abs(dL) < 0.05 ? '—' : (gL ? '↑' : '↓');
+        const arrT = Math.abs(dT) < 0.05 ? '—' : (dT > 0 ? '↑' : '↓');
+        const arrL = Math.abs(dL) < 0.05 ? '—' : (dL > 0 ? '↑' : '↓');
+        const showMid = scans.length > 2 && p != null;
         let kette = `${f} `;
-        if(p != null) kette += `<span style="color:var(--text-faint);">→</span> ${p} `;
+        if(showMid) kette += `<span style="color:var(--text-faint);">→</span> ${p} `;
         kette += `<span style="color:var(--text-faint);">→</span> <span style="color:var(--text);">${l}</span> ${r.unit}`;
+        const chainLabel = showMid ? 'ERSTER · VORLETZTER · AKTUELL' : 'ERSTER · AKTUELL';
         return `<div style="margin-bottom:1rem;">
-          <div class="eyebrow mono" style="font-size:.6rem;color:${cT};margin-bottom:.35rem;">${r.label}</div>
+          <div class="eyebrow mono" style="font-size:.6rem;color:${cL};margin-bottom:.35rem;">${r.label}</div>
           <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;">
-            <div class="mono" style="font-size:.95rem;color:var(--text-dim);">${kette}</div>
+            <div>
+              <div class="mono" style="font-size:.95rem;color:var(--text-dim);">${kette}</div>
+              <div class="mono" style="font-size:.5rem;letter-spacing:.08em;color:var(--text-faint);margin-top:.25rem;">${chainLabel}</div>
+            </div>
             <div style="text-align:right;">
-              <div class="mono" style="font-size:1rem;color:${cT};">${sT}${aT} ${r.unit} ${symT}</div>
-              <div class="mono" style="font-size:.65rem;color:${cL};margin-top:.2rem;">${sL}${aL} ${r.unit} ${symL} <span style="color:var(--text-faint);">letzter</span></div>
+              <div class="mono" style="font-size:1.1rem;color:${cL};">${sL}${aL} ${r.unit} ${arrL}</div>
+              <div class="mono" style="font-size:.5rem;letter-spacing:.08em;color:var(--text-faint);">ZUM LETZTEN SCAN</div>
+              <div class="mono" style="font-size:.7rem;color:${cT};margin-top:.35rem;">${sT}${aT} ${r.unit} ${arrT}</div>
+              <div class="mono" style="font-size:.5rem;letter-spacing:.08em;color:var(--text-faint);">SEIT ${firstDateStr}</div>
             </div>
           </div>
         </div>`;
@@ -1626,6 +1673,7 @@ function renderHome(){
     <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
       <button class="btn-outline mono" data-newday-open="1" style="flex:1;">${ICON.plus} NEUER TAG</button>
       <button class="btn-outline mono" data-editmode-open="1" style="flex:1;">${ICON.edit} BEARBEITEN</button>
+      <button class="btn-outline mono" data-share-open="1" aria-label="Tag teilen" style="flex:0 0 3.2rem;width:auto;padding-left:0;padding-right:0;justify-content:center;">${ICON.share}</button>
     </div>
     <div class="day-grid">${cards}</div>
     ${renderScoreChart()}
@@ -1746,6 +1794,10 @@ function renderNewDay(){
     <div class="eyebrow mono" style="margin-bottom:.5rem;">FARBE</div>
     <div style="display:flex;gap:.6rem;margin-bottom:2rem;">${swatches}</div>
     <button class="save-btn mono" data-newday-create="1" ${nd.name.trim()?'':'disabled'} style="background:${nd.accent};">${ICON.check} TAG ANLEGEN</button>
+    <div class="eyebrow mono" style="margin:2.2rem 0 .5rem;">CODE EINFÜGEN</div>
+    <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-bottom:.6rem;line-height:1.6;">Code von einem Freund einfügen – du bekommst den Tag mit allen Übungen, ohne Gewichte.</div>
+    <textarea class="set-input mono" data-import-code="1" rows="3" placeholder="TL1:…" style="width:100%;margin-bottom:.75rem;font-size:.7rem;resize:none;"></textarea>
+    <button class="btn-outline mono" data-import-go="1">${ICON.share} TAG IMPORTIEREN</button>
   `;
 }
 function renderSession(){
@@ -1941,6 +1993,7 @@ function askConfirm({ title, message, confirmLabel, cancelLabel, danger, onConfi
 }
 function showSessionPopup(sessionId){ state.modal = {type:'session-preview', sessionId}; render(); }
 function showDayPicker(){ state.modal = {type:'day-picker'}; render(); }
+function showSharePicker(){ state.modal = {type:'share-picker'}; render(); }
 function showPdfUpload(){ state.modal = {type:'pdf-upload'}; render(); }
 // >>> FIX #5: Popup für Scan-Punkt <<<
 function showScanPopup(scanIndex){ state.modal = {type:'scan-preview', scanIndex}; render(); }
@@ -1994,6 +2047,17 @@ function renderModalOverlay(){
     const DAYS = getDayTypes();
     const list = Object.values(DAYS).map(day=>`<button class="btn-outline mono" data-pick-day="${day.key}" style="margin-bottom:.5rem;justify-content:space-between;padding:.9rem 1rem;border-color:${day.accent};color:${day.accent};"><span style="display:flex;align-items:center;gap:.6rem;"><span class="day-badge" style="--accent:${day.accent};color:${day.accent};width:2rem;height:2rem;min-width:2rem;font-size:.55rem;">${day.short}</span><span style="font-size:.85rem;">${day.label}</span></span><span>${ICON.edit}</span></button>`).join('');
     return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;"><div class="frame" style="--accent:var(--lime);max-width:360px;width:100%;padding:1.3rem;background:#0a0a0b;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="display" style="font-size:1.1rem;margin-bottom:1.2rem;">TAG BEARBEITEN</div>${list}<button class="btn-outline mono" data-modal-cancel="1" style="margin-top:.6rem;">ABBRECHEN</button></div></div>`;
+  }
+  if(m.type === 'share-picker'){
+    const DAYS = getDayTypes();
+    const list = Object.values(DAYS).map(day=>`<button class="btn-outline mono" data-share-day="${day.key}" style="margin-bottom:.5rem;justify-content:space-between;padding:.9rem 1rem;border-color:${day.accent};color:${day.accent};"><span style="display:flex;align-items:center;gap:.6rem;"><span class="day-badge" style="--accent:${day.accent};color:${day.accent};width:2rem;height:2rem;min-width:2rem;font-size:.55rem;">${day.short}</span><span style="font-size:.85rem;">${day.label}</span></span><span>${ICON.share}</span></button>`).join('');
+    return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;"><div class="frame" style="--accent:var(--lime);max-width:360px;width:100%;padding:1.3rem;background:#0a0a0b;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="display" style="font-size:1.1rem;margin-bottom:1.2rem;">TAG TEILEN</div>${list}<button class="btn-outline mono" data-modal-cancel="1" style="margin-top:.6rem;">ABBRECHEN</button></div></div>`;
+  }
+  if(m.type === 'share-code'){
+    const day = getDayTypes()[m.key]; if(!day) return '';
+    const code = encodeDayShare(m.key);
+    const canShare = !!navigator.share;
+    return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;"><div class="frame" style="--accent:${day.accent};max-width:360px;width:100%;padding:1.3rem;background:#0a0a0b;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="color:${day.accent};margin-bottom:.3rem;">TAG TEILEN</div><div class="display" style="font-size:1.1rem;margin-bottom:.8rem;">${day.label}</div><div class="mono" style="font-size:.62rem;color:var(--text-dim);margin-bottom:.8rem;line-height:1.6;">Dein Freund fügt den Code unter „NEUER TAG“ ein. Enthalten: Name, Kürzel, Farbe und Übungen – keine Gewichte.</div><textarea readonly class="set-input mono" data-share-text="1" rows="4" style="width:100%;font-size:.65rem;resize:none;margin-bottom:.8rem;">${code}</textarea><div style="display:flex;gap:.6rem;margin-bottom:.6rem;"><button class="save-btn mono" data-share-copy="${m.key}" style="flex:1;background:${day.accent};">KOPIEREN</button>${canShare?`<button class="btn-outline mono" data-share-send="${m.key}" style="flex:1;">SENDEN</button>`:''}</div><button class="btn-outline mono" data-modal-cancel="1" style="font-size:.7rem;">SCHLIESSEN</button></div></div>`;
   }
   if(m.type === 'pdf-upload'){
     return `<div class="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:300;padding:1.5rem;"><div class="frame" style="--accent:var(--sky);max-width:400px;width:100%;padding:1.3rem;background:#0a0a0b;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="margin-bottom:.3rem;">PDF-IMPORT</div><div class="display" style="font-size:1.1rem;margin-bottom:1rem;">VICOACH-PDF HOCHLADEN</div><div class="mono" style="font-size:.7rem;color:var(--text-dim);margin-bottom:1.2rem;line-height:1.6;">Wähle deine vicoach-mescan-PDF. Die Werte werden automatisch ausgelesen und du kannst sie vor dem Speichern prüfen.</div>${state.pdfParsing ? `<div class="mono" style="font-size:.8rem;color:var(--lime);text-align:center;padding:1.5rem 0;">PDF wird gelesen…</div>` : `<label style="display:block;position:relative;border:1px dashed var(--sky);padding:2rem 1rem;text-align:center;cursor:pointer;margin-bottom:1rem;"><div class="mono" style="font-size:.75rem;color:var(--sky);">PDF HIER AUSWÄHLEN</div><input type="file" accept=".pdf" data-pdf-input="1" style="position:absolute;inset:0;opacity:0;cursor:pointer;" /></label>`}<button class="btn-outline mono" data-modal-cancel="1" style="font-size:.7rem;">ABBRECHEN</button></div></div>`;
@@ -2124,6 +2188,11 @@ function attachListeners(){
   app.querySelectorAll('[data-editday-save]').forEach(el=>el.addEventListener('click', ()=>{ const name = state.editDay.name.trim(); if(!name) return; const short = (state.editDay.short.trim() || autoShort(name)).toUpperCase(); upsertCustomDay(state.editDay.key, {label:name.toUpperCase(), short, accent:state.editDay.accent}); state.editDay = null; state.view='home'; render(); }));
   app.querySelectorAll('[data-editday-delete]').forEach(el=>el.addEventListener('click', ()=>{ const key = state.editDay.key; askConfirm({ title:'Tag löschen', message:'Diesen Tag wirklich löschen?', confirmLabel:'LÖSCHEN', cancelLabel:'BEHALTEN', danger:true, onConfirm:()=>{ saveCustomDays(loadCustomDays().filter(d=>d.key!==key)); state.editDay = null; state.view='home'; } }); }));
   app.querySelectorAll('[data-newday-open]').forEach(el=>el.addEventListener('click', ()=>{ state.newDay = {name:'', short:'', shortTouched:false, accent:DAY_SWATCHES[0]}; state.view='newday'; render(); }));
+  app.querySelectorAll('[data-share-open]').forEach(el=>el.addEventListener('click', ()=>{ showSharePicker(); }));
+  app.querySelectorAll('[data-share-day]').forEach(el=>el.addEventListener('click', ()=>{ state.modal = {type:'share-code', key:el.getAttribute('data-share-day')}; render(); }));
+  app.querySelectorAll('[data-share-copy]').forEach(el=>el.addEventListener('click', ()=>{ const t = app.querySelector('[data-share-text]'); copyText(encodeDayShare(el.getAttribute('data-share-copy'))); if(t){ t.focus(); t.select(); } }));
+  app.querySelectorAll('[data-share-send]').forEach(el=>el.addEventListener('click', ()=>{ const k = el.getAttribute('data-share-send'); const day = getDayTypes()[k]; try{ navigator.share({title:'Trainingstag '+(day?day.label:''), text:encodeDayShare(k)}).catch(()=>{}); }catch(e){} }));
+  app.querySelectorAll('[data-import-go]').forEach(el=>el.addEventListener('click', ()=>{ const t = app.querySelector('[data-import-code]'); if(importDayShare(t?t.value:'')){ state.view='home'; render(); showToast('TAG IMPORTIERT'); } else showToast('UNGÜLTIGER CODE'); }));
   app.querySelectorAll('[data-editmode-open]').forEach(el=>el.addEventListener('click', ()=>{ showDayPicker(); }));
   app.querySelectorAll('[data-newday-name]').forEach(el=>el.addEventListener('input', ()=>{ state.newDay.name = el.value; if(!state.newDay.shortTouched){ state.newDay.short = autoShort(el.value); const si = app.querySelector('[data-newday-short]'); if(si) si.value = state.newDay.short; } const btn = app.querySelector('[data-newday-create]'); if(btn) btn.disabled = !el.value.trim(); }));
   app.querySelectorAll('[data-newday-short]').forEach(el=>el.addEventListener('input', ()=>{ state.newDay.shortTouched = true; state.newDay.short = el.value; }));
