@@ -222,6 +222,7 @@ const NAV_ICONS = {
   history:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="2"/></svg>',
   scan:'<svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="4"/></svg>',
   profile:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  kraft:'<svg viewBox="0 0 24 24"><path d="M4 9v6M20 9v6M7 7v10M17 7v10M7 12h10"/><path d="M3 9h1M20 9h1M3 15h1M20 15h1"/></svg>',
 };
 const MOOD_ICONS = {
   sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
@@ -1054,8 +1055,9 @@ let state = {
   infoModal:null,
   // NEU
   homeTab: 'training',        // 'training' | 'tests'
-  scanGroups: {verlauf:true, koerper:true, wasser:false, gesundheit:false, kraft:true},
-  profileExpanded: {personal:false},
+  scanTab: 'verlauf',      // 'verlauf' | 'koerper' | 'wasser' | 'gesundheit'
+  historyTab: 'training',  // 'training' | 'tests'
+  profileExpanded: {personal:false, weight:true},
   exerciseChartMode: 'max',   // 'max' | '1rm'
   adoptDayKey: null,
 };
@@ -1540,6 +1542,9 @@ function renderWaterCard(scans){
         <div class="mono" style="font-size:.55rem;color:var(--text-faint);margin:.1rem 0 .3rem .1rem;">Wasser ZWISCHEN den Zellen</div>
       </div>
     </div>
+    <div class="sub-row" style="margin-top:.6rem;"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Anteil intra</span><span class="mono" style="font-size:.8rem;color:#38bdf8;">${waterIntra&&waterTotal?((waterIntra/waterTotal)*100).toFixed(0):'—'} %</span></div>
+    <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Anteil extra</span><span class="mono" style="font-size:.8rem;color:#2563eb;">${waterExtra&&waterTotal?((waterExtra/waterTotal)*100).toFixed(0):'—'} %</span></div>
+    <div class="sub-row"><span class="mono" style="font-size:.7rem;color:var(--text-dim);">Pro kg Körper</span><span class="mono" style="font-size:.8rem;color:var(--sky);">${last.weight?((waterTotal/last.weight)*1000).toFixed(0):'—'} ml</span></div>
     ${scanLineChart(scans, 'water', 'var(--sky)')}
   </div>`;
 }
@@ -1727,7 +1732,7 @@ function renderBioageCard(scans){
 }
 function renderScan(){
   const scans = state.bodyScans;
-  const kraft = kraftwerteByGroup();
+  const tab = state.scanTab || 'verlauf';
   if(scans.length === 0){
     return `
       <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
@@ -1747,56 +1752,65 @@ function renderScan(){
   const waterPct = last.water != null && last.weight != null ? (last.water / last.weight * 100) : null;
   const musPct = last.muscle != null && last.weight != null ? (last.muscle/last.weight*100) : null;
   const fatPct = last.fat != null && last.weight != null ? (last.fat/last.weight*100) : null;
-
-  const verlaufContent = renderChangeBlock(scans) + `
-    <div style="display:flex;gap:.5rem;margin-bottom:.5rem;">
-      <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
-      <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
-    </div>
-    ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
-    ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-top:.6rem;">${state.pdfError}</div>`:''}`;
-
-  const koerperChecks = [
-    {get:s=>s.muscle, normKey:'waterPct'},
-  ];
-  const koerperSummary = `<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-    <span class="mono" style="font-size:.72rem;color:var(--lime);">${musPct?musPct.toFixed(1).replace('.',',')+'% Muskel':'—'}</span>
-    <span class="mono" style="font-size:.72rem;color:#FFD700;">${fatPct?fatPct.toFixed(1).replace('.',',')+'% Fett':'—'}</span>
-    ${sparklineHtml(scans, s=>s.muscle, 'var(--lime)')}
-  </div>`;
-  const koerperContent = renderCompositionCard(scans) + renderMuscleDistCard(scans) + renderMuscleCard(scans) + renderFatCard(scans);
-
-  const wasserSummary = `<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-    <span class="mono" style="font-size:.72rem;color:var(--sky);">${waterPct?waterPct.toFixed(1).replace('.',',')+'%':'—'}</span>
-    ${sparklineHtml(scans, s=>s.water, 'var(--sky)')}
-  </div>`;
-  const wasserContent = renderWaterCard(scans);
-
+  const prev = scans.length > 1 ? scans[scans.length-2] : null;
+  const prevWater = prev && prev.water != null ? prev.water : null;
   const healthChecks = [
-    {get:s=>s.visceral, normKey:'visceral'},
-    {get:s=>s.cellFit, normKey:'cellFit'},
-    {get:s=>s.oxygen, normKey:'oxygen'},
-    {get:s=>s.hr, normKey:'hr'},
-    {get:s=>s.hrv, normKey:'hrv'},
+    {get:s=>s.visceral, normKey:'visceral'}, {get:s=>s.cellFit, normKey:'cellFit'},
+    {get:s=>s.oxygen, normKey:'oxygen'}, {get:s=>s.hr, normKey:'hr'}, {get:s=>s.hrv, normKey:'hrv'},
   ];
-  const healthSummary = `<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-    ${groupScoreBadge(scans, healthChecks)}
-    ${sparklineHtml(scans, s=>s.hrv, 'var(--pink)')}
-  </div>`;
-  const healthContent = renderVisceralCard(scans) + renderCellFitCard(scans) + renderOxygenCard(scans) + renderHeartRateCard(scans) + renderHrvCard(scans) + renderBioageCard(scans);
-
-  const kraftContent = kraft.length ? kraft.map(g=>`<div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span><div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>${g.items.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;cursor:pointer;" data-exercise-open="${escapeHtml(u.name)}"><div class="mono" style="font-size:.8rem;color:var(--text-dim);text-decoration:underline;text-decoration-color:var(--text-faint);text-underline-offset:3px;">${u.name}</div><div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg ›</div></div>`).join('')}</div>`).join('') : '<div class="empty">Noch keine Kraftwerte vorhanden.</div>';
-
+  // Tab-Übersicht (kurze Infos)
+  const tabBtn = (key, label, accent, summary) => `<button class="chip ${tab===key?'active':''}" style="--accent:${accent};flex-direction:column;gap:.15rem;padding:.5rem .4rem;" data-scan-tab="${key}"><span style="font-size:.66rem;letter-spacing:.1em;">${label}</span><span style="font-size:.52rem;opacity:.8;font-family:var(--font-mono);">${summary||''}</span></button>`;
+  let content = '';
+  if(tab === 'verlauf'){
+    content = `
+      <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+        <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
+        <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
+      </div>
+      ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:.6rem;">${state.pdfError}</div>`:''}
+      ${renderChangeBlock(scans)}
+      ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:.6rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
+    `;
+  } else if(tab === 'koerper'){
+    content = renderCompositionCard(scans) + renderMuscleDistCard(scans) + renderVisceralCard(scans) + renderMuscleCard(scans) + renderFatCard(scans);
+  } else if(tab === 'wasser'){
+    content = renderWaterCard(scans) + `
+      <div class="frame" style="--accent:var(--sky);padding:1rem;margin-bottom:.8rem;">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="eyebrow mono" style="color:var(--sky);margin-bottom:.7rem;">WASSER IM DETAIL</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+          <div style="border-left:2px solid #38bdf8;padding-left:.5rem;">
+            <div class="eyebrow mono" style="font-size:.5rem;">GESAMT</div>
+            <div class="mono" style="font-size:1rem;color:var(--sky);">${last.water!=null?last.water.toFixed(1).replace('.',','):'—'} kg</div>
+          </div>
+          <div style="border-left:2px solid #38bdf8;padding-left:.5rem;">
+            <div class="eyebrow mono" style="font-size:.5rem;">PRO KG KÖRPER</div>
+            <div class="mono" style="font-size:1rem;color:var(--sky);">${last.water!=null&&last.weight!=null?(last.water/last.weight*1000).toFixed(0):'—'} ml</div>
+          </div>
+          <div style="border-left:2px solid var(--lime);padding-left:.5rem;">
+            <div class="eyebrow mono" style="font-size:.5rem;">ANTEIL</div>
+            <div class="mono" style="font-size:1rem;color:var(--lime);">${waterPct!=null?waterPct.toFixed(1).replace('.',',')+' %':'—'}</div>
+          </div>
+          <div style="border-left:2px solid var(--green);padding-left:.5rem;">
+            <div class="eyebrow mono" style="font-size:.5rem;">ZUM LETZTEN</div>
+            <div class="mono" style="font-size:1rem;color:var(--green);">${prevWater!=null&&last.water!=null?((last.water-prevWater>=0?'+':'')+(last.water-prevWater).toFixed(1).replace('.',',')):'—'} kg</div>
+          </div>
+        </div>
+      </div>`;
+  } else if(tab === 'gesundheit'){
+    content = renderCellFitCard(scans) + renderOxygenCard(scans) + renderHeartRateCard(scans) + renderHrvCard(scans) + renderBioageCard(scans);
+  }
   return `
     <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
     <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
     <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">${scans.length} MESSUNG${scans.length===1?'':'EN'}</div>
-
-    ${renderScanGroup('verlauf', 'VERLAUF', 'var(--lime)', '📊', '', verlaufContent)}
-    ${renderScanGroup('koerper', 'KÖRPER', 'var(--lime)', '⚖️', koerperSummary, koerperContent)}
-    ${renderScanGroup('wasser', 'WASSER', 'var(--sky)', '💧', wasserSummary, wasserContent)}
-    ${renderScanGroup('gesundheit', 'GESUNDHEIT', 'var(--pink)', '❤️', healthSummary, healthContent)}
-    ${renderScanGroup('kraft', 'KRAFTWERTE', 'var(--orange)', '💪', '', kraftContent)}
+    <div class="chip-row" style="margin-bottom:1rem;gap:.4rem;">
+      ${tabBtn('verlauf','VERLAUF','var(--lime)', scans.length+' Mess.')}
+      ${tabBtn('koerper','KÖRPER','var(--lime)', musPct!=null?musPct.toFixed(0)+'% Muskel':'')}
+      ${tabBtn('wasser','WASSER','var(--sky)', waterPct!=null?waterPct.toFixed(0)+'%':'')}
+      ${tabBtn('gesundheit','GESUNDHEIT','var(--pink)', groupScoreBadge(scans, healthChecks).replace(/<[^>]+>/g,'').trim() || '')}
+    </div>
+    <div>${content}</div>
   `;
 }
 function renderScanForm(){
@@ -1878,9 +1892,9 @@ function renderScanList(){
 /* ================= EXERCISE DETAIL MIT 1RM-TOGGLE ================= */
 function renderExerciseDetail(){
   const exName = state.exerciseName;
-  if(!exName) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Keine Übung ausgewählt.</div>`;
+  if(!exName) return `<button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button><div class="empty">Keine Übung ausgewählt.</div>`;
   const progress = exerciseProgress(exName);
-  if(!progress.length) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Für "${exName}" gibt es noch keine Einträge.</div>`;
+  if(!progress.length) return `<button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button><div class="empty">Für "${exName}" gibt es noch keine Einträge.</div>`;
   const mode = state.exerciseChartMode || 'max';
   const chartData = progress.map(p => ({
     ...p,
@@ -1906,7 +1920,7 @@ function renderExerciseDetail(){
   for(let v=rMin; v<=rMax; v+=step) ticks.push(v);
   const yTickLines = ticks.map(v=>`<line x1="${padL}" y1="${sY(v).toFixed(1)}" x2="${w-padR}" y2="${sY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(sY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}</text>`).join('');
   return `
-    <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
+    <button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono">ÜBUNGS-VERLAUF</div>
     <div class="h1 display" style="margin-bottom:1rem;">${escapeHtml(exName)}</div>
     <div class="ex-chart-toggle">
@@ -2114,12 +2128,12 @@ function renderProfile(){
     <div class="profile-section">
       <div class="profile-section-header" data-profile-section-toggle="weight">
         <div style="display:flex;align-items:center;gap:.5rem;">
-          <span class="scan-group-toggle ${true?'open':''}">▶</span>
+          <span class="scan-group-toggle ${state.profileExpanded.weight?'open':''}">▶</span>
           <span class="eyebrow mono" style="color:var(--lime);">GEWICHT</span>
         </div>
         <div class="mono" style="font-size:.9rem;color:var(--lime);">${p.weight||'—'} kg</div>
       </div>
-      <div class="profile-section-content">
+      <div class="profile-section-content ${state.profileExpanded.weight?'':'collapsed'}">
         <div class="mono" style="font-size:.6rem;color:var(--text-faint);margin-bottom:.5rem;">Aktualisiert sich automatisch mit dem letzten Body-Scan.</div>
         <input class="set-input mono" type="number" inputmode="decimal" value="${p.weight||''}" data-profile-weight="1" style="margin-bottom:1rem;" />
       </div>
@@ -2378,11 +2392,36 @@ function historyRowHtml(s, DAYS, bestMap){
 function renderHistory(){
   const DAYS = getDayTypes();
   const bestMap = bestSessionIdsByDayType();
-  const rows = state.sessions.map(s=>historyRowHtml(s, DAYS, bestMap)).join('');
+  const tab = state.historyTab || 'training';
+  const filtered = state.sessions.filter(s => {
+    const day = DAYS[s.dayType];
+    if(!day) return false;
+    return tab === 'tests' ? isTestDay(day) : !isTestDay(day);
+  });
+  const rows = filtered.map(s=>historyRowHtml(s, DAYS, bestMap)).join('');
   return `
     <div class="eyebrow mono">VERLAUF</div>
     <div class="h1 display" style="margin-bottom:1rem;">SESSIONS</div>
-    ${state.sessions.length===0?'<div class="empty">NOCH KEINE SESSIONS GESPEICHERT</div>':rows}
+    <div class="chip-row" style="margin-bottom:1rem;">
+      <button class="chip ${tab==='training'?'active':''}" style="--accent:var(--lime);" data-history-tab="training">TRAINING</button>
+      <button class="chip ${tab==='tests'?'active':''}" style="--accent:var(--orange);" data-history-tab="tests">TESTS</button>
+    </div>
+    ${filtered.length===0?'<div class="empty">Noch keine Sessions in dieser Kategorie.</div>':rows}
+  `;
+}
+function renderKraft(){
+  const kraft = kraftwerteByGroup();
+  return `
+    <div class="eyebrow mono">KRAFT</div>
+    <div class="h1 display" style="margin-bottom:1rem;">KRAFTWERTE</div>
+    ${kraft.length ? kraft.map(g=>`<div class="frame" style="--accent:${g.color};padding:.9rem 1rem;margin-bottom:.6rem;">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="eyebrow mono" style="color:${g.color};margin-bottom:.7rem;">${g.label}</div>
+      ${g.items.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;cursor:pointer;" data-exercise-open="${escapeHtml(u.name)}">
+        <div class="mono" style="font-size:.8rem;color:var(--text-dim);text-decoration:underline;text-decoration-color:var(--text-faint);text-underline-offset:3px;">${u.name}</div>
+        <div class="mono" style="font-size:1rem;color:${g.color};">${u.maxWeight} kg ›</div>
+      </div>`).join('')}
+    </div>`).join('') : '<div class="empty">Noch keine Kraftwerte vorhanden.</div>'}
   `;
 }
 function renderDetail(){
@@ -2529,7 +2568,8 @@ function attachListeners(){
   // Scan-Punkte
   app.querySelectorAll('[data-scan-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showScanPopup(+el.getAttribute('data-scan-point')); }));
   // Scan-Gruppen
-  app.querySelectorAll('[data-scan-group-toggle]').forEach(el=>el.addEventListener('click', ()=>{ const k = el.getAttribute('data-scan-group-toggle'); state.scanGroups[k] = !state.scanGroups[k]; render(); }));
+  app.querySelectorAll('[data-scan-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.scanTab = el.getAttribute('data-scan-tab'); render(); }));
+  app.querySelectorAll('[data-history-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.historyTab = el.getAttribute('data-history-tab'); render(); }));
   // Scan-Actions
   app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{ const t = el.getAttribute('data-scan-action'); if(t==='manual'){ state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan-form'; render(); } else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); } else if(t==='list'){ state.view = 'scan-list'; render(); } }));
   app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
@@ -2677,7 +2717,7 @@ function attachListeners(){
   app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
   app.querySelectorAll('[data-logout]').forEach(el=>el.addEventListener('click', ()=>{ if(fbAuth) fbAuth.signOut(); detachCloudSync(); authUser = null; state.view = 'auth'; render(); }));
   // Profile
-  app.querySelectorAll('[data-profile-section-toggle]').forEach(el=>el.addEventListener('click', ()=>{ const k = el.getAttribute('data-profile-section-toggle'); if(k==='personal'){ state.profileExpanded.personal = !state.profileExpanded.personal; } else { /* gewicht bleibt offen */ } render(); }));
+  app.querySelectorAll('[data-profile-section-toggle]').forEach(el=>el.addEventListener('click', ()=>{ const k = el.getAttribute('data-profile-section-toggle'); state.profileExpanded[k] = !state.profileExpanded[k]; render(); }));
   app.querySelectorAll('[data-profile-height]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.height = el.value; }));
   app.querySelectorAll('[data-profile-weight]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.weight = el.value; state.profile.weightUpdatedAt = new Date().toISOString().slice(0,10); }));
   app.querySelectorAll('[data-profile-birthdate]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.birthDate = el.value; }));
@@ -2700,7 +2740,7 @@ function attachListeners(){
 }
 
 /* ================= RENDER / BOTTOM NAV / INIT ================= */
-const MAIN_TABS = ['home','history','scan','profile'];
+const MAIN_TABS = ['home','history','kraft','scan','profile'];
 function renderBottomNav(){
   const el = document.getElementById('bottomNav');
   if(!el) return;
@@ -2709,6 +2749,7 @@ function renderBottomNav(){
   const tabs = [
     {id:'home',icon:'home',label:'HOME'},
     {id:'history',icon:'history',label:'VERLAUF'},
+    {id:'kraft',icon:'kraft',label:'KRAFT'},
     {id:'scan',icon:'scan',label:'SCAN'},
     {id:'profile',icon:'profile',label:'PROFIL'},
   ];
@@ -2739,6 +2780,7 @@ function renderInner(){
   else if(state.view==='editday') app.innerHTML = renderEditDay();
   else if(state.view==='session') app.innerHTML = renderSession();
   else if(state.view==='history') app.innerHTML = renderHistory();
+  else if(state.view==='kraft') app.innerHTML = renderKraft();
   else if(state.view==='streak') app.innerHTML = renderStreak();
   else if(state.view==='auth') app.innerHTML = renderAuth();
   else if(state.view==='detail') app.innerHTML = renderDetail();
