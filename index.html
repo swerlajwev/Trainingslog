@@ -2071,7 +2071,7 @@ function renderHome(){
       <button class="btn-outline mono" data-editmode-open="1" style="flex:1;">${ICON.edit} BEARBEITEN</button>
       <button class="btn-outline mono" data-share-open="1" aria-label="Tag teilen" style="flex:0 0 3.2rem;width:auto;padding-left:0;padding-right:0;justify-content:center;">${ICON.share}</button>
     </div>
-    <div class="day-grid">${cards || `<div class="empty">Keine ${tab==='tests'?'Test-':'']}Tage vorhanden.</div>`}</div>
+    <div class="day-grid">${cards || `<div class="empty">Keine ${tab==='tests'?'Test-':''}Tage vorhanden.</div>`}</div>
     ${renderScoreChart(tab === 'tests')}
     ${dayCharts}
   `;
