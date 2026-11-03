@@ -165,7 +165,6 @@
   .term-help{font-size:.6rem;color:var(--text-faint);font-weight:400;margin-left:.4rem;cursor:help;border-bottom:1px dotted var(--text-faint);}
   .scan-actions{display:flex;gap:.5rem;margin-top:1rem;}
   .scan-actions .btn-outline, .scan-actions .save-btn{width:auto;flex:1;font-size:.7rem;padding:.7rem;}
-  /* === NEU: Scan-Gruppen === */
   .scan-group{background:rgba(24,24,27,.6);border:1px solid var(--border);margin-bottom:.8rem;}
   .scan-group-header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1rem;cursor:pointer;user-select:none;gap:.5rem;}
   .scan-group-header:hover{background:rgba(24,24,27,.9);}
@@ -222,7 +221,7 @@ const NAV_ICONS = {
   history:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="20" cy="18" r="2"/></svg>',
   scan:'<svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="4"/></svg>',
   profile:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
-  kraft:'<svg viewBox="0 0 24 24"><path d="M4 9v6M20 9v6M7 7v10M17 7v10M7 12h10"/><path d="M3 9h1M20 9h1M3 15h1M20 15h1"/></svg>',
+  kraft:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 11 11M13 13l4.5 4.5M4.5 4.5l1-1a2 2 0 0 1 3 0l1 1a2 2 0 0 1 0 3l-1 1a2 2 0 0 1-3 0l-1-1a2 2 0 0 1 0-3ZM14.5 14.5l1-1a2 2 0 0 1 3 0l1 1a2 2 0 0 1 0 3l-1 1a2 2 0 0 1-3 0l-1-1a2 2 0 0 1 0-3Z"/></svg>',
 };
 const MOOD_ICONS = {
   sehr_gut:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M8 9.6q1-1.6 2-0.1M14 9.6q1-1.6 2-0.1"/><path d="M7.6 13.6h8.8"/><path d="M7.6 13.6q4.4 6 8.8 0"/></svg>',
@@ -328,16 +327,13 @@ function sessionVolume(s){
    NEUER SCORE: pro Übung relativ zum eigenen historischen Verlauf
    ============================================================ */
 function computeExerciseScore(session, exName){
-  // Referenz: alle ANDEREN Sessions mit dieser Übung (über alle Tagestypen)
   const referenceSessions = state.sessions.filter(s =>
     s.id !== session.id &&
     Array.isArray(s.exercises) &&
     s.exercises.some(e => e.name === exName)
   );
-  // Wenn keine Referenz → neutral (100 %)
   if(referenceSessions.length === 0) return 100;
   
-  // Historische Volumina dieser Übung
   const refVolumes = referenceSessions.map(s => {
     const ex = s.exercises.find(e => e.name === exName);
     if (!ex) return null;
@@ -352,7 +348,6 @@ function computeExerciseScore(session, exName){
   if(refVolumes.length === 0) return 100;
   const avgVolume = refVolumes.reduce((a, b) => a + b, 0) / refVolumes.length;
   
-  // Aktuelles Volumen
   const currentEx = session.exercises.find(e => e.name === exName);
   if (!currentEx) return 100;
   const currentVolume = (currentEx.sets || []).reduce((sum, st) => {
@@ -387,12 +382,10 @@ function computeScore(session){
   
   const vol = sessionVolume(session);
   
-  // Record (gleicher Tagestyp)
   const daySessions = state.sessions.filter(s => s.dayType === session.dayType && s.id !== session.id);
   const recordVol = daySessions.length ? Math.max(...daySessions.map(sessionVolume)) : null;
   const recordPct = (recordVol && vol) ? Math.round((vol / recordVol) * 100) : null;
   
-  // Human
   const profile = loadProfile();
   let humanVol = null, humanPct = null;
   if (isProfileComplete(profile) && vol > 0) {
@@ -732,7 +725,6 @@ function lastSessionSetsFor(dayType, exName){
   }
   return null;
 }
-// NEU: Roh-Sätze (mit L/R) für Vorbefüllung beim Hinzufügen
 function lastSessionRawSetsFor(dayType, exName){
   const sessions = state.sessions.filter(s=>s.dayType===dayType).sort((a,b)=> new Date(b.date) - new Date(a.date));
   const perArm = isPerArm(dayType, exName);
@@ -798,7 +790,7 @@ function exerciseProgress(exName){
   return arr.sort((a,b)=> new Date(a.date) - new Date(b.date));
 }
 
-/* ================= PDF PARSER (NEU) ================= */
+/* ================= PDF PARSER ================= */
 async function extractPdf(file){
   if(!window.pdfjsLib) throw new Error('PDF-Bibliothek nicht geladen');
   const arrayBuffer = await file.arrayBuffer();
@@ -812,24 +804,20 @@ async function extractPdf(file){
   console.log('=== PDF TEXT ===\n', text);
   return parseVicoachText(text);
 }
-/* NEU: erkennt Werte VOR Labels (Donut-Diagramme in vicoach) */
 function parseVicoachText(raw){
   const t = raw.replace(/\s+/g,' ');
   const result = {date: new Date().toISOString().slice(0,10)};
   const numOf = (str) => { if(!str) return null; const n = parseFloat(String(str).replace(',','.')); return isNaN(n) ? null : n; };
   
-  // Datum
   let dm = t.match(/(\d{2})\.(\d{2})\.(\d{4})/);
   if(dm){ result.date = `${dm[3]}-${dm[2]}-${dm[1]}`; }
   else { dm = t.match(/(\d{4})\/(\d{2})\/(\d{2})/); if(dm) result.date = `${dm[1]}-${dm[2]}-${dm[3]}`; }
   
-  // Alle Zahlen mit Positionen
   const allNums = [...t.matchAll(/(\d+[.,]\d+|\d+)/g)].map(m => ({
     value: numOf(m[1]),
     pos: m.index
   })).filter(n => n.value != null);
   
-  // Wert am nächsten VOR einem Label (typisch vicoach Donut)
   function beforeLabel(label, opts) {
     opts = opts || {};
     const lower = t.toLowerCase();
@@ -848,7 +836,6 @@ function parseVicoachText(raw){
     return candidates[0].value;
   }
   
-  // Wert am nächsten NACH einem Label
   function afterLabel(label, opts) {
     opts = opts || {};
     const lower = t.toLowerCase();
@@ -867,12 +854,10 @@ function parseVicoachText(raw){
     return candidates[0].value;
   }
   
-  // === GEWICHT (steht NACH "Gesamtübersicht", vor "Beschreibung") ===
   let w = afterLabel('Gesamtübersicht', {min: 30, max: 200});
   if(w == null) w = afterLabel('Körpergewicht', {min: 30, max: 200});
   if(w == null) w = beforeLabel('Gesamtübersicht', {min: 30, max: 200});
   if(w == null) {
-    // Fallback: XX,X kg im Bereich 60-120
     for(const n of allNums){
       if(n.value >= 60 && n.value <= 120){
         const after = t.substring(n.pos, n.pos + 20);
@@ -882,18 +867,15 @@ function parseVicoachText(raw){
   }
   if(w != null) result.weight = w;
   
-  // === MUSKELMASSE (Wert VOR "Muskelmasse"-Überschrift) ===
   const mm = beforeLabel('Muskelmasse', {min: 15, max: 80});
   if(mm != null) result.muscle = mm;
   
-  // === HERZ (Wert VOR "Herzfrequenz") ===
   let hr = beforeLabel('Herzfrequenz', {min: 30, max: 150});
   if(hr == null) hr = afterLabel('Herzfrequenz', {min: 30, max: 150});
   if(hr == null) hr = beforeLabel('Ruhepuls', {min: 30, max: 150});
   if(hr == null) hr = beforeLabel('Puls', {min: 30, max: 150});
   if(hr != null) result.hr = hr;
   
-  // === WASSER (erste Vorkommen von "Wasser " = Überschrift; Wert davor) ===
   const lower = t.toLowerCase();
   const waterIdx = lower.indexOf('wasser ');
   if(waterIdx >= 0){
@@ -906,49 +888,39 @@ function parseVicoachText(raw){
     }
   }
   
-  // === FETTMASSE (Wert VOR "Fettmasse"-Überschrift) ===
   const fat = beforeLabel('Fettmasse', {min: 3, max: 60});
   if(fat != null) result.fat = fat;
   
-  // === WASSER INTRA/EXTRA (aus Fließtext, NACH dem Label) ===
   const wi = afterLabel('Intrazelluläres Wasser', {min: 10, max: 60});
   if(wi != null) result.waterIntra = wi;
   const we = afterLabel('Extrazelluläres Wasser', {min: 5, max: 40});
   if(we != null) result.waterExtra = we;
   
-  // === MUSKELPROTEIN / WASSER IM MUSKEL ===
   const mp = afterLabel('Muskelprotein', {min: 5, max: 30}) || beforeLabel('Muskelprotein', {min: 5, max: 30});
   if(mp != null) result.muscleProtein = mp;
   const mw = afterLabel('Wasser im Muskel', {min: 5, max: 40}) || beforeLabel('Wasser im Muskel', {min: 5, max: 40});
   if(mw != null) result.muscleWater = mw;
   
-  // === FETT ESSENTIELL / RESERVE (NACH Label, aus Tabelle) ===
   const fe = afterLabel('Essentielles Fett', {min: 1, max: 20});
   if(fe != null) result.fatEssential = fe;
   const fr = afterLabel('Fettreserve', {min: 0, max: 40});
   if(fr != null) result.fatReserve = fr;
   
-  // === VISZERALES FETT ===
   const vz = afterLabel('Viszerales Fett', {min: 0, max: 10}) || beforeLabel('Viszerales Fett', {min: 0, max: 10});
   if(vz != null) result.visceral = vz;
   
-  // === ZELLFITNESS (Wert VOR "Zellfitness"/"Phasenwinkel") ===
   const cf = beforeLabel('Zellfitness', {min: 2, max: 12}) || beforeLabel('Phasenwinkel', {min: 2, max: 12});
   if(cf != null) result.cellFit = cf;
   
-  // === SAUERSTOFF (Wert VOR "Sauerstoffsättigung") ===
   const oxy = beforeLabel('Sauerstoffsättigung', {min: 70, max: 100}) || afterLabel('SpO2', {min: 70, max: 100});
   if(oxy != null) result.oxygen = oxy;
   
-  // === HRV (Wert VOR "HRV") ===
   const hrv = beforeLabel('HRV', {min: 5, max: 250}) || afterLabel('HRV', {min: 5, max: 250});
   if(hrv != null) result.hrv = hrv;
   
-  // === BIOAGE (Wert VOR "Bioage" / "biologische Alter") ===
   const bio = beforeLabel('Bioage', {min: 5, max: 90}) || beforeLabel('biologische Alter', {min: 5, max: 90}) || afterLabel('Bioage', {min: 5, max: 90});
   if(bio != null) result.bioage = bio;
   
-  // === MUSKELVERTEILUNG (NACH Label, Tabelle) ===
   const torso = afterLabel('Torso', {min: 5, max: 40}) || beforeLabel('Torso', {min: 5, max: 40});
   if(torso != null) result.muscleTorso = torso;
   const armR = afterLabel('Arm R', {min: 1, max: 15}) || beforeLabel('Arm R', {min: 1, max: 15});
@@ -960,14 +932,15 @@ function parseVicoachText(raw){
   const legL = afterLabel('Bein L', {min: 3, max: 25}) || beforeLabel('Bein L', {min: 3, max: 25});
   if(legL != null) result.muscleLegL = legL;
   
-  // Wasser-Fallback
   if(result.water == null && result.waterIntra != null && result.waterExtra != null){
     result.water = Math.round((result.waterIntra + result.waterExtra) * 10) / 10;
   }
   
   console.log('=== PDF PARSED ===', result);
   return result;
-}/* ================= FIREBASE ================= */
+}
+
+/* ================= FIREBASE ================= */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBhRCi36Ac-1AO6UcfF1NVsTY9YXtwIwdE",
   authDomain: "trainingslog-102.firebaseapp.com",
@@ -1053,12 +1026,10 @@ let state = {
   bodyScans: loadBodyScans(), scanForm:{}, scanEditIndex:null,
   exerciseName:null, pdfParsing:false, pdfError:null,
   infoModal:null,
-  // NEU
-  homeTab: 'training',        // 'training' | 'tests'
-  scanTab: 'verlauf',      // 'verlauf' | 'koerper' | 'wasser' | 'gesundheit'
-  historyTab: 'training',  // 'training' | 'tests'
-  profileExpanded: {personal:false, weight:true},
-  exerciseChartMode: 'max',   // 'max' | '1rm'
+  scanTab: 'verlauf',
+  historyTab: 'training',
+  profileExpanded: {personal:false, weight:false},
+  exerciseChartMode: 'max',
   adoptDayKey: null,
 };
 const app = document.getElementById('app');
@@ -1228,7 +1199,9 @@ function stickFigurePaths(){
     runner: "M20.0 34.7 19.9 34.7 19.8 34.9 19.8 35.2 19.8 35.2 19.8 35.5 19.7 35.9 19.7 36.3 19.5 37.2 19.5 37.8 19.4 38.6 19.4 39.0 19.2 39.7 19.2 40.5 19.0 41.3 19.0 41.8 18.7 42.6 18.3 43.1 9.8 52.0 9.3 52.7 9.2 53.2 9.2 53.5 9.1 53.6 9.1 54.3 9.3 55.0 9.5 55.3 9.5 55.4 9.9 56.1 10.8 56.7 11.7 57.0 12.7 57.0 13.6 56.7 13.7 56.6 14.1 56.4 21.5 49.5 22.5 48.7 23.7 47.5 24.1 47.1 24.7 46.5 25.1 46.0 25.1 45.8 25.2 45.7 25.6 44.6 25.6 44.0 25.8 43.4 25.8 43.1 25.9 42.6 26.0 42.0 26.1 41.7 26.1 41.0 26.3 40.4 26.3 40.1 26.4 39.6 26.4 39.3 26.3 39.1 25.8 39.0 25.5 38.8 25.4 38.8 25.1 38.7 24.7 38.5 24.5 38.4 24.2 38.3 23.8 38.0 23.7 38.0 22.9 37.5 21.4 36.4 20.7 35.5ZM50.5 15.9 49.9 15.2 49.5 15.0 49.0 14.8 48.0 14.7 47.9 14.8 47.6 14.8 47.3 14.9 47.1 15.0 46.7 15.2 46.2 15.8 42.0 21.0 41.8 21.0 39.5 19.2 39.0 18.7 38.9 18.7 38.4 18.3 38.0 18.0 37.7 17.7 37.2 17.3 36.9 17.1 36.8 17.0 36.7 17.2 36.8 17.4 36.8 17.7 36.9 18.1 37.0 18.6 37.1 18.9 37.1 19.2 37.1 19.3 37.1 20.8 37.1 20.8 37.0 21.6 36.8 22.2 36.8 22.5 36.6 22.8 36.5 23.0 36.1 23.8 36.2 24.1 36.5 24.4 36.7 24.5 37.1 24.8 38.4 25.8 39.0 26.2 39.6 26.7 40.3 27.3 41.0 27.7 41.3 27.7 41.7 27.9 42.7 27.9 43.2 27.7 43.4 27.7 43.8 27.5 44.1 27.2 44.7 26.7 50.5 18.6 50.8 18.1 50.8 17.6 50.9 17.6 50.8 16.7 50.7 16.3 50.6 16.2ZM28.1 13.9 28.1 14.0 27.8 14.0 27.5 14.1 27.1 14.1 26.8 14.3 26.6 14.3 26.3 14.4 26.1 14.5 25.8 14.6 25.3 14.8 25.0 14.9 24.7 15.0 24.1 15.3 23.9 15.3 23.7 15.5 23.4 15.5 22.8 15.8 22.5 15.8 22.3 16.0 22.1 16.0 21.4 16.3 21.3 16.3 20.9 16.5 20.4 16.6 20.3 16.8 19.9 16.9 19.7 17.0 19.4 17.0 18.8 17.3 17.8 17.7 17.5 17.8 17.2 17.9 16.6 18.2 16.5 18.2 16.2 18.4 15.9 18.4 15.1 18.7 14.5 19.2 14.2 19.5 13.8 20.1 13.4 21.0 13.4 21.6 13.2 22.0 13.2 22.3 13.0 22.9 13.0 23.2 12.9 23.7 12.9 24.0 12.7 24.5 12.5 25.6 12.4 25.9 12.4 26.5 12.2 26.8 12.0 28.1 11.9 28.5 11.8 29.1 11.7 29.5 11.6 30.0 11.6 30.1 11.6 30.6 11.7 31.2 11.9 31.5 12.1 31.8 12.6 32.3 12.7 32.3 12.8 32.4 13.3 32.6 13.6 32.7 14.0 32.7 14.1 32.7 15.0 32.6 15.8 32.2 16.4 31.6 16.8 30.9 16.9 30.0 17.1 29.6 17.1 29.4 17.2 29.1 17.3 28.8 17.4 28.4 17.4 28.0 17.6 27.6 17.6 27.3 17.8 26.9 17.8 26.7 17.9 26.4 18.0 25.9 18.1 25.6 18.1 25.4 18.2 25.2 18.3 24.7 18.4 24.4 18.4 24.2 18.5 23.9 18.7 23.8 18.9 23.6 19.4 23.6 19.6 23.4 20.0 23.4 20.6 23.1 21.0 23.1 21.3 22.9 21.6 22.9 22.5 22.6 22.7 22.6 22.9 22.5 23.1 22.6 23.1 22.7 23.0 23.0 22.9 23.4 22.8 23.6 22.8 23.9 22.6 24.2 22.6 24.7 22.5 24.8 22.4 25.2 22.3 25.6 22.3 25.7 22.1 26.1 22.1 26.4 21.9 26.8 21.9 27.0 21.7 27.4 21.7 27.6 21.6 27.9 21.6 28.2 21.4 28.6 21.4 29.0 21.2 29.2 21.1 29.9 21.1 30.0 20.9 30.5 20.9 31.0 20.9 31.1 20.9 32.3 21.1 32.8 21.1 33.1 21.4 33.8 22.2 34.9 22.9 35.6 23.8 36.2 24.9 36.8 25.1 36.9 25.2 36.9 25.8 37.3 26.3 37.4 27.1 37.9 27.2 37.9 27.8 38.2 28.1 38.3 28.1 38.4 28.7 38.6 29.3 39.0 29.8 39.1 30.4 39.5 31.2 39.8 31.5 40.0 31.9 40.1 32.0 40.3 32.0 40.5 30.5 42.5 30.4 42.6 29.9 43.2 29.9 43.3 29.4 43.9 29.4 44.0 27.9 46.0 27.5 46.6 27.5 46.8 27.4 47.1 27.4 47.5 27.4 47.6 27.4 48.3 27.6 48.9 28.0 49.6 28.5 50.2 29.0 50.5 30.0 50.9 31.3 50.9 31.6 50.7 31.7 50.7 32.2 50.6 32.7 50.2 33.1 49.7 34.7 47.7 37.2 44.5 37.6 43.9 38.3 43.1 38.4 42.8 40.1 40.7 40.5 40.1 40.5 39.9 40.6 39.5 40.6 38.4 40.5 38.0 40.4 37.7 39.9 36.9 39.4 36.4 38.7 36.1 38.6 35.9 38.4 35.9 38.2 35.7 37.8 35.5 37.7 35.4 37.6 35.4 37.2 35.2 36.9 35.0 36.8 34.9 36.7 34.9 35.7 34.4 35.3 34.1 35.2 34.1 34.8 33.8 34.6 33.8 33.9 33.3 33.6 33.2 33.5 33.1 32.9 32.7 32.8 32.7 32.6 32.6 32.3 32.4 32.2 32.4 31.8 32.1 31.7 31.7 31.9 31.4 31.9 31.2 32.1 30.9 32.1 30.8 32.5 30.0 32.5 29.9 32.6 29.7 32.6 29.4 32.7 29.3 32.8 28.9 33.0 28.6 33.0 28.5 33.1 28.1 33.1 28.0 33.3 27.7 33.3 27.4 33.5 27.1 33.6 26.4 33.8 26.0 33.8 25.9 34.0 25.5 34.0 25.4 34.1 25.1 34.1 24.9 34.3 24.5 34.4 24.1 34.6 23.5 34.7 23.1 34.8 22.8 34.9 22.5 35.0 22.3 35.0 22.0 35.2 21.6 35.2 21.4 35.4 21.0 35.4 20.8 35.5 20.2 35.5 19.0 35.4 18.4 35.4 18.2 35.2 17.8 35.1 17.4 34.6 16.4 33.9 15.6 33.4 15.2 33.0 14.8 32.3 14.5 32.1 14.4 31.9 14.3 30.5 13.9 29.9 13.9 29.8 13.9ZM33.1 3.4 32.2 4.1 31.3 4.9 30.8 5.9 30.6 6.4 30.4 6.7 30.4 6.9 30.3 7.2 30.3 7.9 30.2 7.9 30.3 9.2 30.4 9.6 30.5 10.2 30.6 10.3 30.7 10.5 30.9 11.0 31.0 11.1 31.0 11.2 31.6 12.1 32.6 13.0 33.1 13.3 33.3 13.4 33.5 13.5 34.0 13.7 34.2 13.8 34.7 13.9 34.8 14.0 35.3 14.0 35.3 14.0 36.6 14.0 37.2 13.9 37.6 13.8 38.4 13.5 38.6 13.4 38.9 13.3 39.3 13.0 40.3 12.1 40.9 11.1 41.3 10.3 41.3 10.2 41.5 9.8 41.5 9.5 41.6 9.1 41.7 8.1 41.6 8.0 41.6 7.6 41.5 7.2 41.5 6.8 41.3 6.5 41.3 6.4 40.9 5.5 40.2 4.5 39.3 3.7 38.4 3.2 38.0 3.0 33.9 3.0Z",
     grandpa: "M33.1 11.2 32.9 11.2 32.5 11.1 31.9 11.0 31.9 11.0 31.0 11.0 30.4 11.2 30.2 11.3 29.8 11.4 29.6 11.6 29.5 11.6 28.9 12.0 28.8 12.0 28.6 12.1 28.5 12.2 28.2 12.4 28.1 12.4 27.9 12.6 27.4 12.8 26.1 13.9 25.3 14.6 24.0 15.9 23.2 16.9 23.0 17.2 22.5 17.9 21.9 18.9 21.8 19.0 21.7 19.1 21.5 19.6 21.5 19.7 21.7 19.7 21.9 19.9 21.9 21.0 21.8 21.1 21.7 21.0 21.3 21.1 21.3 21.0 21.2 20.9 21.2 20.6 21.4 20.3 21.6 20.2 21.6 20.1 21.5 20.0 21.4 20.1 21.1 20.2 20.7 21.1 20.5 21.6 20.4 21.8 20.4 21.9 20.3 22.1 20.2 22.3 20.1 22.4 20.1 22.6 20.0 22.9 20.0 23.0 19.9 23.2 19.7 23.8 19.6 24.1 19.6 24.3 19.4 24.6 19.4 24.8 19.3 25.1 19.3 25.3 19.2 25.5 19.1 25.9 19.0 26.2 19.0 26.6 18.9 26.8 18.9 26.9 18.9 27.2 18.9 27.4 18.8 27.7 18.7 28.4 18.6 28.8 18.6 29.8 18.5 30.1 18.5 31.5 18.5 31.6 18.5 32.1 18.6 32.4 18.6 32.7 18.7 33.1 18.8 33.3 19.0 33.9 19.3 34.3 19.7 34.8 19.8 35.0 19.9 35.2 20.0 35.4 20.0 35.5 20.1 35.8 20.1 36.1 20.2 36.3 20.3 36.5 20.4 36.7 20.4 36.9 20.7 37.6 20.7 37.9 20.8 38.1 20.8 38.2 20.9 38.5 20.9 38.7 21.1 39.0 21.1 39.1 21.2 39.4 21.2 39.6 21.3 39.8 21.4 40.1 21.5 40.3 21.5 40.6 21.6 40.8 21.7 41.1 21.7 41.2 21.7 41.3 21.9 41.6 21.9 41.9 22.0 42.0 22.1 42.3 22.1 42.4 22.2 42.6 22.3 43.0 22.3 43.2 21.4 44.5 21.4 44.6 21.0 45.1 20.9 45.2 20.8 45.3 19.4 47.5 19.3 47.6 18.9 48.3 18.5 48.8 18.1 49.5 17.6 50.1 17.6 50.2 17.4 50.5 17.4 50.5 16.5 51.8 16.4 52.0 15.9 52.7 15.6 53.2 15.4 53.5 15.3 53.7 15.2 53.8 15.2 54.1 15.1 54.3 15.1 54.8 15.2 55.1 15.2 55.3 15.3 55.6 15.5 55.9 15.9 56.4 16.6 56.8 17.0 56.9 17.8 56.9 17.9 56.9 18.0 56.8 18.3 56.8 18.3 56.7 18.5 56.6 18.9 56.4 19.2 56.0 20.9 53.5 21.0 53.4 21.0 53.3 21.1 53.2 21.2 53.1 21.3 53.0 21.5 52.5 21.7 52.4 22.4 51.3 22.5 51.1 22.7 50.8 22.8 50.7 23.2 50.0 23.4 49.9 23.4 49.8 23.7 49.4 23.9 49.0 24.4 48.3 24.9 47.6 25.4 46.9 25.4 46.8 25.9 46.1 26.1 45.7 26.7 44.8 26.9 44.5 27.1 43.9 27.1 43.6 27.1 43.6 27.1 43.1 27.0 43.0 27.0 42.7 26.9 42.5 26.9 42.2 26.8 42.0 26.8 41.9 26.6 41.6 26.6 41.3 26.5 41.2 26.5 40.9 26.4 40.7 26.2 40.0 26.1 39.8 26.1 39.5 25.9 39.4 25.9 39.2 25.8 38.9 25.8 38.8 25.5 38.0 25.5 37.8 25.4 37.6 25.3 37.2 25.3 37.1 25.3 36.9 25.3 36.9 25.4 36.9 25.7 37.3 26.9 38.7 27.4 39.2 27.9 39.8 29.0 41.2 29.0 41.4 28.9 41.8 28.9 42.5 28.8 42.5 28.8 43.2 28.7 43.3 28.7 43.6 28.6 44.0 28.6 44.7 28.5 45.1 28.4 45.8 28.4 45.9 28.3 46.3 28.3 46.4 28.3 46.8 28.2 47.1 28.2 47.8 28.1 48.3 28.0 48.9 28.0 48.9 28.0 49.4 27.9 49.7 27.9 50.1 27.8 50.5 27.8 51.1 27.7 51.5 27.6 52.2 27.5 52.5 27.5 53.2 27.4 53.6 27.4 53.9 27.4 54.0 27.4 54.3 27.3 54.3 27.3 54.9 27.4 54.9 27.4 55.3 27.7 55.9 27.8 56.1 28.2 56.5 28.7 56.8 28.9 56.8 29.0 56.9 29.5 57.0 29.8 57.0 29.9 57.0 30.4 56.9 31.0 56.6 31.2 56.4 31.7 55.9 31.9 55.5 32.1 54.9 32.1 54.3 32.2 53.9 32.2 53.2 32.3 52.8 32.4 52.1 32.5 51.8 32.5 51.2 32.6 50.5 32.6 50.1 32.8 49.7 32.8 49.3 32.8 49.2 32.8 49.0 32.9 48.8 32.9 48.5 32.9 48.2 32.9 47.8 33.1 47.2 33.1 46.8 33.2 46.4 33.2 45.7 33.3 45.6 33.3 45.1 33.3 45.1 33.3 44.7 33.4 44.3 33.5 43.7 33.6 43.2 33.6 42.9 33.6 42.9 33.6 42.6 33.7 42.0 33.7 41.4 33.9 40.7 33.8 39.9 33.8 39.8 33.7 39.4 33.3 38.9 32.4 37.8 31.7 36.9 31.4 36.6 31.1 36.3 29.8 34.7 27.8 32.3 27.2 31.6 26.6 30.9 26.5 30.7 26.5 30.1 26.6 30.1 26.6 29.5 26.6 29.5 26.6 29.1 26.7 28.8 26.8 28.3 26.9 28.1 26.9 27.6 27.0 27.4 27.0 27.2 27.1 27.0 27.2 26.5 27.3 26.3 27.3 26.1 27.4 25.9 27.5 25.7 27.6 25.6 27.6 25.4 27.7 25.2 27.7 25.0 27.8 24.8 27.9 24.7 27.9 24.6 28.0 24.4 28.8 22.8 29.7 21.5 29.9 21.4 30.0 21.5 30.1 21.6 30.1 21.8 30.2 21.9 30.3 22.1 30.4 22.3 30.4 22.5 30.5 22.6 30.6 23.0 30.8 23.4 31.0 23.8 31.0 23.8 31.2 24.1 31.3 24.5 32.3 26.0 32.9 26.7 33.0 26.9 33.1 27.0 33.3 27.0 33.3 27.0 33.5 27.0 33.6 27.2 33.6 27.6 33.6 27.7 34.1 28.3 34.8 29.1 36.5 30.8 38.2 32.3 38.8 32.7 38.9 32.9 38.9 33.0 38.8 33.1 38.8 33.1 38.5 33.2 38.0 33.6 37.5 34.1 37.2 34.4 37.0 34.9 36.8 35.4 36.7 35.5 36.6 35.8 36.5 36.0 36.5 36.3 36.5 36.3 36.5 37.0 36.7 37.3 36.9 37.5 37.2 37.7 37.6 37.7 37.9 37.5 38.1 37.3 38.1 37.2 38.3 37.0 38.3 36.4 38.4 36.2 38.4 35.9 38.7 35.4 38.7 35.2 38.9 35.0 39.1 34.9 39.5 34.6 40.2 34.4 41.2 34.4 41.9 34.6 42.4 35.0 42.6 35.2 43.0 35.8 43.0 35.9 43.1 36.1 43.1 36.5 43.2 36.7 43.2 56.0 43.2 56.3 43.4 56.5 43.8 56.8 44.3 56.7 44.4 56.7 44.5 56.6 44.8 56.3 44.9 56.0 44.9 44.4 44.6 44.0 44.6 43.5 44.9 43.1 44.9 43.0 44.9 42.9 44.6 42.9 44.6 42.8 44.6 42.5 44.9 42.3 44.9 42.1 44.9 36.6 44.8 36.2 44.8 35.8 44.7 35.6 44.6 35.3 44.5 35.2 44.5 35.0 44.4 34.9 44.4 34.8 44.2 34.6 44.1 34.3 43.3 33.5 43.3 33.3 43.5 33.1 43.7 32.7 43.8 32.1 43.8 31.7 43.7 31.4 43.7 31.2 43.4 30.6 43.1 30.2 42.6 29.8 42.3 29.7 42.0 29.4 41.9 29.4 40.4 28.1 38.9 26.8 37.7 25.5 36.5 23.9 36.4 23.8 36.2 23.5 35.9 23.0 35.7 22.7 35.7 22.6 35.5 22.4 35.3 22.1 35.3 22.0 35.2 21.8 35.0 21.4 34.9 21.3 34.7 20.8 34.7 20.7 34.4 20.1 34.4 20.0 34.3 19.7 34.3 19.6 34.2 19.3 34.2 19.2 34.0 18.9 33.9 18.3 34.8 17.5 35.2 17.0 35.5 16.3 35.5 16.0 35.6 15.8 35.7 15.1 35.7 15.0 35.6 14.1 35.6 14.0 35.5 13.7 35.4 13.5 35.4 13.4 35.2 13.1 35.2 13.0 34.7 12.3 34.3 12.0 33.8 11.6ZM38.6 3.0 38.2 3.1 37.8 3.1 37.5 3.2 37.4 3.2 37.2 3.4 36.7 3.5 36.2 3.8 35.7 4.2 35.2 4.7 34.9 5.1 34.6 5.5 34.6 5.6 34.3 6.0 34.3 6.1 34.2 6.3 34.2 6.5 34.1 6.7 34.0 7.0 33.9 7.4 33.9 7.6 33.9 7.6 33.9 8.8 34.0 9.0 34.0 9.3 34.2 9.6 34.2 9.8 34.6 10.7 35.1 11.3 35.9 12.1 36.5 12.5 36.9 12.6 37.2 12.8 37.3 12.8 37.5 12.9 38.3 13.0 39.6 13.0 40.4 12.9 40.5 12.8 40.8 12.7 41.3 12.5 41.3 12.5 42.3 11.9 43.0 11.0 43.4 10.4 43.6 9.9 43.7 9.7 43.7 9.5 43.8 9.3 43.9 8.9 44.0 8.6 44.0 7.5 43.9 7.2 43.8 6.8 43.8 6.7 43.6 6.0 43.4 5.9 43.3 5.5 42.9 4.9 42.0 4.0 41.5 3.7 41.4 3.7 40.9 3.4 40.7 3.4 40.5 3.2 40.3 3.2 40.1 3.1 39.7 3.1 39.5 3.0Z"
   };
-}/* ================= ALLGEMEINE RENDER-HELFER ================= */
+}
+
+/* ================= HELPERS FÜR SCAN ================= */
 function syncProfileWeightFromScan(){
   if(!state.bodyScans.length) return;
   const sorted = [...state.bodyScans].sort((a,b)=> new Date(b.date) - new Date(a.date));
@@ -1286,24 +1259,6 @@ function groupScoreBadge(scans, checks){
   const color = pct >= 80 ? 'var(--lime)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
   return `<div class="section-score" style="color:${color}"><div class="bar"><div class="fill" style="width:${pct}%;background:${color}"></div></div>${pct}%</div>`;
 }
-function renderScanGroup(key, title, accent, iconSvg, summaryHtml, contentHtml){
-  const isOpen = !!state.scanGroups[key];
-  return `<div class="scan-group">
-    <div class="scan-group-header" data-scan-group-toggle="${key}">
-      <div class="scan-group-title">
-        <span class="scan-group-toggle ${isOpen?'open':''}">▶</span>
-        <span style="color:${accent};font-size:1rem;">${iconSvg}</span>
-        <div>
-          <div class="eyebrow mono" style="color:${accent};font-size:.62rem;">${title}</div>
-          ${summaryHtml?`<div style="margin-top:.15rem;">${summaryHtml}</div>`:''}
-        </div>
-      </div>
-    </div>
-    <div class="scan-group-content ${isOpen?'':'collapsed'}" data-scan-group-content="${key}">
-      ${contentHtml}
-    </div>
-  </div>`;
-}
 
 /* ================= SCAN-INFO ================= */
 const SCAN_INFOS = {
@@ -1360,11 +1315,6 @@ function scanLineChart(scans, key, color){
     <path d="${path}" fill="none" stroke="${color}" stroke-width="1.5"/>${dots}
   </svg>`;
 }
-function avgOf(scans, key){
-  const vals = scans.map(s=>parseFloat(s[key])).filter(v=>!isNaN(v));
-  if(!vals.length) return null;
-  return vals.reduce((a,b)=>a+b,0) / vals.length;
-}
 function calcBioageAssessment(bioage, calAge){
   const cal = parseFloat(calAge) || 17;
   const bio = parseFloat(bioage);
@@ -1379,7 +1329,7 @@ function calcBioageAssessment(bioage, calAge){
   return { diffPct, verdict, color, iconType, scalePos };
 }
 
-/* ================= SCAN-HAUPTRENDER (mit Gruppen) ================= */
+/* ================= SCAN-CARDS ================= */
 function renderChangeBlock(scans){
   if(scans.length === 0) return '';
   const last = scans[scans.length-1];
@@ -1730,6 +1680,8 @@ function renderBioageCard(scans){
     ${scanLineChart(scans, 'bioage', bio.color)}
   </div>`;
 }
+
+/* ================= SCAN HAUPTRENDER ================= */
 function renderScan(){
   const scans = state.bodyScans;
   const tab = state.scanTab || 'verlauf';
@@ -1751,23 +1703,14 @@ function renderScan(){
   const last = scans[scans.length-1];
   const waterPct = last.water != null && last.weight != null ? (last.water / last.weight * 100) : null;
   const musPct = last.muscle != null && last.weight != null ? (last.muscle/last.weight*100) : null;
-  const fatPct = last.fat != null && last.weight != null ? (last.fat/last.weight*100) : null;
-  const prev = scans.length > 1 ? scans[scans.length-2] : null;
-  const prevWater = prev && prev.water != null ? prev.water : null;
   const healthChecks = [
     {get:s=>s.visceral, normKey:'visceral'}, {get:s=>s.cellFit, normKey:'cellFit'},
     {get:s=>s.oxygen, normKey:'oxygen'}, {get:s=>s.hr, normKey:'hr'}, {get:s=>s.hrv, normKey:'hrv'},
   ];
-  // Tab-Übersicht (kurze Infos)
   const tabBtn = (key, label, accent, summary) => `<button class="chip ${tab===key?'active':''}" style="--accent:${accent};flex-direction:column;gap:.15rem;padding:.5rem .4rem;" data-scan-tab="${key}"><span style="font-size:.66rem;letter-spacing:.1em;">${label}</span><span style="font-size:.52rem;opacity:.8;font-family:var(--font-mono);">${summary||''}</span></button>`;
   let content = '';
   if(tab === 'verlauf'){
     content = `
-      <div style="display:flex;gap:.5rem;margin-bottom:.8rem;">
-        <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
-        <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
-      </div>
-      ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:.6rem;">${state.pdfError}</div>`:''}
       ${renderChangeBlock(scans)}
       ${scans.length > 1 ? `<button class="btn-outline mono" data-scan-action="list" style="margin-top:.6rem;font-size:.7rem;">ALLE ${scans.length} MESSUNGEN ANSEHEN</button>` : ''}
     `;
@@ -1793,17 +1736,24 @@ function renderScan(){
           </div>
           <div style="border-left:2px solid var(--green);padding-left:.5rem;">
             <div class="eyebrow mono" style="font-size:.5rem;">ZUM LETZTEN</div>
-            <div class="mono" style="font-size:1rem;color:var(--green);">${prevWater!=null&&last.water!=null?((last.water-prevWater>=0?'+':'')+(last.water-prevWater).toFixed(1).replace('.',',')):'—'} kg</div>
+            <div class="mono" style="font-size:1rem;color:var(--green);">${scans.length>1&&last.water!=null?((last.water-scans[scans.length-2].water>=0?'+':'')+(last.water-scans[scans.length-2].water).toFixed(1).replace('.',',')):'—'} kg</div>
           </div>
         </div>
       </div>`;
   } else if(tab === 'gesundheit'){
-    content = renderCellFitCard(scans) + renderOxygenCard(scans) + renderHeartRateCard(scans) + renderHrvCard(scans) + renderBioageCard(scans);
+    content = renderBioageCard(scans) + renderCellFitCard(scans) + renderOxygenCard(scans) + renderHeartRateCard(scans) + renderHrvCard(scans);
   }
   return `
     <div class="eyebrow mono">BODY · VICOACH MESCAN</div>
     <div class="h1 display" style="margin-bottom:.3rem;">KÖRPERANALYSE</div>
-    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1.2rem;letter-spacing:.1em;">${scans.length} MESSUNG${scans.length===1?'':'EN'}</div>
+    <div class="mono" style="font-size:.7rem;color:var(--text-mute);margin-bottom:1rem;letter-spacing:.1em;">${scans.length} MESSUNG${scans.length===1?'':'EN'}</div>
+    
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+      <button class="btn-primary" data-scan-action="pdf" style="flex:1;font-size:.7rem;">PDF HOCHLADEN</button>
+      <button class="btn-outline mono" data-scan-action="manual" style="flex:1;font-size:.7rem;">MANUELL</button>
+    </div>
+    ${state.pdfError?`<div class="mono" style="color:var(--red);font-size:.7rem;margin-bottom:1rem;">${state.pdfError}</div>`:''}
+
     <div class="chip-row" style="margin-bottom:1rem;gap:.4rem;">
       ${tabBtn('verlauf','VERLAUF','var(--lime)', scans.length+' Mess.')}
       ${tabBtn('koerper','KÖRPER','var(--lime)', musPct!=null?musPct.toFixed(0)+'% Muskel':'')}
@@ -1892,9 +1842,9 @@ function renderScanList(){
 /* ================= EXERCISE DETAIL MIT 1RM-TOGGLE ================= */
 function renderExerciseDetail(){
   const exName = state.exerciseName;
-  if(!exName) return `<button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button><div class="empty">Keine Übung ausgewählt.</div>`;
+  if(!exName) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Keine Übung ausgewählt.</div>`;
   const progress = exerciseProgress(exName);
-  if(!progress.length) return `<button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button><div class="empty">Für "${exName}" gibt es noch keine Einträge.</div>`;
+  if(!progress.length) return `<button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button><div class="empty">Für "${exName}" gibt es noch keine Einträge.</div>`;
   const mode = state.exerciseChartMode || 'max';
   const chartData = progress.map(p => ({
     ...p,
@@ -1920,7 +1870,7 @@ function renderExerciseDetail(){
   for(let v=rMin; v<=rMax; v+=step) ticks.push(v);
   const yTickLines = ticks.map(v=>`<line x1="${padL}" y1="${sY(v).toFixed(1)}" x2="${w-padR}" y2="${sY(v).toFixed(1)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,4"/><text x="${padL-6}" y="${(sY(v)+3).toFixed(1)}" fill="var(--text-faint)" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">${v}</text>`).join('');
   return `
-    <button class="back" data-back="kraft">${ICON.chevronLeft} Zurück</button>
+    <button class="back" data-back="scan">${ICON.chevronLeft} Zurück</button>
     <div class="eyebrow mono">ÜBUNGS-VERLAUF</div>
     <div class="h1 display" style="margin-bottom:1rem;">${escapeHtml(exName)}</div>
     <div class="ex-chart-toggle">
@@ -2085,7 +2035,7 @@ function renderHome(){
       <button class="btn-outline mono" data-editmode-open="1" style="flex:1;">${ICON.edit} BEARBEITEN</button>
       <button class="btn-outline mono" data-share-open="1" aria-label="Tag teilen" style="flex:0 0 3.2rem;width:auto;padding-left:0;padding-right:0;justify-content:center;">${ICON.share}</button>
     </div>
-    <div class="day-grid">${cards || `<div class="empty">Keine ${tab==='tests'?'Test-':''}Tage vorhanden.</div>`}</div>
+    <div class="day-grid">${cards || `<div class="empty">Keine ${tab==='tests'?'Test-':'']}Tage vorhanden.</div>`}</div>
     ${renderScoreChart(tab === 'tests')}
     ${dayCharts}
   `;
@@ -2399,16 +2349,26 @@ function renderHistory(){
     return tab === 'tests' ? isTestDay(day) : !isTestDay(day);
   });
   const rows = filtered.map(s=>historyRowHtml(s, DAYS, bestMap)).join('');
+  
+  const chartHtml = renderScoreChart(tab === 'tests');
+
   return `
     <div class="eyebrow mono">VERLAUF</div>
     <div class="h1 display" style="margin-bottom:1rem;">SESSIONS</div>
+    
     <div class="chip-row" style="margin-bottom:1rem;">
       <button class="chip ${tab==='training'?'active':''}" style="--accent:var(--lime);" data-history-tab="training">TRAINING</button>
       <button class="chip ${tab==='tests'?'active':''}" style="--accent:var(--orange);" data-history-tab="tests">TESTS</button>
     </div>
+
+    ${chartHtml}
+    
+    <div class="eyebrow mono" style="margin:2rem 0 .6rem;">ALLE SESSIONS</div>
     ${filtered.length===0?'<div class="empty">Noch keine Sessions in dieser Kategorie.</div>':rows}
   `;
 }
+
+/* ================= KRAFT TAB ================= */
 function renderKraft(){
   const kraft = kraftwerteByGroup();
   return `
@@ -2424,6 +2384,7 @@ function renderKraft(){
     </div>`).join('') : '<div class="empty">Noch keine Kraftwerte vorhanden.</div>'}
   `;
 }
+
 function renderDetail(){
   const DAYS = getDayTypes();
   const s = state.sessions.find(x=>x.id===state.detailId);
@@ -2565,12 +2526,9 @@ function attachListeners(){
   app.querySelectorAll('[data-modal-confirm]').forEach(el=>el.addEventListener('click', ()=>{ const cb = state.modal && state.modal.onConfirm; state.modal = null; if(cb) cb(); render(); }));
   app.querySelectorAll('[data-modal-open-session]').forEach(el=>el.addEventListener('click', ()=>{ const m = state.modal; state.modal = null; if(m && m.sessionId){ state.detailId = m.sessionId; state.confirmDelete = false; state.view = 'detail'; } render(); }));
   app.querySelectorAll('[data-pick-day]').forEach(el=>el.addEventListener('click', ()=>{ const key = el.getAttribute('data-pick-day'); const day = getDayTypes()[key]; state.modal = null; if(!day) { render(); return; } state.editDay = {key, name:day.label, short:day.short, accent:day.accent}; state.view = 'editday'; render(); }));
-  // Scan-Punkte
   app.querySelectorAll('[data-scan-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showScanPopup(+el.getAttribute('data-scan-point')); }));
-  // Scan-Gruppen
   app.querySelectorAll('[data-scan-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.scanTab = el.getAttribute('data-scan-tab'); render(); }));
   app.querySelectorAll('[data-history-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.historyTab = el.getAttribute('data-history-tab'); render(); }));
-  // Scan-Actions
   app.querySelectorAll('[data-scan-action]').forEach(el=>el.addEventListener('click', ()=>{ const t = el.getAttribute('data-scan-action'); if(t==='manual'){ state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan-form'; render(); } else if(t==='pdf'){ state.pdfError = null; showPdfUpload(); } else if(t==='list'){ state.view = 'scan-list'; render(); } }));
   app.querySelectorAll('[data-scan-field]').forEach(el=>el.addEventListener('input', ()=>{ state.scanForm[el.getAttribute('data-scan-field')] = el.value; }));
   app.querySelectorAll('[data-save-scan]').forEach(el=>el.addEventListener('click', ()=>{
@@ -2585,7 +2543,6 @@ function attachListeners(){
     state.scanForm = {}; state.scanEditIndex = null; state.view = 'scan'; render();
     showToast('MESSUNG GESPEICHERT');
   }));
-  // Scan löschen mit Bestätigung
   app.querySelectorAll('[data-scan-delete]').forEach(el=>el.addEventListener('click', ()=>{
     const idx = +el.getAttribute('data-scan-delete');
     const scan = state.bodyScans[idx];
@@ -2601,14 +2558,11 @@ function attachListeners(){
     try{ const data = await extractPdf(file); state.pdfParsing = false; state.modal = null; state.scanForm = data; state.scanEditIndex = null; state.view = 'scan-form'; render(); }
     catch(err){ state.pdfParsing = false; state.pdfError = 'PDF konnte nicht gelesen werden: ' + (err.message || err); state.modal = null; render(); }
   }));
-  // Übungs-Detail
   app.querySelectorAll('[data-exercise-open]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); state.exerciseName = el.getAttribute('data-exercise-open'); state.view = 'exercise'; render(); }));
   app.querySelectorAll('[data-exercise-goto-session]').forEach(el=>el.addEventListener('click', ()=>{ state.detailId = el.getAttribute('data-exercise-goto-session'); state.confirmDelete = false; state.view = 'detail'; render(); }));
   app.querySelectorAll('[data-ex-chart-mode]').forEach(el=>el.addEventListener('click', ()=>{ state.exerciseChartMode = el.getAttribute('data-ex-chart-mode'); render(); }));
-  // Backup
   app.querySelectorAll('[data-export-backup]').forEach(el=>el.addEventListener('click', ()=>{ exportBackup(); showToast('BACKUP EXPORTIERT'); }));
   app.querySelectorAll('[data-import-backup]').forEach(el=>el.addEventListener('change', (e)=>{ const file = e.target.files[0]; if(file) importBackup(file); e.target.value = ''; }));
-  // Home
   app.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.homeTab = el.getAttribute('data-home-tab'); render(); }));
   app.querySelectorAll('[data-start]').forEach(el=>el.addEventListener('click', ()=>{
     const key = el.getAttribute('data-start');
@@ -2642,7 +2596,6 @@ function attachListeners(){
     }) })); }
     render();
   }));
-  // Übung hinzufügen: letzte Werte vorbefüllen (alle Sätze)
   app.querySelectorAll('[data-add-ex]').forEach(el=>el.addEventListener('click', ()=>{
     const name = el.getAttribute('data-add-ex');
     const lastSets = lastSessionRawSetsFor(state.draft.dayType, name);
@@ -2708,7 +2661,6 @@ function attachListeners(){
   app.querySelectorAll('[data-newday-short]').forEach(el=>el.addEventListener('input', ()=>{ state.newDay.shortTouched = true; state.newDay.short = el.value; }));
   app.querySelectorAll('[data-newday-color]').forEach(el=>el.addEventListener('click', ()=>{ state.newDay.accent = el.getAttribute('data-newday-color'); render(); }));
   app.querySelectorAll('[data-newday-create]').forEach(el=>el.addEventListener('click', ()=>{ const name = state.newDay.name.trim(); if(!name) return; const key = 'C' + uid(); const short = (state.newDay.short.trim() || autoShort(name)).toUpperCase(); const days = loadCustomDays(); days.push({key, label:name.toUpperCase(), short, accent:state.newDay.accent}); saveCustomDays(days); state.view='home'; render(); }));
-  // Auth
   app.querySelectorAll('[data-goto-auth]').forEach(el=>el.addEventListener('click', ()=>{ state.authForm = {email:'',password:'',error:''}; state.view='auth'; render(); }));
   app.querySelectorAll('[data-auth-email]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.email = el.value; }));
   app.querySelectorAll('[data-auth-password]').forEach(el=>el.addEventListener('input', ()=>{ state.authForm.password = el.value; }));
@@ -2716,7 +2668,6 @@ function attachListeners(){
   app.querySelectorAll('[data-auth-register]').forEach(el=>el.addEventListener('click', ()=>{ if(!fbEnabled){ state.authForm.error = 'Sync ist noch nicht eingerichtet.'; render(); return; } const {email, password} = state.authForm; registerPersistent(email, password).then(()=>{ state.authForm.error=''; state.view='home'; render(); }).catch(err=>{ state.authForm.error = fbErrorMsg(err); render(); }); }));
   app.querySelectorAll('[data-auth-google]').forEach(el=>el.addEventListener('click', ()=> oauthSignIn('google')));
   app.querySelectorAll('[data-logout]').forEach(el=>el.addEventListener('click', ()=>{ if(fbAuth) fbAuth.signOut(); detachCloudSync(); authUser = null; state.view = 'auth'; render(); }));
-  // Profile
   app.querySelectorAll('[data-profile-section-toggle]').forEach(el=>el.addEventListener('click', ()=>{ const k = el.getAttribute('data-profile-section-toggle'); state.profileExpanded[k] = !state.profileExpanded[k]; render(); }));
   app.querySelectorAll('[data-profile-height]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.height = el.value; }));
   app.querySelectorAll('[data-profile-weight]').forEach(el=>el.addEventListener('input', ()=>{ state.profile.weight = el.value; state.profile.weightUpdatedAt = new Date().toISOString().slice(0,10); }));
@@ -2724,7 +2675,6 @@ function attachListeners(){
   app.querySelectorAll('[data-profile-gender]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.gender = el.getAttribute('data-profile-gender'); render(); }));
   app.querySelectorAll('[data-profile-exp]').forEach(el=>el.addEventListener('click', ()=>{ state.profile.experience = el.getAttribute('data-profile-exp'); render(); }));
   app.querySelectorAll('[data-profile-save]').forEach(el=>el.addEventListener('click', ()=>{ saveProfile(state.profile); showToast('✓ PROFIL GESPEICHERT'); render(); }));
-  // Charts
   app.querySelectorAll('[data-chart-point]').forEach(el=>el.addEventListener('click', (e)=>{ e.stopPropagation(); showSessionPopup(el.getAttribute('data-chart-point')); }));
   app.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', ()=>{ state.detailId = el.getAttribute('data-open'); state.confirmDelete=false; state.view='detail'; render(); }));
   app.querySelectorAll('[data-ask-delete]').forEach(el=>el.addEventListener('click', ()=>{ state.confirmDelete=true; render(); }));
